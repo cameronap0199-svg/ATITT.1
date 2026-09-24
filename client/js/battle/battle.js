@@ -92,6 +92,7 @@ export class BattleView {
     this.board.destroy();
     this.board.unbind();
     document.body.classList.remove('battle-mode');
+    this.hideHandPreview();
     if (this.timerInt) clearInterval(this.timerInt);
     hideTip();
   }
@@ -155,6 +156,7 @@ export class BattleView {
   }
 
   renderHand() {
+    this.hideHandPreview();
     clear(this.hand);
     const P = this.view.players[this.seat];
     const n = P.hand.length;
@@ -179,10 +181,23 @@ export class BattleView {
       }
       wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); showCardModal(cardId, { variant: variantFor(iid) }); });
       this.bindHandCard(wrap, iid, playable);
-      wrap.addEventListener('pointerenter', () => sfx('hover'));
+      wrap.addEventListener('pointerenter', (e) => { sfx('hover'); if (e.pointerType !== 'touch') this.showHandPreview(wrap, cardId, iid); });
+      wrap.addEventListener('pointerleave', () => this.hideHandPreview());
       this.hand.appendChild(wrap);
     });
   }
+  showHandPreview(wrap, cardId, iid) {
+    this.hideHandPreview();
+    const w = Math.min(250, innerHeight * 0.3);
+    const c = cardEl(cardId, { width: w, variant: variantFor(iid) });
+    const r = wrap.getBoundingClientRect();
+    const box = el('div.hand-preview', c);
+    box.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+    box.style.bottom = Math.max(innerHeight - r.top + 8, 190) + 'px';
+    document.body.appendChild(box);
+    this.handPrev = box;
+  }
+  hideHandPreview() { if (this.handPrev) { this.handPrev.remove(); this.handPrev = null; } }
   whyUnplayable(iid, card) {
     const P = this.view.players[this.seat];
     const cost = this.G.cardCost(this.seat, iid);
@@ -204,6 +219,7 @@ export class BattleView {
         if (!start) return;
         if (!dragging && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 12 && playable) {
           dragging = true;
+          this.hideHandPreview();
           this.selectCard(iid, true);
           ghost = cardEl(this.view.inst[iid].cardId, { width: 110, mini: true, variant: variantFor(iid) });
           ghost.classList.add('drag-ghost');
