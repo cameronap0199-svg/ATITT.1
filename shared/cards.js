@@ -742,7 +742,6 @@ const IDENTITIES = {
   ],
 };
 
-const IDENTITY_CLASS_ORDER = C.CLASSES.Identity;
 
 // ===========================================================================
 // ZONES — [name, faction, archetype, cost, emoji, text, hooks]

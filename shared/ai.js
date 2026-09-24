@@ -28,8 +28,12 @@ export function difficultyProfile(d) {
     hitAndRun: d >= 6,
     tileSample: d <= 2 ? 0.45 : d <= 4 ? 0.75 : 1,
     responses: d >= 3,
-    moveTiles: d <= 3 ? 4 : d <= 6 ? 6 : 8,
+    moveTiles: d <= 3 ? 4 : d <= 6 ? 6 : d <= 8 ? 8 : 12,
     comboLimit: d <= 3 ? 8 : d <= 6 ? 16 : 28,
+    lookahead: d >= 9 ? 7 : d >= 7 ? 4 : 0,   // depth-2 search over the top plans
+    lookaheadWidth: d >= 9 ? 120 : 60,
+    lazy: d <= 1 ? 0.22 : d <= 2 ? 0.12 : 0,  // chance to stop acting early (easy bots)
+    income: d >= 5 ? 1 : 0.6,                  // how much future Renown income is valued
   };
 }
 
@@ -98,7 +102,8 @@ export function evaluate(G, p, prof = difficultyProfile(6)) {
     score += sign * 11;
     if (st) {
       const ss = st.owner === p ? 1 : -1;
-      score += ss * (9 + st.bp * 0.75 + G.structHousing(st) * 1.2);
+      const producing = ln.ctrl === st.owner;
+      score += ss * (9 + st.bp * 0.75 + G.structHousing(st) * 1.2 + (producing ? 10 * prof.income : 0));
     }
   });
 
@@ -366,6 +371,22 @@ export function aiPlan(state, p, difficulty = 5, seed = 1) {
   }
   if (!scored.length) return [{ type: 'endTurn' }];
   scored.sort((a, b) => b.noisy - a.noisy);
+  // Depth-2: re-score the best few plans by the best plan that could follow them this turn.
+  if (prof.lookahead) {
+    for (const cand of scored.slice(0, prof.lookahead)) {
+      const G2 = simulate(state, p, cand.actions);
+      if (!G2 || G2.s.winner !== null || G2.s.active !== p) continue;
+      const next = candidatePlans(G2, p, { ...prof, tileSample: 0.6, moveTiles: 3, comboLimit: 6 }, rand);
+      let best = cand.score;
+      for (const plan of next.slice(0, prof.lookaheadWidth)) {
+        const G3 = simulate(G2.s, p, plan.actions);
+        if (G3) best = Math.max(best, evaluate(G3, p, prof));
+      }
+      cand.noisy = cand.score * 0.35 + best * 0.65;
+    }
+    scored.sort((a, b) => b.noisy - a.noisy);
+  }
+  if (prof.lazy && rand() < prof.lazy && G.s.turnSerial > 2) return [{ type: 'endTurn' }];
   let pick = scored[0];
   if (prof.blunder && rand() < prof.blunder) {
     const ok = scored.filter((x) => x.score > baseline - 3).slice(0, 5);

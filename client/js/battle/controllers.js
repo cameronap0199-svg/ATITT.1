@@ -19,7 +19,7 @@ function getWorker() {
       if (e.data.error) { console.error('AI worker error', e.data.error); p.resolve(null); } else p.resolve(e.data.plan);
     };
     worker.onerror = (e) => { console.warn('AI worker unavailable, using main thread', e.message); workerFailed = true; worker = null; for (const p of pending.values()) p.resolve(null); pending.clear(); };
-  } catch (e) { workerFailed = true; worker = null; }
+  } catch { workerFailed = true; worker = null; }
   return worker;
 }
 
