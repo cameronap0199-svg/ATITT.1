@@ -1,0 +1,21 @@
+{
+  "name": "knotwood-tcg",
+  "version": "1.0.0",
+  "description": "Knotwood — an anime-styled tactical trading card game with online play, AI rivals, booster packs and deck building.",
+  "type": "module",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "test": "node --test tests/*.test.js",
+    "sim": "node tests/simulate.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
