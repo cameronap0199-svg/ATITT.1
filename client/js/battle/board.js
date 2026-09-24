@@ -26,7 +26,7 @@ export class Board {
     this.h = handlers;
     this.units = new Map();
     this.structs = new Map();
-    this.cam = { x: BW / 2, y: BH / 2 + 30, z: 0.8, tilt: 50, rot: 0 };
+    this.cam = { x: BW / 2, y: BH / 2 + 30, z: 0.8, tilt: 42, rot: 0 };
     this.target = { ...this.cam };
     this.stage = el('div.stage');
     this.world = el('div.world');
@@ -171,7 +171,7 @@ export class Board {
 
   addUnit(iid, cardId, owner, x, y) {
     const card = getCard(cardId);
-    const node = el('div.unit' + (owner === this.seat ? '.mine' : '.theirs'), { dataset: { iid } },
+    const node = el('div.unit' + (owner === this.seat ? '.mine' : '.theirs'), { dataset: { iid }, style: { '--idle': (hashString(iid) % 32) / 10 } },
       el('div.shadow'), el('div.ring'),
       el('div.sb', el('div.sb-in',
         el('div.ready-dot', '!'),
@@ -276,12 +276,13 @@ export class Board {
   fit(soft = false) {
     const vw = innerWidth, vh = innerHeight;
     const t = (this.target.tilt * Math.PI) / 180;
-    const z = Math.max(0.42, Math.min(1.25, Math.min(vw / (BW + 160), (vh - 150) / (BH * Math.cos(t) + 300))));
+    const narrow = vw < 700;
+    const z = Math.max(narrow ? 0.28 : 0.42, Math.min(1.25, Math.min(vw / (BW + (narrow ? 40 : 160)), (vh - 150) / (BH * Math.cos(t) + 300))));
     this.baseZoom = z;
-    Object.assign(this.target, { z, x: BW / 2, y: BH / 2 + 95 / z, rot: 0 });
+    Object.assign(this.target, { z, x: BW / 2, y: BH / 2 + (narrow ? 20 : 95) / z, rot: 0 });
     if (!soft) this.cam = { ...this.target };
   }
-  resetCam() { this.target.tilt = 50; this.fit(true); }
+  resetCam() { this.target.tilt = 42; this.fit(true); }
   focusTile(pos, zoomMul = null) {
     const c = this.tileCenter(pos.x, pos.y);
     this.focusPx(c.x, c.y, zoomMul);

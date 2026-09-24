@@ -97,6 +97,7 @@ export async function startOnlineBattle(n, m) {
     onAct: (action) => { n.send({ t: 'act', action }); return true; },
     onEmote: (id) => n.send({ t: 'emote', id }),
   });
+  n.send({ t: 'act', action: { type: 'setAutoRetaliate', on: p.settings.autoRetaliate } });
   const finish = () => {
     offs.forEach((f) => f());
     try { sessionStorage.removeItem(RESUME_KEY); } catch { /* ignore */ }

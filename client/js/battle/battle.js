@@ -954,6 +954,7 @@ export class BattleView {
       case 'consume': { const pos = this.screenPos(e.unit); floatText(pos.x, pos.y - 70, `🧪 ${e.name}`, 'good'); sfx('mana'); await this.wait(350); break; }
       case 'defeat': {
         const pos = this.screenPos(e.target);
+        floatText(pos.x, pos.y - 30, 'K.O.!', 'num ko');
         FX.explode(pos.x, pos.y, e.owner === me ? ['#8fd0ff', '#ffffff', '#6ea2ff'] : ['#ff9f43', '#ffd76a', '#ff5252', '#ffffff']);
         sfx('defeat');
         await B.killUnit(e.target);
@@ -1102,6 +1103,7 @@ export async function startLocalBattle({ me, foe, difficulty, rival = null, onFi
   });
   match.apply(0, { type: 'setAutoRetaliate', on: getProfile().settings.autoRetaliate });
   ui.onGameOver = (view) => showResults({ ui, view, mode: 'ai', difficulty, rival, onFinish, rematch: () => startLocalBattle({ me, foe, difficulty, rival, onFinish }) });
+  window.__knotwood = { match, ui }; // handy for debugging from the console
   ui.sync(match.view());
   await vsSplash(me, foe, rival);
   async function runAI() {

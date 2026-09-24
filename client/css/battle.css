@@ -83,14 +83,14 @@
 .unit:hover .sb-in { transform: scale(1.1) translateY(-4px); }
 .unit.selected .sb-in { transform: translateY(-8px) scale(1.08); animation: bob 1.2s ease-in-out infinite; }
 @keyframes bob { 50% { transform: translateY(-14px) scale(1.08); } }
-.portrait { position: relative; width: 70px; height: 78px; border-radius: 12px 12px 14px 14px; overflow: hidden; border: 3px solid var(--rcol, #fff);
+.portrait { position: relative; width: 58px; height: 62px; border-radius: 12px 12px 14px 14px; overflow: hidden; border: 3px solid var(--rcol, #fff);
   box-shadow: 0 0 0 2px #0b1233, 0 6px 10px rgba(0, 0, 0, .5), 0 0 14px var(--side-glow, transparent); background: #123; }
 .portrait svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.portrait .pe { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); font-family: var(--emoji); font-size: 42px; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 3px 2px rgba(0, 0, 0, .5)); }
+.portrait .pe { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); font-family: var(--emoji); font-size: 36px; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 3px 2px rgba(0, 0, 0, .5)); }
 .portrait .pcost { position: absolute; left: 2px; top: 2px; font-size: 10px; font-weight: 900; color: #fff; background: rgba(0, 0, 0, .55); border-radius: 6px; padding: 0 4px; }
 .portrait .pside { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--side); }
-.unit .uname { margin-top: 2px; font-size: 9.5px; font-weight: 800; white-space: nowrap; max-width: 96px; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; border-radius: 6px; background: rgba(8, 16, 42, .85); border: 1px solid var(--side); }
-.unit .hpbar { width: 70px; margin-top: 2px; }
+.unit .uname { margin-top: 1px; font-size: 9px; font-weight: 800; white-space: nowrap; max-width: 96px; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; border-radius: 6px; background: rgba(8, 16, 42, .85); border: 1px solid var(--side); }
+.unit .hpbar { width: 60px; margin-top: 1px; height: 8px; }
 .mpbar { display: flex; gap: 2px; margin-top: 2px; }
 .mpbar i { width: 7px; height: 5px; border-radius: 2px; background: rgba(255, 255, 255, .2); border: 1px solid rgba(160, 190, 255, .7); }
 .mpbar i.on { background: #6ea2ff; }
@@ -235,3 +235,43 @@
 .structure .bb { pointer-events: none; }
 .structure .bld { pointer-events: auto; }
 .unit .uname, .unit .hpbar, .unit .mpbar, .unit .ready-dot { pointer-events: none; }
+.unit.target .portrait { box-shadow: 0 0 0 3px #ff4a5e, 0 0 18px #ff2a44; animation: targetGlow .8s ease-in-out infinite; }
+.unit.pick .portrait { box-shadow: 0 0 0 3px #ffd76a, 0 0 18px #ffcc33; animation: targetGlow .8s ease-in-out infinite; }
+@keyframes targetGlow { 50% { filter: brightness(1.25); } }
+
+/* Compact standees: names appear on hover/selection so neighbouring units stay readable */
+.unit .uname { position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); display: none; z-index: 3; font-size: 10px; max-width: 120px; }
+.unit:hover .uname, .unit.selected .uname, .unit.target .uname, .unit.pick .uname { display: block; }
+.unit .ready-dot { top: -14px; }
+.unit.selected .ready-dot, .unit:hover .ready-dot { display: none !important; }
+.unit .hpbar { width: 58px; height: 7px; border-width: 1px; }
+.unit .hpbar .hpt { display: none; }
+.unit .mpbar { margin-top: 1px; }
+.unit .mpbar i { width: 6px; height: 4px; }
+
+/* JRPG flourishes */
+.unit .portrait { animation: idle 3.2s ease-in-out infinite; animation-delay: calc(var(--idle, 0) * -1s); }
+@keyframes idle { 50% { translate: 0 -2px; } }
+.unit.selected .sb-in::before { content: '▼'; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); color: #ffd76a; font-size: 18px; text-shadow: 0 0 8px #ffb300, 0 2px 0 #3a2300; animation: cursorDrop .6s ease-in-out infinite; z-index: 4; }
+@keyframes cursorDrop { 50% { top: -24px; } }
+.sb-in { position: relative; }
+.float-num.ko { font-size: 44px; color: #ffe066; -webkit-text-stroke: 2px #5a1200; text-shadow: 0 4px 0 #300, 0 0 22px rgba(255, 120, 0, .9); letter-spacing: .05em; }
+
+/* ---------- phone / narrow layout ---------- */
+@media (max-width: 700px) {
+  .hud-foe { left: 4px; top: 4px; transform: scale(.72); transform-origin: top left; }
+  .hud-me { left: auto; right: 4px; bottom: auto; top: 4px; transform: scale(.72); transform-origin: top right; }
+  .pbox { min-width: 230px; }
+  .cam-help { right: auto; left: 50%; top: auto; bottom: 150px; transform: translateX(-50%) scale(.75); transform-origin: bottom center; }
+  .hud-right { bottom: 132px; right: 6px; gap: 6px; }
+  .end-turn { min-width: 118px; min-height: 46px; font-size: 14px; }
+  .small-btns .btn { min-height: 30px; padding: 3px 8px; font-size: 11px; }
+  .hand { bottom: -40px; transform: translateX(-50%) scale(.72); }
+  .inspector { left: 6px; right: auto; top: auto; bottom: 132px; width: 190px; max-height: 42%; font-size: 12px; transform: scale(.92); transform-origin: bottom left; }
+  .hint-bar { top: 70px; max-width: 94vw; font-size: 12px; padding: 6px 10px; }
+  .chain-panel { top: 76px; }
+  .foe-hand { display: none; }
+  .emote-bar .icon-btn { width: 32px; height: 32px; font-size: 15px; }
+  .speech-bubble { left: 10px !important; top: 90px !important; }
+  .turn-banner .tb { padding: 8px 30px; }
+}
