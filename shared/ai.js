@@ -127,7 +127,8 @@ function fieldDist(t) {
   if (!FIELD) return 20;
   return Math.min(30, FIELD.f[t.y * FIELD.N + t.x]);
 }
-function urgency(G) { return Math.min(1, G.s.round / 16); }
+// Rises to 1 by round 12: bots grow bolder so standoffs don't drag games out.
+function urgency(G) { return Math.min(1, G.s.round / 12); }
 
 export function evaluate(G, p, prof = difficultyProfile(6)) {
   const s = G.s;
@@ -166,7 +167,7 @@ export function evaluate(G, p, prof = difficultyProfile(6)) {
   }
 
   const threats = prof.threat ? threatMap(G, p) : [];
-  const caution = prof.threat * (1 - 0.45 * urgency(G));
+  const caution = prof.threat * (1 - 0.6 * urgency(G));
   for (const u of G.allUnits()) {
     const v = unitValue(G, u);
     const mine = G.ally(u.owner, p);
@@ -182,7 +183,7 @@ export function evaluate(G, p, prof = difficultyProfile(6)) {
     if (u.owner !== p) continue;
     const d = G.def(u.cardId);
     const aggro = AGGRO[d.cls] ?? 0.7;
-    score -= fieldDist(u) * (0.3 + 0.35 * urgency(G)) * aggro;
+    score -= fieldDist(u) * (0.3 + 0.9 * urgency(G)) * aggro;
     const l = G.laneOf(u);
     if (l >= 0) {
       const ln = s.lanes[l];
@@ -242,7 +243,7 @@ function summonScore(G, p, t, objs, threats) {
 function positional(G, p, u, t, objs, threats) {
   const d = G.def(u.cardId);
   const aggro = AGGRO[d.cls] ?? 0.7;
-  return -fieldDist(t) * aggro - threatAt(threats, t) * 0.12 * (1 - 0.45 * urgency(G));
+  return -fieldDist(t) * aggro - threatAt(threats, t) * 0.12 * (1 - 0.6 * urgency(G));
 }
 
 function shuffleWith(arr, rand) {
