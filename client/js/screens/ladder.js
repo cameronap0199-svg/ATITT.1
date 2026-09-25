@@ -1,9 +1,10 @@
 // Adventure ladder (10 rivals of rising difficulty) and Free Battle setup.
-import { el, setScreen, modal, toast } from '../ui.js';
+import { el, clear, setScreen, modal, toast } from '../ui.js';
 import { sfx, playMusic } from '../audio.js';
 import { getProfile, getDeck, deckValid, setActiveDeck } from '../profile.js';
 import { RIVALS, rivalDeck, buildDeck, deckToList } from '../../../shared/decks.js';
 import { makeRng, randomSeed } from '../../../shared/rng.js';
+import { FORMATS } from '../../../shared/constants.js';
 import { startLocalBattle } from '../battle/battle.js';
 import { showHub } from './hub.js';
 import { showDeckBuilder } from './deckBuilder.js';
@@ -86,8 +87,21 @@ export function showFreeBattle() {
   upd();
   const themes = ['Random', 'Silviculturist', 'Hydrologist', 'Understory', 'Poacher', 'Forager'];
   const theme = el('select.field', ...themes.map((t, i) => el('option', { value: i - 1 }, t)));
-  const body = el('div.col', { style: { width: 'min(460px, 86vw)', gap: '14px' } },
-    el('p.muted', { style: { margin: 0 } }, 'Practice against an AI opponent. Higher difficulties think deeper, avoid danger, chain combos — and bring stronger decks.'),
+  let format = p.lastFormat && FORMATS[p.lastFormat] ? p.lastFormat : '1v1';
+  const fmtDesc = { '1v1': 'Classic duel.', '2v2': 'You and a bot ally vs two bots. Your team wins when both rivals are eliminated.', ffa3: 'Three players, every bot for itself. Last one standing wins.', ffa4: 'Four-way brawl. Last one standing wins.' };
+  const fmtNote = el('div.tiny.muted');
+  const fmtRow = el('div.row.fmt-row', { style: { gap: '6px', flexWrap: 'wrap' } });
+  const drawFmt = () => {
+    clear(fmtRow);
+    for (const [k, f] of Object.entries(FORMATS)) {
+      fmtRow.appendChild(el('button.btn.small' + (k === format ? '.gold' : '.ghost'), { onclick: () => { format = k; sfx('cursor'); drawFmt(); } }, f.name));
+    }
+    fmtNote.textContent = fmtDesc[format];
+  };
+  drawFmt();
+  const body = el('div.col', { style: { width: 'min(480px, 86vw)', gap: '14px' } },
+    el('p.muted', { style: { margin: 0 } }, 'Practice against AI opponents. Higher difficulties think deeper, avoid danger, chain combos — and bring stronger decks.'),
+    el('div', el('div', { style: { marginBottom: '6px' } }, 'Format'), fmtRow, fmtNote),
     el('div.row', { style: { justifyContent: 'space-between' } }, el('span', 'Difficulty'), label), slider, reward,
     el('label.row', el('span', 'Opponent style'), theme),
     deckPicker());
@@ -103,10 +117,22 @@ export function showFreeBattle() {
       const caps = ['', 'Bronze', 'Bronze', 'Silver', 'Silver', 'Gold', 'Gold', 'Crystal', 'Void', 'Infinite', 'Infinite'];
       const names = ['Sprout Bot', 'Seedling Bot', 'Sapling Bot', 'Oak Bot', 'Grove Bot', 'Pine Bot', 'Ancient Bot', 'Heartwood Bot', 'World-Tree Bot', 'Legend Bot'];
       const avatars = ['🌱', '🌿', '🍀', '🌳', '🌲', '🎋', '🌴', '🍁', '🌍', '👑'];
+      const extraAvatars = ['🦊', '🦉', '🐸', '🦔', '🐻', '🦝'];
+      const extraNames = ['Fox Bot', 'Owl Bot', 'Frog Bot', 'Hedgehog Bot', 'Bear Bot', 'Raccoon Bot'];
+      p.lastFormat = format;
+      const botDeck = () => deckToList(buildDeck(rng, { rarityCap: caps[diff], classFocus: focus >= 0 ? focus : Math.floor(rng() * 5), quality: diff / 10 }));
+      const extra = [];
+      for (let i = 2; i < FORMATS[format].players; i++) {
+        const k = Math.floor(rng() * extraNames.length);
+        const ally = FORMATS[format].teams[i] === FORMATS[format].teams[0];
+        extra.push({ name: ally ? `Ally ${extraNames[k]}` : extraNames[k], avatar: extraAvatars[k], deck: botDeck(), difficulty: ally ? Math.max(4, diff) : diff });
+      }
       startLocalBattle({
         me: { name: p.name, avatar: p.avatar, deck: deckToList(deck.cards) },
-        foe: { name: names[diff - 1], avatar: avatars[diff - 1], deck: deckToList(buildDeck(rng, { rarityCap: caps[diff], classFocus: focus >= 0 ? focus : Math.floor(rng() * 5), quality: diff / 10 })) },
+        foe: { name: names[diff - 1], avatar: avatars[diff - 1], deck: botDeck() },
         difficulty: diff,
+        format,
+        extra,
         onFinish: () => showHub(),
       });
       return false;

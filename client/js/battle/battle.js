@@ -3,11 +3,11 @@ import { el, clear, setScreen, modal, confirmBox, toast, floatText, sleep, esc, 
 import { sfx, playMusic } from '../audio.js';
 import * as FX from '../fx.js';
 import { cardEl, showCardModal, statRow, GLOSSARY } from '../cardView.js';
-import { Board } from './board.js';
+import { Board, colorsFor } from './board.js';
 import { LocalMatch } from './controllers.js';
-import { Game, viewFor, cheb } from '../../../shared/engine.js';
+import { Game, viewFor, cheb, STEP_INDEX } from '../../../shared/engine.js';
 import { getCard } from '../../../shared/cards.js';
-import { WIN_RENOWN, SAP_CAP, FORAGE_COST } from '../../../shared/constants.js';
+import { STEPS, STEP_NAMES, FORMATS } from '../../../shared/constants.js';
 import { getProfile, addPoints, recordResult, firstWinToday, saveProfile } from '../profile.js';
 import { topButtons, toggleMute } from '../screens/settings.js';
 
@@ -15,11 +15,13 @@ const EMOTES = [['👋', 'Hello!'], ['😄', 'Nice move!'], ['😮', 'Whoa!'], [
 
 // ===========================================================================
 export class BattleView {
-  constructor({ seat, mode, me, foe, rival = null, difficulty = null, onAct, onExit, onEmote = null }) {
+  // infos: [{ name, avatar }] for every seat; side: this player's board side (S/W/N/E)
+  constructor({ seat, side, mode, infos, rival = null, difficulty = null, onAct, onExit, onEmote = null }) {
     this.seat = seat;
+    this.side = side;
     this.mode = mode;
-    this.meInfo = me;
-    this.foeInfo = foe;
+    this.infos = infos;
+    this.meInfo = infos[seat];
     this.rival = rival;
     this.difficulty = difficulty;
     this.onAct = onAct;
@@ -41,7 +43,7 @@ export class BattleView {
   // -------------------------------------------------------------------------
   build() {
     document.body.classList.add('battle-mode');
-    this.board = new Board(this.seat, {
+    this.board = new Board(this.seat, this.side, {
       onTile: (p, e) => this.onTile(p, e),
       onUnit: (iid, e) => this.onUnit(iid, e),
       onStruct: (iid, e) => this.onStruct(iid, e),
@@ -54,29 +56,37 @@ export class BattleView {
     this.root = el('div.battle');
     this.root.appendChild(this.board.stage);
     // HUD
-    this.foeBox = el('div.hud.hud-foe', this.playerBox(1 - this.seat));
-    this.meBox = el('div.hud.hud-me', this.playerBox(this.seat));
+    this.foesBox = el('div.hud.hud-foes');
+    this.boxes = {};
+    this.infos.forEach((_, q) => {
+      if (q === this.seat) return;
+      this.boxes[q] = this.playerBox(q);
+      this.foesBox.appendChild(this.boxes[q]);
+    });
+    this.boxes[this.seat] = this.playerBox(this.seat);
+    this.meBox = el('div.hud.hud-me', this.boxes[this.seat]);
     this.foeHand = el('div.foe-hand');
     this.hand = el('div.hand');
     this.inspector = el('div.hud.inspector.win.hidden');
     this.hint = el('div.hud.hint-bar.win.hidden');
     this.chainPanel = el('div.hud.chain-panel.win.hidden');
     this.endBtn = el('button.btn.gold.end-turn', { onclick: () => this.endTurnClick() }, 'END TURN');
-    this.forageBtn = el('button.btn.small.purple', { onclick: () => this.startForage(), 'data-tip': `<b>Forage</b> (${FORAGE_COST} Sap, once per turn): discard a card, then draw a card. <span class="kbd">G</span>` }, '🍂 Forage');
+    this.phaseTrack = el('div.phase-track');
     this.undoBtn = el('button.btn.small.ghost', { onclick: () => this.act({ type: 'undo' }), 'data-tip': 'Undo your last move <span class="kbd">Z</span>' }, '↶ Undo');
     this.menuBtn = el('button.btn.small.ghost', { onclick: () => this.menu() }, '☰ Menu');
     this.timerEl = el('div.timer');
-    this.right = el('div.hud.hud-right', this.timerEl, el('div.small-btns', this.undoBtn, this.forageBtn, this.menuBtn), this.endBtn);
+    this.right = el('div.hud.hud-right', this.timerEl, this.phaseTrack, el('div.small-btns', this.undoBtn, this.menuBtn), this.endBtn);
     this.logLines = el('div.log-lines.scroll');
     this.logPanel = el('div.hud.log-panel.win.dark.collapsed', el('span.log-toggle', { onclick: () => this.logPanel.classList.toggle('collapsed'), 'data-tip': 'Battle log <span class="kbd">L</span>' }, '📜'), el('b.tiny', 'BATTLE LOG'), this.logLines);
     this.thinking = el('div.thinking.hidden', 'Thinking', el('i'), el('i'), el('i'));
     const camBar = el('div.cam-help',
       el('button.icon-btn', { 'data-tip': 'Rotate camera <span class="kbd">Q</span>/<span class="kbd">E</span> · Right-drag pans · Middle-drag orbits', onclick: () => this.board.rotateBy(-45) }, '⟲'),
-      el('button.icon-btn', { 'data-tip': 'Reset camera <span class="kbd">C</span>', onclick: () => this.board.resetCam() }, '🎥'),
+      el('button.icon-btn', { 'data-tip': 'Home view <span class="kbd">C</span>', onclick: () => this.board.resetCam() }, '🎥'),
+      el('button.icon-btn', { 'data-tip': 'Whole battlefield <span class="kbd">V</span>', onclick: () => this.board.overview() }, '🗺️'),
       el('button.icon-btn', { 'data-tip': 'Rules & controls <span class="kbd">H</span>', onclick: () => this.help() }, '❓'),
       el('button.icon-btn', { 'data-tip': 'Mute <span class="kbd">M</span>', onclick: (e) => toggleMute(e.currentTarget) }, getProfile().settings.muted ? '🔇' : '🔊'));
-    this.foeBox.appendChild(this.thinking);
-    this.root.append(this.foeBox, this.meBox, this.hand, this.inspector, this.hint, this.chainPanel, this.right, this.logPanel, camBar, this.foeHand);
+    this.foesBox.appendChild(this.thinking);
+    this.root.append(this.foesBox, this.meBox, this.hand, this.inspector, this.hint, this.chainPanel, this.right, this.logPanel, camBar, this.foeHand);
     if (this.mode === 'online') {
       const bar = el('div.emote-bar', ...EMOTES.map(([e, t]) => el('button.icon-btn', { 'data-tip': t, onclick: () => this.onEmote && this.onEmote(e) }, e)));
       this.meBox.appendChild(el('div', { style: { marginTop: '6px' } }, bar));
@@ -98,10 +108,12 @@ export class BattleView {
   }
 
   playerBox(p) {
-    const box = el('div.pbox.win' + (p === this.seat ? '' : '.dark'));
+    const box = el('div.pbox.win' + (p === this.seat ? '' : '.dark.compact'));
     box.dataset.p = p;
     return box;
   }
+  nameOf(p) { return p === this.seat ? 'You' : (this.infos[p] && this.infos[p].name) || 'Player ' + (p + 1); }
+  isFoe(p) { return this.view ? this.view.players[p].team !== this.view.players[this.seat].team : p !== this.seat; }
 
   // -------------------------------------------------------------------------
   // Sync
@@ -121,38 +133,44 @@ export class BattleView {
     this.renderButtons();
     this.renderHint();
   }
-  canInteract() { return !this.busy && this.view && this.view.phase === 'play' && this.G.canAct(this.seat); }
+  canInteract() { return !this.busy && this.view && (this.view.phase === 'play' || this.view.phase === 'setup') && this.G.canAct(this.seat); }
   myTurn() { return this.view && this.view.phase === 'play' && this.view.active === this.seat && !this.view.chain.length; }
+  mySetup() { return this.view && this.view.phase === 'setup' && this.view.active === this.seat; }
 
   renderPlayers() {
-    for (const [box, p] of [[this.meBox.firstChild, this.seat], [this.foeBox.firstChild, 1 - this.seat]]) {
-      const P = this.view.players[p];
-      const info = p === this.seat ? this.meInfo : this.foeInfo;
+    const v = this.view;
+    const colors = colorsFor(v, this.seat);
+    const G = this.G;
+    for (const [q, box] of Object.entries(this.boxes)) {
+      const p = +q;
+      const P = v.players[p];
+      const info = this.infos[p] || {};
       clear(box);
-      const active = this.view.active === p && this.view.phase === 'play';
-      const sap = el('div.sap', { 'data-tip': `<b>Sap</b> ${P.sap}/${P.sapMax} — ${GLOSSARY.Sap}` });
-      const shown = Math.max(P.sapMax, P.sap);
-      for (let i = 0; i < Math.min(shown, SAP_CAP + 4); i++) sap.appendChild(el('i' + (i < P.sap ? (i >= P.sapMax ? '.over' : '.on') : '')));
-      sap.appendChild(el('b', `${P.sap}/${P.sapMax}`));
-      const ren = el('div.renown', { 'data-tip': `<b>Renown</b> ${P.renown}/${WIN_RENOWN} — ${GLOSSARY.Renown}` }, el('i', { style: { width: Math.min(100, (P.renown / WIN_RENOWN) * 100) + '%' } }), el('span', `⭐ ${P.renown} / ${WIN_RENOWN}`));
-      ren.dataset.p = p;
-      const incomeLanes = this.view.lanes.filter((ln, l) => ln.ctrl === p && ln.structure && this.view.structs[ln.structure] && this.view.structs[ln.structure].owner === p).length;
+      box.style.setProperty('--pcol', colors[p][0]);
+      const active = v.active === p && (v.phase === 'play' || v.phase === 'setup');
+      box.classList.toggle('active', active);
+      box.classList.toggle('out', !!P.eliminated);
+      const ally = p !== this.seat && P.team === v.players[this.seat].team;
+      const lanes = v.lanes.filter((ln) => ln.ctrl === p).length;
       box.append(
-        el('div.avatar.small' + (p === this.seat ? '' : '.foe'), info.avatar || '🙂'),
+        el('div.avatar.small' + (this.isFoe(p) ? '.foe' : ''), info.avatar || '🙂'),
         el('div',
-          el('div.pname', info.name, active ? el('span.turn-tag', 'TURN') : null),
-          ren,
-          sap,
+          el('div.pname', p === this.seat ? (info.name || 'You') : info.name || 'Player', active ? el('span.turn-tag', v.phase === 'setup' ? 'SETUP' : 'TURN') : null, ally ? el('span.team-tag', 'ALLY') : null),
+          el('div.pmeta',
+            el('span', { 'data-tip': 'Lanes controlled' }, '🚩 ' + lanes),
+            el('span', { 'data-tip': 'Structures standing' }, '🏠 ' + G.structsOf(p).length),
+            el('span', { 'data-tip': 'Identities on the battlefield' }, '🐾 ' + G.unitsOf(p).length)),
           el('div.pstats',
             el('span', { 'data-tip': 'Cards in deck' }, '🂠 ' + (P.deckCount ?? P.deck.length)),
-            el('span', { 'data-tip': 'Cards in hand' }, '✋ ' + (P.handCount ?? P.hand.length)),
-            el('span', { 'data-tip': 'Discard pile — click to view', style: { cursor: 'pointer' }, onclick: () => this.showDiscard(p) }, '🗑 ' + P.discard.length),
-            el('span', { 'data-tip': 'Renown gained each turn from Lanes holding your Structures' }, '📈 +' + incomeLanes))));
+            el('span', { 'data-tip': 'Cards in hand (maximum 7)' }, '✋ ' + (P.handCount ?? P.hand.length)),
+            el('span', { 'data-tip': 'Discard pile — click to view', style: { cursor: 'pointer' }, onclick: () => this.showDiscard(p) }, '🗑 ' + P.discard.length))));
     }
-    // opponent hand backs
+    // opponent hand backs (duels only)
     clear(this.foeHand);
-    const n = this.view.players[1 - this.seat].handCount || 0;
-    for (let i = 0; i < Math.min(n, 10); i++) this.foeHand.appendChild(cardEl(null, { width: 46, back: true }));
+    if (v.players.length === 2) {
+      const n = v.players[1 - this.seat].handCount || 0;
+      for (let i = 0; i < Math.min(n, 10); i++) this.foeHand.appendChild(cardEl(null, { width: 46, back: true }));
+    }
   }
 
   renderHand() {
@@ -173,9 +191,9 @@ export class BattleView {
       const rot = (i - mid) * Math.min(5, 34 / Math.max(1, n));
       wrap.style.transform = `translateY(${Math.abs(i - mid) * Math.abs(i - mid) * 1.6}px) rotate(${rot}deg)`;
       if (this.sel && this.sel.kind === 'card' && this.sel.iid === iid) wrap.classList.add('sel');
-      if (this.sel && this.sel.kind === 'forage') wrap.classList.add('forage-pick');
+      if (this.sel && this.sel.kind === 'endPhase') { wrap.classList.add('end-pick'); if (this.sel.discard.has(iid)) wrap.classList.add('discard-mark'); }
       if (this.newDraws.has(iid)) { wrap.classList.add('drawn'); this.newDraws.delete(iid); }
-      if (!playable && this.myTurn()) {
+      if (!playable && (this.myTurn() || this.mySetup()) && !(this.sel && this.sel.kind === 'endPhase')) {
         const why = this.whyUnplayable(iid, card);
         if (why) wrap.appendChild(el('div.cost-warn', why));
       }
@@ -199,12 +217,14 @@ export class BattleView {
   }
   hideHandPreview() { if (this.handPrev) { this.handPrev.remove(); this.handPrev = null; } }
   whyUnplayable(iid, card) {
-    const P = this.view.players[this.seat];
-    const cost = this.G.cardCost(this.seat, iid);
-    if (cost > P.sap) return `Need ${cost} Sap`;
+    if (this.view.phase === 'setup') return card.type === 'Zone' ? 'No open Home Lane' : 'Zones only in setup';
+    const step = this.G.cardStep(card);
+    if (step && STEP_INDEX[this.view.step] > STEP_INDEX[step]) return `${STEP_NAMES[step]} Phase passed`;
+    if (card.play && card.play.timing === 'response') return '⚡ Response only';
     if (card.type === 'Identity' && !this.G.summonTiles(this.seat).length) return 'No free Housing';
-    if (card.type === 'Structure' && !this.G.structLanes(this.seat).length) return 'Claim a Lane first';
-    if (card.play && card.play.timing === 'response' && false) return '';
+    if (card.type === 'Structure' && !this.G.structLanes(this.seat).length) return 'No open Lane';
+    if (card.type === 'Zone' && !this.G.zoneLanes(this.seat).length) return 'No Lane to claim';
+    if ((card.type === 'Equipment' || card.type === 'Consumable') && !this.G.unitsOf(this.seat).length) return 'No Identity';
     return 'No valid target';
   }
   bindHandCard(wrap, iid, playable) {
@@ -232,7 +252,9 @@ export class BattleView {
         removeEventListener('pointerup', up);
         if (ghost) ghost.remove();
         if (dragging) {
-          const under = document.elementFromPoint(ev.clientX, ev.clientY);
+          // 3D hit-testing can land on the tile layer itself; prefer a real tile/unit in the stack
+          const stack = document.elementsFromPoint(ev.clientX, ev.clientY);
+          const under = stack.find((n) => n.closest && n.closest('.unit, .structure, .tile, .hand')) || stack[0];
           this.dropOn(under);
         } else if (start) {
           this.clickCard(iid, playable);
@@ -250,14 +272,12 @@ export class BattleView {
     const unit = node.closest('.unit');
     const st = node.closest('.structure');
     const tile = node.closest('.tile');
-    const lane = node.closest('.lane-bg, .struct-slot');
+    const lane = node.closest('.lane-bg');
     if (unit) return this.onUnit(unit.dataset.iid);
     if (st) return this.onStruct(st.dataset.iid);
     if (tile) return this.onTile({ x: +tile.dataset.x, y: +tile.dataset.y });
-    if (lane) {
-      const l = lane.dataset.lane !== undefined ? +lane.dataset.lane : this.board.slots.find((s) => s.slot === lane)?.l;
-      if (l !== undefined) return this.onLane(l);
-    }
+    if (node.closest('.board') && this.hoverTile) return this.onTile(this.hoverTile);
+    if (lane && lane.dataset.lane !== undefined) return this.onLane(+lane.dataset.lane);
     if (node.closest('.hand')) this.cancelSel();
   }
 
@@ -268,7 +288,7 @@ export class BattleView {
     p.classList.remove('hidden');
     clear(p);
     const mine = v.priority === this.seat;
-    p.appendChild(el('div', el('b', mine ? '⚡ RESPONSE WINDOW' : '⏳ Opponent may respond…')));
+    p.appendChild(el('div', el('b', mine ? '⚡ RESPONSE WINDOW' : `⏳ ${this.nameOf(v.priority)} may respond…`)));
     const items = el('div.chain-items');
     v.chain.forEach((it, i) => {
       let text;
@@ -290,7 +310,10 @@ export class BattleView {
     p.appendChild(items);
     if (mine) {
       const resp = this.view.players[this.seat].hand.filter((iid) => this.G.canPlay(this.seat, iid));
-      p.appendChild(el('div.tiny.muted', resp.length ? 'Play a glowing ⚡Response card from your hand, or pass to let the chain resolve.' : 'No responses available.'));
+      const cons = this.G.responseConsumables(this.seat);
+      p.appendChild(el('div.tiny.muted', resp.length || cons.length ? 'Play a glowing ⚡Response card, use a ⚡Consumable on one of your Identities, or pass.' : 'No responses available.'));
+      if (cons.length) p.appendChild(el('div.row', { style: { gap: '6px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '6px' } },
+        ...cons.map((u) => el('button.btn.small.green', { onclick: () => this.startConsume(u.iid) }, `🧪 ${getCard(u.cardId).name}: ${this.G.def(u.cons).name}`))));
       p.appendChild(el('div', { style: { marginTop: '8px' } }, el('button.btn.gold.small', { onclick: () => this.act({ type: 'pass' }) }, 'Pass ', el('span.kbd', 'Space'))));
     }
   }
@@ -305,12 +328,38 @@ export class BattleView {
   renderButtons() {
     const v = this.view;
     const my = this.myTurn();
-    this.endBtn.disabled = !my || this.busy;
-    this.endBtn.classList.toggle('wait', !my);
-    this.endBtn.textContent = v.phase === 'over' ? 'GAME OVER' : my ? 'END TURN' : v.chain.length && v.priority === this.seat ? 'RESPOND' : 'ENEMY TURN';
-    this.endBtn.classList.toggle('glow', my && !this.hasUsefulActions());
+    const setup = this.mySetup();
+    this.endBtn.disabled = !(my || setup) || this.busy;
+    this.endBtn.classList.toggle('wait', !(my || setup));
+    this.endBtn.textContent = v.phase === 'over' ? 'GAME OVER' : setup ? 'READY ✓' : my ? (this.sel && this.sel.kind === 'endPhase' ? 'CONFIRM END' : 'END TURN') : v.chain.length && v.priority === this.seat ? 'RESPOND' : v.phase === 'setup' ? `${this.nameOf(v.active).toUpperCase()} SETTING UP` : v.players[v.active].team === v.players[this.seat].team ? 'ALLY TURN' : 'ENEMY TURN';
+    this.endBtn.classList.toggle('glow', (my && !this.hasUsefulActions()) || (setup && !this.G.playableCards(this.seat).length));
     this.undoBtn.classList.toggle('hidden', !(my && v.canUndo));
-    this.forageBtn.disabled = !(my && !this.busy && this.G.canForage(this.seat));
+    this.renderPhases();
+  }
+  renderPhases() {
+    const v = this.view;
+    const t = this.phaseTrack;
+    clear(t);
+    if (v.phase === 'setup') { t.appendChild(el('span.now', { 'data-tip': 'Everyone places Zones into their Home Lanes.' }, 'SETUP')); return; }
+    if (v.phase !== 'play') return;
+    const cur = STEP_INDEX[v.step];
+    const mine = this.myTurn();
+    t.appendChild(el('span.past', { 'data-tip': 'Draw Phase: you drew up to 7 cards.' }, 'DRAW'));
+    STEPS.forEach((st, i) => {
+      const cls = i < cur ? '.past' : i === cur ? '.now' : mine && st !== 'end' ? '.clickable' : '';
+      const label = { zone: 'ZONE', build: 'BUILD', summon: 'SUMMON', equip: 'EQUIP', combat: 'MOVE & FIGHT', end: 'END' }[st];
+      const node = el('span' + cls, { 'data-tip': `<b>${STEP_NAMES[st]} Phase</b>${mine && i > cur && st !== 'end' ? '<br>Click to skip ahead.' : ''}` }, label);
+      if (mine && i > cur && st !== 'end') node.addEventListener('click', () => this.skipTo(st));
+      t.appendChild(node);
+    });
+  }
+  async skipTo(step) {
+    if (!this.myTurn() || this.busy) return;
+    sfx('select');
+    while (this.view && STEP_INDEX[this.view.step] < STEP_INDEX[step]) {
+      const ok = await this.onAct({ type: 'nextStep' });
+      if (ok === false) break;
+    }
   }
   hasUsefulActions() {
     const G = this.G;
@@ -332,13 +381,20 @@ export class BattleView {
       const name = s.kind === 'card' ? getCard(this.view.inst[s.iid].cardId).name : s.name;
       if (!spec) content = el('span', `Play ${name}? `, el('button.btn.small.gold', { onclick: () => this.commitSel() }, 'Play'), el('button.btn.small.ghost', { onclick: () => this.cancelSel() }, 'Cancel'));
       else content = el('span', `${name}: ${spec.label || 'Choose a target'} `, el('button.btn.small.ghost', { onclick: () => this.cancelSel() }, 'Cancel'));
-    } else if (s && s.kind === 'forage') {
-      content = el('span', '🍂 Forage: choose a card in your hand to discard (then draw one). ', el('button.btn.small.ghost', { onclick: () => this.cancelSel() }, 'Cancel'));
+    } else if (s && s.kind === 'endPhase') {
+      const n = s.discard.size;
+      content = el('span', `🌙 End Phase — click cards to discard them (you draw back up to 7 next turn). `,
+        el('button.btn.small.gold', { onclick: () => this.confirmEnd() }, n ? `Discard ${n} & End Turn` : 'Keep Hand & End Turn'),
+        el('button.btn.small.ghost', { onclick: () => this.cancelSel() }, 'Back'));
+    } else if (this.mySetup() && !this.busy) {
+      content = el('span', '🏕️ Setup — drag Zone cards onto your glowing Home Lanes, then press ', el('b', 'READY'), '.');
     } else if (this.settings.showHints && this.myTurn() && !this.busy && this.view.round <= 3) {
       const mine = Object.values(this.view.units).filter((u) => u.owner === this.seat);
-      if (!mine.length) content = el('span', '💡 Drag an Identity card onto a glowing tile beside your ⛺ Base Camp to summon it.');
-      else if (s && s.kind === 'unit' && this.view.units[s.iid]?.owner === this.seat) content = el('span', '💡 Blue tiles: move · Red rings: attack · Use the panel on the right for abilities.');
-      else content = el('span', '💡 Click an Identity to act with it. Claim more Lanes with Zones, then build Structures to earn Renown.');
+      const structs = Object.values(this.view.structs).filter((st) => st.owner === this.seat);
+      if (!structs.length) content = el('span', '💡 Build a Structure: drag it onto a tile in a Lane you control.');
+      else if (!mine.length) content = el('span', '💡 Summon an Identity: drag it onto a glowing tile in a Lane with your Structure.');
+      else if (s && s.kind === 'unit' && this.view.units[s.iid]?.owner === this.seat) content = el('span', '💡 Move once (blue tiles), then attack (2 MP each) or use abilities while MP lasts.');
+      else content = el('span', '💡 Turn order: Zone → Build → Summon → Equip → Move & Fight → End. Destroy Structures and capture Lanes to eliminate rivals!');
     }
     if (content) { clear(h); h.appendChild(content); h.classList.remove('hidden'); }
     else h.classList.add('hidden');
@@ -352,6 +408,7 @@ export class BattleView {
     if (!s) return;
     if (s.kind === 'unit' && !this.view.units[s.iid] && !this.view.structs[s.iid]) this.sel = null;
     else if (s.kind === 'card' && !this.view.players[this.seat].hand.includes(s.iid)) this.sel = null;
+    else if (s.kind === 'endPhase' && !this.myTurn()) this.sel = null;
     else if ((s.kind === 'ability' || s.kind === 'consume') && !this.view.units[s.unit]) this.sel = null;
     else if (s.kind !== 'unit' && !this.canInteract()) this.sel = null;
   }
@@ -375,11 +432,19 @@ export class BattleView {
     this.hidePreview();
   }
   clickCard(iid, playable) {
-    if (this.sel && this.sel.kind === 'forage') { this.act({ type: 'forage', iid }); this.sel = null; return; }
+    if (this.sel && this.sel.kind === 'endPhase') {
+      const d = this.sel.discard;
+      if (d.has(iid)) d.delete(iid); else d.add(iid);
+      sfx('select');
+      this.renderHand();
+      this.renderHint();
+      this.renderButtons();
+      return;
+    }
     if (!playable) {
       sfx('error');
       const cardId = this.view.inst[iid].cardId;
-      if (!this.canInteract()) toast(this.view.active === this.seat ? 'Resolve the chain first.' : 'Wait for your turn!', 'bad', 1.4);
+      if (!this.canInteract()) toast(this.view.active === this.seat ? 'Wait for responses to resolve.' : 'Wait for your turn!', 'bad', 1.4);
       else toast(this.whyUnplayable(iid, getCard(cardId)) || "Can't play that now.", 'bad', 1.4);
       return;
     }
@@ -418,13 +483,6 @@ export class BattleView {
     this.sel = { kind: 'consume', unit, specs, targets: [], name: d.name };
     sfx('select');
     this.refreshHighlights();
-    this.renderHint();
-  }
-  startForage() {
-    if (!this.myTurn() || !this.G.canForage(this.seat)) { sfx('error'); return; }
-    this.sel = { kind: 'forage' };
-    sfx('select');
-    this.renderHand();
     this.renderHint();
   }
   targetCtx() {
@@ -477,11 +535,11 @@ export class BattleView {
         // show the enemy's threat zone
         const ap = G.stat(u, 'ap', { activation: true });
         const rp = G.stat(u, 'rp');
-        for (let x = 0; x < 10; x++) for (let y = 0; y < 8; y++) if (Math.max(Math.abs(x - u.x), Math.abs(y - u.y)) <= ap + rp) b.tileClass({ x, y }, 'threat');
+        for (const t of b.around(u, ap + rp)) b.tileClass(t, 'threat');
       }
       return;
     }
-    if (s.kind === 'forage') return;
+    if (s.kind === 'endPhase') return;
     const co = this.currentOptions();
     if (!co) return;
     const { spec, opts } = co;
@@ -489,16 +547,15 @@ export class BattleView {
     s.chainOptions = spec.type === 'chain' ? opts : null;
     for (const o of opts) {
       if (spec.type === 'tile') b.tileClass(o, s.kind === 'card' && getCard(this.view.inst[s.iid].cardId).type === 'Identity' ? 'summon' : 'pick');
-      else if (spec.type === 'lane') b.pickLane(o, s.kind === 'card' && getCard(this.view.inst[s.iid].cardId).type === 'Structure' ? this.seat : null);
+      else if (spec.type === 'lane') b.pickLane(o);
       else if (spec.type === 'unit' || spec.type === 'struct' || spec.type === 'unitOrStruct') b.entityClass(o, 'pick');
     }
     if (s.kind === 'ability' || s.kind === 'consume') b.entityClass(s.unit, 'selected');
   }
   rangeFrom(u, pos) {
     const rp = this.G.stat(u, 'rp');
-    for (let x = 0; x < 10; x++) for (let y = 0; y < 8; y++) {
-      const d = Math.max(Math.abs(x - pos.x), Math.abs(y - pos.y));
-      if (d > 0 && d <= rp && !this.board.tileHas({ x, y }, 'move')) this.board.tileClass({ x, y }, 'range');
+    for (const t of this.board.around(pos, rp)) {
+      if ((t.x !== pos.x || t.y !== pos.y) && !this.board.tileHas(t, 'move')) this.board.tileClass(t, 'range');
     }
   }
 
@@ -512,7 +569,7 @@ export class BattleView {
     const co = this.currentOptions();
     if (co && this.canInteract()) {
       if (co.spec.type === 'tile' && this.optsInclude(co.opts, pos)) return this.addTarget({ x: pos.x, y: pos.y });
-      if (co.spec.type === 'lane') { const l = Math.floor(pos.x / 2); if (co.opts.includes(l)) return this.addTarget(l); }
+      if (co.spec.type === 'lane') { const l = this.G.laneAt(pos.x, pos.y); if (co.opts.includes(l)) return this.addTarget(l); }
       const occ = this.G.unitAt(pos.x, pos.y);
       if (occ && (co.spec.type === 'unit' || co.spec.type === 'unitOrStruct') && co.opts.includes(occ.iid)) return this.addTarget(occ.iid);
       sfx('error');
@@ -535,7 +592,7 @@ export class BattleView {
     if (co && this.canInteract()) {
       if ((co.spec.type === 'unit' || co.spec.type === 'unitOrStruct') && co.opts.includes(iid)) return this.addTarget(iid);
       if (co.spec.type === 'tile') { const u = this.G.unit(iid); if (u && this.optsInclude(co.opts, u)) return this.addTarget({ x: u.x, y: u.y }); }
-      if (co.spec.type === 'lane') { const u = this.G.unit(iid); if (u && co.opts.includes(Math.floor(u.x / 2))) return this.addTarget(Math.floor(u.x / 2)); }
+      if (co.spec.type === 'lane') { const u = this.G.unit(iid); if (u && co.opts.includes(this.G.laneOf(u))) return this.addTarget(this.G.laneOf(u)); }
       sfx('error');
       return;
     }
@@ -584,6 +641,7 @@ export class BattleView {
     if (!this.sel) this.renderInspector(iid);
   }
   onTileHover(pos) {
+    this.hoverTile = pos;
     const s = this.sel;
     this.board.clearPath();
     if (!pos || !s || s.kind !== 'unit' || !this.reach) { if (s && s.kind === 'unit') { const u = this.G.unit(s.iid); if (u && u.owner === this.seat) this.rangeFrom(u, u); } return; }
@@ -634,12 +692,12 @@ export class BattleView {
       e.preventDefault();
       if (this.view.chain.length && this.view.priority === this.seat && !this.busy) this.act({ type: 'pass' });
       else if (this.sel && this.sel.specs && this.sel.targets.length >= this.sel.specs.length) this.commitSel();
-      else if (this.myTurn()) this.endTurnClick();
+      else if (this.myTurn() || this.mySetup()) this.endTurnClick();
       return;
     }
     if (k === 'tab') { e.preventDefault(); this.cycleUnits(e.shiftKey ? -1 : 1); return; }
     if (k === 'z' && this.view.canUndo) { this.act({ type: 'undo' }); return; }
-    if (k === 'g') { this.startForage(); return; }
+    if (k === 'v') { this.board.overview(); return; }
     if (k === 'w' || k === 'arrowup') this.board.panScreen(0, 60);
     else if (k === 's' || k === 'arrowdown') this.board.panScreen(0, -60);
     else if (k === 'a' || k === 'arrowleft') this.board.panScreen(60, 0);
@@ -669,7 +727,10 @@ export class BattleView {
   }
 
   async endTurnClick() {
-    if (!this.myTurn() || this.busy) return;
+    if (this.busy) return;
+    if (this.mySetup()) { this.sel = null; this.act({ type: 'ready' }); return; }
+    if (!this.myTurn()) return;
+    if (this.sel && this.sel.kind === 'endPhase') { this.confirmEnd(); return; }
     if (this.settings.confirmEndTurn) {
       const idle = this.G.unitsOf(this.seat).filter((u) => u.state === 'ready' && (this.G.attackTargets(u).length || (this.G.moveBudget(u) > 0 && this.G.reachable(u).size)));
       const playable = this.G.playableCards(this.seat).length;
@@ -678,8 +739,22 @@ export class BattleView {
         if (!ok) return;
       }
     }
+    // End Phase: optionally pick cards to discard before passing the turn.
+    if (this.view.players[this.seat].hand.length) {
+      this.sel = { kind: 'endPhase', discard: new Set() };
+      sfx('open');
+      this.refreshHighlights();
+      this.renderHand();
+      this.renderHint();
+      this.renderButtons();
+      return;
+    }
+    this.confirmEnd();
+  }
+  confirmEnd() {
+    const discard = this.sel && this.sel.kind === 'endPhase' ? [...this.sel.discard] : [];
     this.sel = null;
-    this.act({ type: 'endTurn' });
+    this.act({ type: 'endTurn', discard });
   }
 
   async act(action, { keepUnit = null } = {}) {
@@ -708,7 +783,7 @@ export class BattleView {
     const mine = ent.owner === this.seat;
     ins.appendChild(el('div.ins-head',
       el('div.avatar.small' + (mine ? '' : '.foe'), card.emoji),
-      el('div', el('div.ins-name', card.name), el('div.ins-sub', `${mine ? 'Yours' : 'Enemy'} · ${card.cls}${card.faction ? ' · ' + card.faction : ''}`))));
+      el('div', el('div.ins-name', card.name), el('div.ins-sub', `${mine ? 'Yours' : this.nameOf(ent.owner) + (this.isFoe(ent.owner) ? '' : ' (ally)')} · ${card.cls}${card.faction ? ' · ' + card.faction : ''}`))));
     if (u) {
       const S = this.G.statsOf(this.G.unit(iid));
       ins.appendChild(el('div.bars',
@@ -721,6 +796,8 @@ export class BattleView {
       if (u.freeSteps) sts.appendChild(el('span.good', `👣 ${u.freeSteps} free step${u.freeSteps > 1 ? 's' : ''}`));
       for (const s of u.statuses) sts.appendChild(el('span' + ((s.v || 0) < 0 || s.kind === 'stasis' || s.kind === 'marked' || s.kind === 'healReduce' ? '.bad' : '.good'), s.label || s.kind || `${s.v > 0 ? '+' : ''}${s.v} ${s.stat}`));
       if (u.owner === this.seat) sts.appendChild(el('span', u.state === 'ready' ? '● Ready' : u.state === 'active' ? '◐ Acting' : '○ Done'));
+      const gu0 = this.G.unit(iid);
+      sts.appendChild(el('span', { 'data-tip': 'Retaliation: when attacked, strikes back if the attacker is in range and it has the MP.' }, `↩ Retaliate ${this.G.retaliationCost(gu0)} MP`));
       if (this.G.isInvading(this.G.unit(iid))) sts.appendChild(el('span.bad', '⚔ Invading'));
       else if (this.G.isDefending(this.G.unit(iid))) sts.appendChild(el('span.good', '🛡 Defending'));
       ins.appendChild(sts);
@@ -743,13 +820,14 @@ export class BattleView {
           const ok = this.G.consumableUsable(gu);
           acts.appendChild(el('button.btn.small' + (ok ? '.green' : ''), { disabled: !ok, onclick: () => this.startConsume(iid) }, el('span', '🧪 Use ' + this.G.def(gu.cons).name), el('span', '')));
         }
-        if (gu.state !== 'done') acts.appendChild(el('button.btn.small.ghost', { onclick: () => this.act({ type: 'wait', unit: iid }) }, el('span', '⏸ Wait (end activation)'), el('span', '')));
+        if (this.G.canAttack(gu) && gu.state !== 'done') acts.appendChild(el('div.tiny.muted', `⚔️ Attack: ${this.G.attackCost(gu)} MP each — click a red-ringed target.`));
+        if (gu.state !== 'done') acts.appendChild(el('button.btn.small.ghost', { onclick: () => this.act({ type: 'wait', unit: iid }) }, el('span', '⏸ Finish activation'), el('span', '')));
         ins.appendChild(acts);
       }
     } else {
       const max = this.G.structMaxBp(this.G.struct(iid));
       ins.appendChild(el('div.bars', el('span', 'BP'), barEl(st.bp, max, '#3ddc75'), el('span', `${st.bp}/${max}`)));
-      ins.appendChild(el('div.statuses', el('span', `🏠 Housing ${this.G.housedCount(this.G.struct(iid))}/${this.G.structHousing(this.G.struct(iid))}`), el('span', `Lane ${st.lane + 1}`)));
+      ins.appendChild(el('div.statuses', el('span', `🏠 Housing ${this.G.housedCount(this.G.struct(iid))}/${this.G.structHousing(this.G.struct(iid))}`), el('span', this.G.laneName(st.lane))));
       ins.appendChild(el('div.abil', card.text));
     }
     ins.appendChild(el('div.tiny.muted', { style: { marginTop: '6px' } }, 'Right-click to inspect the full card.'));
@@ -775,7 +853,6 @@ export class BattleView {
     } catch (err) { console.error(err); }
     this.busy = false;
     this.sync(view);
-    if (view.phase === 'mulligan' && !view.players[this.seat].mulligan && !this.mulliganOpen) this.showMulligan();
     if (view.phase === 'over' && !this.overShown) { this.overShown = true; await this.wait(500); this.onGameOver && this.onGameOver(view); }
   }
   screenPos(iid) { return this.board.screenOf(iid) || { x: innerWidth / 2, y: innerHeight / 2 }; }
@@ -787,53 +864,64 @@ export class BattleView {
     switch (e.t) {
       case 'turn': {
         const mine = e.p === me;
+        const foe = this.isFoe(e.p);
         this.sel = null;
         B.clearHighlights();
-        const tb = el('div.turn-banner', el('div.tb' + (mine ? '' : '.foe'), mine ? 'YOUR TURN' : 'ENEMY TURN', el('small', `ROUND ${e.round}`)));
+        const title = mine ? 'YOUR TURN' : `${this.nameOf(e.p).toUpperCase()}'S TURN`;
+        const tb = el('div.turn-banner', el('div.tb' + (mine || !foe ? '' : '.foe'), title, el('small', `ROUND ${e.round}`)));
         this.root.appendChild(tb);
         sfx(mine ? 'turn' : 'enemyTurn');
-        if (this.settings.autoCamera) B.resetCam();
-        await this.wait(1100);
+        if (this.settings.autoCamera && mine) B.resetCam();
+        await this.wait(mine ? 1100 : 800);
         tb.remove();
-        if (mine && this.mode === 'ai' && this.rival && e.round === 1) this.say(1 - me, this.rival.quote);
+        if (!mine && this.mode === 'ai' && this.rival && e.round === 1 && foe) this.say(e.p, this.rival.quote);
+        break;
+      }
+      case 'recover': break;
+      case 'step': break;
+      case 'setupTurn': break;
+      case 'ready': if (e.p !== me) { const b = this.boxes[e.p]; if (b) { const r = b.getBoundingClientRect(); floatText(r.right - 30, r.top + 20, 'Ready!', 'good'); } } break;
+      case 'reshuffle': {
+        const b = this.boxes[e.p];
+        if (b) { const r = b.getBoundingClientRect(); floatText(r.left + r.width / 2, r.top, '🔄 Discard reshuffled', 'good'); }
+        sfx('card');
+        break;
+      }
+      case 'discard': if (e.p === me) sfx('card'); break;
+      case 'unclaim': B.syncLane(e.lane, null, null); break;
+      case 'eliminated': {
+        const mine = e.p === me;
+        const banner = el('div.elim-banner', mine ? '💀 YOU WERE ELIMINATED' : `💀 ${this.nameOf(e.p).toUpperCase()} ELIMINATED!`);
+        document.body.appendChild(banner);
+        sfx(mine ? 'lose' : 'fanfare');
+        FX.shake(this.board.stage, 1.6);
+        await this.wait(1600);
+        setTimeout(() => banner.remove(), 900);
         break;
       }
       case 'draw':
         if (e.p === me && e.iid) this.newDraws.add(e.iid);
         if (e.p === me) { sfx('card'); await this.wait(90); }
         break;
-      case 'burn': if (e.p === me) toast(`Hand full — ${getCard(e.cardId).name} was discarded.`, 'bad'); break;
-      case 'sap': this.patchPlayer(e.p, { sap: e.sap, sapMax: e.sapMax }); break;
-      case 'renown': {
-        this.patchPlayer(e.p, { renown: e.total });
-        const bar = (e.p === me ? this.meBox : this.foeBox).querySelector('.renown');
-        if (bar && e.amount > 0) {
-          const r = bar.getBoundingClientRect();
-          floatText(r.left + r.width / 2, r.top - 8, `+${e.amount} ⭐ ${e.reason || ''}`, 'gold');
-          bar.classList.remove('flash'); void bar.offsetWidth; bar.classList.add('flash');
-          sfx('renown');
-          FX.burst(r.left + r.width * Math.min(1, e.total / WIN_RENOWN), r.top + r.height / 2, { colors: ['#ffd76a', '#fff'], count: 14, speed: 3, shape: 'star', size: 4 });
-          await this.wait(e.reason && e.reason.includes('held') ? 380 : 650);
-        }
-        break;
-      }
+      case 'burn': if (e.p === me && e.cardId) toast(`Hand full (7) — ${getCard(e.cardId).name} was discarded.`, 'bad'); break;
       case 'play': {
         const card = getCard(e.cardId);
         if (!card) break;
-        const foe = e.p !== me;
-        if (foe || card.type === 'Action' || card.type === 'Event') {
-          const pc = el('div.played-card', el('div.who', { style: { color: foe ? '#ffb0bb' : '#9fd6ff' } }, foe ? `${this.foeInfo.name} plays` : 'You play'), cardEl(card, { width: 230 }));
+        const other = e.p !== me;
+        if ((other && card.type !== 'Zone') || card.type === 'Action' || card.type === 'Event') {
+          const col = colorsFor(view, me)[e.p][0];
+          const pc = el('div.played-card', el('div.who', { style: { color: col } }, other ? `${this.nameOf(e.p)} plays` : 'You play'), cardEl(card, { width: 230 }));
           document.body.appendChild(pc);
           sfx('play');
-          await this.wait(foe ? 1100 : 700);
+          await this.wait(other ? (view.phase === 'setup' ? 500 : 900) : 700);
           setTimeout(() => pc.remove(), 600);
         } else sfx('play');
         break;
       }
       case 'zone': {
-        B.syncLane(e.lane, e.cardId, e.p);
+        B.syncLane(e.lane, e.cardId, e.p, view.lanes[e.lane]);
+        if (e.p !== me && view.phase !== 'setup') this.follow(B.laneCenter(view.lanes[e.lane]));
         const pos = B.screenOfLane(e.lane);
-        this.follow({ x: e.lane * 2, y: 4 });
         sfx('zone');
         FX.burst(pos.x, pos.y, { colors: ['#b8ffcf', '#fff', '#ffe28a'], count: 34, speed: 6, shape: 'leaf', size: 6, gravity: 0.05, life: 1.2 });
         if (e.capture) floatText(pos.x, pos.y - 40, '🚩 Lane Captured!', 'gold');
@@ -841,7 +929,8 @@ export class BattleView {
         break;
       }
       case 'struct': {
-        const node = B.addStruct(e.iid, e.cardId, e.lane, e.p);
+        if (e.p !== me) this.follow({ x: e.x, y: e.y });
+        const node = B.addStruct(e.iid, e.cardId, e.p, e.x, e.y);
         B.updateStruct(node, { bp: e.bp, cardId: e.cardId }, null);
         node.classList.add('building');
         sfx('build');
@@ -855,10 +944,10 @@ export class BattleView {
         const node = B.units.get(e.unit);
         node.classList.add('summoning');
         setTimeout(() => node.classList.remove('summoning'), 700);
-        this.follow({ x: e.x, y: e.y });
+        if (e.p !== me) this.follow({ x: e.x, y: e.y });
         await this.wait(30);
         const pos = B.screenOfTile({ x: e.x, y: e.y });
-        FX.magicCircle(pos.x, pos.y, e.p === me ? '#8fd0ff' : '#ff9fb0');
+        FX.magicCircle(pos.x, pos.y, colorsFor(view, me)[e.p][0]);
         sfx('summon');
         await this.wait(e.token ? 350 : 600);
         break;
@@ -899,7 +988,8 @@ export class BattleView {
         if (e.ranged) {
           sfx('shoot');
           B.lunge(e.unit, e.target, 200 / this.speed);
-          await FX.projectile(a, t, { color: this.view.units[e.unit]?.owner === me || view.units[e.unit]?.owner === me ? '#8fd0ff' : '#ff9fb0', life: 0.3 / this.speed });
+          const ow = (view.units[e.unit] || this.view.units[e.unit] || {}).owner;
+          await FX.projectile(a, t, { color: ow !== undefined ? colorsFor(view, me)[ow][0] : '#fff', life: 0.3 / this.speed });
         } else {
           sfx('swing');
           await B.lunge(e.unit, e.target, 260 / this.speed);
@@ -969,6 +1059,7 @@ export class BattleView {
       }
       case 'consume': { const pos = this.screenPos(e.unit); floatText(pos.x, pos.y - 70, `🧪 ${e.name}`, 'good'); sfx('mana'); await this.wait(350); break; }
       case 'defeat': {
+        if (e.quiet) { B.killUnit(e.target, 250); break; }
         const pos = this.screenPos(e.target);
         floatText(pos.x, pos.y - 30, 'K.O.!', 'num ko');
         FX.explode(pos.x, pos.y, e.owner === me ? ['#8fd0ff', '#ffffff', '#6ea2ff'] : ['#ff9f43', '#ffd76a', '#ff5252', '#ffffff']);
@@ -984,17 +1075,9 @@ export class BattleView {
         FX.shake(this.board.stage, 1.8);
         sfx('crumble');
         floatText(pos.x, pos.y - 70, e.owner === me ? '💥 Your Structure fell!' : '💥 Structure destroyed!', e.owner === me ? 'bad' : 'gold');
-        if (this.mode === 'ai' && this.rival) this.say(1 - me, e.owner === me ? pick(['Down it goes!', 'Your walls crumble!', 'Hah! Timber!']) : pick(['Hey! That was mine!', 'Grr… lucky shot.', 'My poor Structure!']));
+        if (!e.quiet && this.mode === 'ai' && this.rival && this.view.players.length === 2) this.say(1 - me, e.owner === me ? pick(['Down it goes!', 'Your walls crumble!', 'Hah! Timber!']) : pick(['Hey! That was mine!', 'Grr… lucky shot.', 'My poor Structure!']));
+        if (e.quiet) { B.crumble(e.target, 300); break; }
         await B.crumble(e.target);
-        break;
-      }
-      case 'liberate': {
-        B.syncLane(e.lane, null, null);
-        const pos = B.screenOfLane(e.lane);
-        floatText(pos.x, pos.y, '🚩 Lane Liberated!', 'gold');
-        FX.burst(pos.x, pos.y, { colors: ['#fff', '#ffd76a'], count: 30, shape: 'star' });
-        sfx('zone');
-        await this.wait(600);
         break;
       }
       case 'obstacle': B.addObstacle(e.x, e.y); sfx('build'); await this.wait(250); break;
@@ -1011,7 +1094,7 @@ export class BattleView {
     this.renderPlayers();
   }
   say(p, text) {
-    const box = p === this.seat ? this.meBox : this.foeBox;
+    const box = this.boxes[p] || this.meBox;
     const r = box.getBoundingClientRect();
     const b = el('div.speech-bubble', text);
     b.style.left = r.right + 12 + 'px';
@@ -1019,7 +1102,10 @@ export class BattleView {
     this.root.appendChild(b);
     setTimeout(() => b.remove(), 4200);
   }
-  setThinking(on) { this.thinking.classList.toggle('hidden', !on); }
+  setThinking(on, p = null) {
+    this.thinking.classList.toggle('hidden', !on);
+    if (on && p !== null && this.boxes[p]) this.boxes[p].after(this.thinking);
+  }
   setDeadline(deadline, serverNow, kind) {
     this.deadline = deadline ? deadline - serverNow + Date.now() : null;
     this.deadlineKind = kind;
@@ -1031,7 +1117,7 @@ export class BattleView {
     if (!this.deadline || !v || v.phase === 'over') { this.timerEl.textContent = ''; return; }
     const secs = Math.max(0, Math.ceil((this.deadline - Date.now()) / 1000));
     const k = this.deadlineKind;
-    const who = k === 'mulligan' ? 'Opening hand' : k === 'response' ? (v.priority === this.seat ? 'Respond' : 'Opponent responding') : v.active === this.seat ? 'Your turn' : 'Their turn';
+    const who = k === 'setup' ? (v.active === this.seat ? 'Setup' : `${this.nameOf(v.active)} setting up`) : k === 'response' ? (v.priority === this.seat ? 'Respond' : `${this.nameOf(v.priority)} responding`) : v.active === this.seat ? 'Your turn' : `${this.nameOf(v.active)}'s turn`;
     this.timerEl.textContent = `⏱ ${who}: ${secs}s`;
     this.timerEl.classList.toggle('low', secs <= 10 && (k !== 'turn' || v.active === this.seat));
   }
@@ -1039,26 +1125,6 @@ export class BattleView {
   // -------------------------------------------------------------------------
   // Misc UI
   // -------------------------------------------------------------------------
-  async showMulligan() {
-    if (this.mulliganOpen || this.closed) return;
-    this.mulliganOpen = true;
-    const hand = this.view.players[this.seat].hand;
-    const row = el('div.row', { style: { flexWrap: 'wrap', justifyContent: 'center', gap: '10px', maxWidth: '760px' } });
-    for (const iid of hand) {
-      const id = this.view.inst[iid].cardId;
-      const c = cardEl(id, { width: 150, variant: variantFor(iid), tilt: true });
-      c.addEventListener('contextmenu', (e) => { e.preventDefault(); showCardModal(id); });
-      row.appendChild(c);
-    }
-    const first = this.view.first === this.seat;
-    const body = el('div.col', { style: { alignItems: 'center' } },
-      el('p', { style: { margin: 0 } }, first ? 'You go first! (No draw on your first turn.)' : `${this.foeInfo.name} goes first. You get +1 Sap on your first turn.`),
-      row,
-      el('p.muted.tiny', 'Keep this hand, or shuffle it back and draw a new one (once). Every opening hand includes a Zone and a Structure if your deck has them.'));
-    const redraw = await modal({ title: 'Opening Hand', body, closable: false, actions: [{ label: '🔄 Redraw', value: true, cls: 'ghost' }, { label: '✔ Keep', value: false, cls: 'gold' }] });
-    this.mulliganOpen = false;
-    this.act({ type: 'mulligan', redraw: !!redraw });
-  }
   showDiscard(p) {
     const P = this.view.players[p];
     const grid = el('div.card-grid', { style: { '--cw': '130px', maxWidth: '760px' } });
@@ -1070,7 +1136,7 @@ export class BattleView {
       grid.appendChild(c);
     }
     if (!grid.children.length) grid.appendChild(el('p.muted', 'Empty.'));
-    modal({ title: (p === this.seat ? 'Your' : 'Opponent’s') + ' Discard Pile', body: grid });
+    modal({ title: (p === this.seat ? 'Your' : `${this.nameOf(p)}'s`) + ' Discard Pile', body: grid });
   }
   async menu() {
     const r = await modal({
@@ -1100,14 +1166,19 @@ export function variantFor(iid) {
 // ===========================================================================
 // Match flows
 // ===========================================================================
-export async function startLocalBattle({ me, foe, difficulty, rival = null, onFinish }) {
+// me: { name, avatar, deck }; foe: the main opponent { name, avatar, deck } (ladder rival or bot);
+// extra: more bots for 3-4 player formats, in seat order after the foe
+// (for 2v2 the first extra bot is your teammate).
+export async function startLocalBattle({ me, foe, difficulty, rival = null, onFinish, format = '1v1', extra = [] }) {
   playMusic(difficulty >= 8 ? 'boss' : 'battle');
-  const match = new LocalMatch({ me, foe, difficulty });
+  const players = [{ ...me, bot: false }, { ...foe, bot: true, difficulty }, ...extra.map((b) => ({ ...b, bot: true, difficulty: b.difficulty || difficulty }))];
+  const match = new LocalMatch({ players, format });
   let running = false;
   let aiFailures = 0;
   const plansPerTurn = new Map();
+  const infos = players.map((p) => ({ name: p.name, avatar: p.avatar }));
   const ui = new BattleView({
-    seat: 0, mode: 'ai', me: { name: me.name, avatar: me.avatar }, foe: { name: foe.name, avatar: foe.avatar }, rival, difficulty,
+    seat: 0, side: match.state.players[0].side, mode: 'ai', infos, rival, difficulty,
     onAct: async (action) => {
       const r = match.apply(0, action);
       if (!r.ok) { sfx('error'); toast(r.error, 'bad', 1.8); return false; }
@@ -1118,36 +1189,40 @@ export async function startLocalBattle({ me, foe, difficulty, rival = null, onFi
     },
   });
   match.apply(0, { type: 'setAutoRetaliate', on: getProfile().settings.autoRetaliate });
-  ui.onGameOver = (view) => showResults({ ui, view, mode: 'ai', difficulty, rival, onFinish, rematch: () => startLocalBattle({ me, foe, difficulty, rival, onFinish }) });
+  ui.onGameOver = (view) => showResults({ ui, view, mode: 'ai', difficulty, rival, onFinish, rematch: () => startLocalBattle({ me, foe, difficulty, rival, onFinish, format, extra }) });
   window.__knotwood = { match, ui }; // handy for debugging from the console
   ui.sync(match.view());
-  await vsSplash(me, foe, rival);
+  await vsSplash(infos, rival, format);
   async function runAI() {
     if (running || ui.closed) return;
     running = true;
     try {
       let guard = 0;
-      while (match.needsAI() && !ui.closed && guard++ < 400) {
+      while (match.needsAI() && !ui.closed && guard++ < 600) {
         const s = match.state;
-        const key = s.turnSerial;
+        const p = match.actingBot();
+        const key = s.turnSerial + ':' + p;
         plansPerTurn.set(key, (plansPerTurn.get(key) || 0) + 1);
-        if (s.phase === 'play' && !s.chain.length) ui.setThinking(true);
+        const busyTurn = s.phase === 'play' && !s.chain.length;
+        if (busyTurn) ui.setThinking(true, p);
         const t0 = performance.now();
-        let plan = await match.think();
-        const minWait = (s.phase === 'play' && !s.chain.length ? 380 : 150) / ui.speed;
+        let plan = await match.think(p);
+        const minWait = (busyTurn ? 320 : 120) / ui.speed;
         const spent = performance.now() - t0;
         if (spent < minWait) await sleep(minWait - spent);
         ui.setThinking(false);
         if (ui.closed) break;
-        const fallback = s.phase === 'mulligan' ? { type: 'mulligan', redraw: false } : s.chain.length ? { type: 'pass' } : { type: 'endTurn' };
-        if (!plan || !plan.length || plansPerTurn.get(key) > 45 || aiFailures > 4) { plan = [fallback]; aiFailures = 0; }
+        const fallback = s.phase === 'setup' ? { type: 'ready' } : s.chain.length ? { type: 'pass' } : { type: 'endTurn' };
+        if (!plan || !plan.length || plansPerTurn.get(key) > 60 || aiFailures > 4) { plan = [fallback]; aiFailures = 0; }
         for (const a of plan) {
-          if (!match.needsAI() || ui.closed) break;
-          const r = match.apply(1, a);
+          if (match.actingBot() !== p || ui.closed) break;
+          // a response window opened mid-plan: think again rather than push on
+          if (match.state.chain.length && !['pass', 'play', 'consume'].includes(a.type)) break;
+          const r = match.apply(p, a);
           if (!r.ok) {
             aiFailures++;
             console.warn('AI action rejected:', r.error, a);
-            if (aiFailures > 4) { const r2 = match.apply(1, fallback); if (r2.ok) await ui.play(r2.events, match.view()); aiFailures = 0; }
+            if (aiFailures > 4) { const r2 = match.apply(p, fallback); if (r2.ok) await ui.play(r2.events, match.view()); aiFailures = 0; }
             break;
           }
           aiFailures = 0;
@@ -1160,18 +1235,28 @@ export async function startLocalBattle({ me, foe, difficulty, rival = null, onFi
       ui.setThinking(false);
     }
   }
-  // opening: AI mulligans, human decides via modal
   await runAI();
   ui.sync(match.view());
-  if (match.view().phase === 'mulligan') ui.showMulligan();
   return ui;
 }
 
-export async function vsSplash(me, foe, rival) {
-  const node = el('div.vs-screen',
-    el('div.vs-side.me', el('div.avatar', me.avatar), el('div.vs-name', me.name), el('div.vs-quote', '“Let’s do this!”')),
-    el('div.vs-mid', 'VS'),
-    el('div.vs-side.foe', el('div.avatar.foe', foe.avatar), el('div.vs-name', foe.name), rival ? el('div', { style: { opacity: 0.85 } }, rival.title) : null, el('div.vs-quote', '“' + (rival ? rival.quote : 'Good luck, have fun!') + '”')));
+export async function vsSplash(infos, rival, format = '1v1') {
+  const fmt = FORMATS[format] || FORMATS['1v1'];
+  const side = (i, cls) => el('div.vs-side' + cls, el('div.avatar' + (cls === '.foe' ? '.foe' : ''), infos[i].avatar || '🙂'), el('div.vs-name', infos[i].name));
+  let node;
+  if (infos.length === 2) {
+    node = el('div.vs-screen',
+      el('div.vs-side.me', el('div.avatar', infos[0].avatar), el('div.vs-name', infos[0].name), el('div.vs-quote', '“Let’s do this!”')),
+      el('div.vs-mid', 'VS'),
+      el('div.vs-side.foe', el('div.avatar.foe', infos[1].avatar), el('div.vs-name', infos[1].name), rival ? el('div', { style: { opacity: 0.85 } }, rival.title) : null, el('div.vs-quote', '“' + (rival ? rival.quote : 'Good luck, have fun!') + '”')));
+  } else {
+    const teams = {};
+    fmt.teams.forEach((t, i) => { (teams[t] = teams[t] || []).push(i); });
+    const groups = Object.values(teams).map((seats) => el('div.vs-team', ...seats.map((i) => side(i, i === 0 ? '.me' : fmt.teams[i] === fmt.teams[0] ? '.me' : '.foe'))));
+    const parts = [];
+    groups.forEach((g, k) => { if (k) parts.push(el('div.vs-mid', 'VS')); parts.push(g); });
+    node = el('div.vs-screen.multi', el('div.vs-format', fmt.name), el('div.vs-row', ...parts));
+  }
   document.body.appendChild(node);
   sfx('whoosh');
   setTimeout(() => sfx('crit'), 400);
@@ -1184,23 +1269,26 @@ export async function vsSplash(me, foe, rival) {
 
 // ---------------------------------------------------------------------------
 export function computeRewards({ view, mode, difficulty, rival, seat }) {
-  const win = view.winner === seat;
+  const win = view.winners.includes(seat);
   const st = view.stats[seat];
   const lines = [];
   let total = 0;
   const add = (label, n) => { if (!n) return; lines.push([label, n]); total += n; };
+  const bigger = view.players.length > 2 ? 1.25 : 1;
   if (mode === 'ai') {
     const base = rival ? (win ? rival.reward : Math.round(rival.reward * 0.3)) : win ? 40 + difficulty * 15 : 15 + difficulty * 3;
-    add(win ? 'Victory' : 'Participation', base);
+    add(win ? 'Victory' : 'Participation', Math.round(base * bigger));
   } else add(win ? 'Online Victory' : 'Online Match', win ? 150 : 50);
-  add(`Structures destroyed ×${st.structures}`, Math.min(30, st.structures * 6));
-  add(`Lanes captured ×${st.captures}`, Math.min(20, st.captures * 4));
+  add(`Structures destroyed ×${st.structures}`, Math.min(30, st.structures * 5));
+  add(`Lanes captured ×${st.captures}`, Math.min(24, st.captures * 6));
   add(`Foes defeated ×${st.kills}`, Math.min(20, st.kills * 2));
-  if (win && view.stats[1 - seat].structures === 0) add('Flawless Defense', 20);
+  add(`Players eliminated ×${st.eliminations}`, Math.min(30, st.eliminations * 10));
+  const lost = view.players.reduce((n, P, q) => n + (P.team !== view.players[seat].team ? view.stats[q].structures : 0), 0);
+  if (win && lost === 0) add('Flawless Defense', 20);
   const p = getProfile();
   if (win && firstWinToday()) add('First win of the day', 100);
   if (win && mode === 'ai' && rival && !p.ladder.beaten.includes(rival.id)) add('Rival defeated for the first time!', 100);
-  if (view.winReason === 'Concession' && !win && mode === 'online' && view.round < 3) { total = 0; lines.length = 0; lines.push(['Conceded early', 0]); }
+  if (!win && mode === 'online' && view.round < 3 && view.players[seat].eliminated && view.winReason === 'Elimination' && st.damage === 0) { total = 0; lines.length = 0; lines.push(['Conceded early', 0]); }
   return { win, lines, total };
 }
 
@@ -1227,7 +1315,7 @@ export async function showResults({ ui, view, mode, difficulty = 0, rival = null
   const quote = rival ? (res.win ? pick(['Hmph… you’re better than I thought.', 'Wow, you really beat me!', 'I’ll get you next time!']) : pick(['Ha! Better luck next time!', 'The forest favors me today.', 'Come back when you’ve trained more!'])) : null;
   const panel = el('div.win.gold', { style: { minWidth: 'min(460px, 92vw)', textAlign: 'center' } },
     el('div.win-title', 'RESULTS'),
-    el('p', { style: { margin: '0 0 6px' } }, `${view.players[view.winner]?.name || '?'} wins by ${view.winReason}. · Round ${view.round}`),
+    el('p', { style: { margin: '0 0 6px' } }, `${view.winners.map((q) => view.players[q]?.name || '?').join(' & ') || '?'} win${view.winners.length > 1 ? '' : 's'} by ${view.winReason}. · Round ${view.round}`),
     rival ? el('p.muted', `${rival.avatar} ${rival.name}: “${quote}”`) : null,
     lines,
     el('div.row', { style: { justifyContent: 'center', marginTop: '12px', flexWrap: 'wrap' } },

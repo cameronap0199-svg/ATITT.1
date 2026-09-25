@@ -1,9 +1,11 @@
 # Knotwood — Complete Rules Reference
 
-This document combines two sources:
+This document combines two design documents, both implemented as written:
 
-* the **Phase 2 – Card Framework** design document (card types, classes, factions, archetypes, rarity, boosters and visual language), which the game implements as written;
-* the **core play rules** (board, resources, turn structure, win condition), which the framework assumes but does not define. They were designed to fit it and are marked **[Core]** below.
+* **Phase 1 – Core Game Rules** (objective, formats, battlefield, territory, turn structure, hand, combat, response sequence);
+* **Phase 2 – Card Framework** (card types, classes, factions, archetypes, rarity, boosters and visual language).
+
+Where the documents leave a number or a detail open, the game's choice is marked **[Impl]**.
 
 All numbers live in [`shared/constants.js`](../shared/constants.js) and can be tuned in one place.
 
@@ -38,86 +40,80 @@ All numbers live in [`shared/constants.js`](../shared/constants.js) and can be t
 | Poacher | 15% | 32% | 15% | 23% | 15% |
 | Forager | 21% | 18% | 25% | 18% | 18% |
 
-**[Core]** An Identity's budget is `ISB = 8 + 3 × Sap cost` (+1 for Silver/Gold, +2 for Crystal/Void, +3 for Infinite). Results are rounded. AP is capped at 6 and RP at 4 for the board size.
+**[Impl]** Each Identity has a power **tier** 1–6 (the number in the card's corner). Its budget is `ISB = 16 + 4 × tier` (+2 for Silver/Gold, +4 for Crystal/Void, +6 for Infinite). Results are rounded. For the board's scale, AP is capped at 8 and RP at 5, AP is at least 3 and MP at least 2 (so every Identity can attack). Body is multiplied by 2 so fights last more than one hit.
 
 Every Identity has a **Unique Ability** and a **Shared Ability** set by its Class + Archetype. All 75 Shared Abilities from the framework are implemented word for word.
 
 ---
 
-## 2. The battlefield [Core]
+## 2. Objective & formats
 
-* **5 Lanes**, each **2 tiles wide** and **8 tiles long** (a 10 × 8 grid). Each player's **half** is the 4 rows nearest them.
-* Each Lane has a **Structure slot** at each end, just behind that player's first row. A Structure counts as occupying both of its Lane's columns, one step behind the edge row.
-* **Distance** is counted in tiles and includes diagonals (Chebyshev distance). "Adjacent" means distance 1.
-* **Setup:** each player starts with a *Homeland* Zone and a *Base Camp* Structure (12 BP, Housing 3) in their home Lane: Lane 2 for the first seat and Lane 4 for the second.
+* Dominate the battlefield by expanding territory and **eliminating** opponents. The last player (or team) remaining wins.
+* A player stays active while they control **at least one Structure or at least one Identity**. With **no Structures and no Identities** they are eliminated and everything they control is removed. Losing the final Structure doesn't eliminate a player who still has Identities.
+* **Formats:** **1v1**; **2v2** (two teams; a team wins when both opposing players are eliminated; one teammate may be knocked out while the other plays on); **Free-for-All** with 3 or 4 players.
+* **[Impl]** A player is only checked for elimination after they have had 3 turns or once they have put a Structure or Identity into play, so nobody is knocked out before they can build. A safety limit of **60 rounds** awards the win to the team with the most Structure BP + Identities.
 
-## 3. Resources [Core]
+## 3. The battlefield
 
-* **Sap** is refilled at the start of each of your turns to **3 + (turns taken − 1)**, up to a maximum of 10. The second player gets +1 Sap on their first turn. Unspent Sap stays available for Responses during your opponent's turn.
-* **MP** starts full. Each Identity restores **2 MP** at the start of its controller's turn.
-* **Renown** is the victory track.
+* A **square, tile-based** board. Each player sits on one side with **three adjacent Home Lanes**, each **5 tiles wide and 12 tiles long**.
+* **[Impl]** The board is 39 × 39: four 15-tile-wide arms of Lanes around a central 15 × 15 **Void**. The four 12 × 12 corners are off the board, so it is plus-shaped. Arms without a player are Void as well. The client always rotates the board so your side is at the bottom.
+* **The Void** is neutral and can't be claimed or hold Zones or Structures. Identities may enter it, cross it and stand in it, using normal movement. Adjacent Lanes can be crossed directly.
+* Each Lane holds **one Zone** and **one Structure**. **Distance** counts diagonals (Chebyshev); "adjacent" means distance 1.
+* **Setup:** starting with a random first player, each player may place Zones into their own Home Lanes. No Identity is required there, and this exception only applies to starting Home Lanes. Play then proceeds clockwise.
 
-## 4. Deck & hand [Framework + Core]
+## 4. Territory
 
-* Decks have **60–120 cards**, with at most **3 copies** of any card regardless of rarity.
-* **Opening hand:** 6 cards, always including one Zone and one Structure if the deck contains them. Each player may **redraw once**.
-* The first player skips their first draw. Hand limit is **10**; further draws are discarded. Drawing from an empty deck costs 2 Renown instead.
+* **Zones:** a Lane without a Zone is **unclaimed**. Playing a Zone there takes control. To claim or replace a Lane **outside your Home Lanes** you need at least one of your Identities in it. A Zone stays until replaced.
+* **Structures:** built on a tile inside a Lane whose Zone you control, one per Lane. There is no battlefield-wide limit. Each has BP, one ability and a **Housing Capacity** set by its Class: **Shelter 3, Bastion 2, Den 5, Landmark 3, Facility 3**. Housing is an **active-unit cap**: Identities summoned through it count while they live. It is not a per-turn limit. **[Impl]** Structure BP is the card's base value × 2.5.
+* **Capturing an enemy Lane:**
+  1. at least one of your Identities enters the Lane;
+  2. its enemy Structure is destroyed;
+  3. the Zone can't be replaced during the turn the Structure fell;
+  4. the defender receives **their next turn to rebuild**;
+  5. after that turn, if it hasn't been rebuilt, the Zone becomes eligible;
+  6. with an Identity in the Lane, you play your own Zone to replace it and control transfers immediately.
 
-## 5. Turn structure [Core]
+  Enemy Identities do not have to be removed first.
+* Destroying a Structure does **not** destroy the Identities it summoned.
 
-1. **Start of turn:** refill Sap. Gain Renown (see §8). Ready your Identities, reset their AP and attacks, and restore MP. Resolve start-of-turn effects. Draw a card.
-2. **Main phase:** in any order and as often as you can afford:
-   * play cards;
-   * **activate** Identities (move, attack, use abilities);
-   * use attached Consumables;
-   * **Forage** once per turn: pay 1 Sap, discard a card, draw a card.
-3. **End of turn:** end-of-turn effects, then **Liberation** (§7). Effects that last "this turn" expire.
+## 5. Hand & deck
 
-## 6. Playing cards
+* Decks have **60–120 cards**, at most **3 copies** of any card, with no Class/Faction/Type restrictions.
+* **Hand size is 7.** In the **Draw Phase** you draw until you hold 7. **[Impl]** Effects that would draw beyond 7 discard the extra card. Your opening hand is 7 cards, including a Zone, a Structure and an Identity if the deck has them.
+* In the **End Phase** you may discard any number of cards (none, some or all).
+* When you need to draw and your deck is empty, shuffle your discard pile into a new deck and keep drawing.
 
-| Type | How to play [Core] |
-|---|---|
-| **Zone** | Target an **open** Lane, or **your own** Lane with no Structure (the old Zone is replaced). To **capture** an enemy Lane, it must have no enemy Structure and you must have an Identity in the **enemy's half** of that Lane. Capturing gives +2 Renown. A Zone cannot be replaced while its Structure stands (framework). |
-| **Structure** | Build in a Lane you control that has no Structure. |
-| **Identity** | Summon it onto an empty tile adjacent to one of your Structures that has free **Housing**. Housing counts living Identities summoned through that Structure (framework). Summoned Identities may act immediately. |
-| **Equipment** | Attach to a friendly Identity. One Equipment slot; attaching another replaces it (framework). |
-| **Consumable** | Attach to a friendly Identity (one slot). Use it later from that Identity; it is then discarded (framework). |
-| **Action / Event** | Resolve the effect. **⚡ Response** cards may also be played while a chain is open. |
+## 6. Turn structure
 
-## 7. Identities, combat and Lanes [Core]
+1. **Draw** up to 7.
+2. **Zone** — claim Lanes / capture eligible Lanes.
+3. **Build** — build Structures.
+4. **Summon** — summon Identities through Structures with free Housing. Each one is deployed onto any empty tile of that Structure's Lane.
+5. **Equipment** — attach Equipment and Consumables (one slot each per Identity).
+6. **Movement & Combat** — activate Identities one at a time.
+7. **End** — effects that end "this turn" expire, you may discard cards, then play passes clockwise.
 
-### Activation
-* Selecting an Identity and moving, attacking or using an ability with it **activates** it. Acting with a different Identity ends the previous activation. An Identity whose activation has ended is **done** for the turn.
-* During an activation an Identity may:
-  * move up to its **AP** in any direction, one tile at a time;
-  * make **one attack**;
-  * use each of its abilities **once**, paying MP;
-  * do these in any order.
-* **Free Steps.** "May move 1 tile" effects grant a Free Step. It can be used any time during your turn, even after the Identity is done, and expires at the end of your turn.
+**[Impl]** Playing a card moves you forward to its phase, and you can't go back. You can also skip ahead from the phase tracker. Actions and Events may be played at any point in your turn. At the **start of each of your turns**, your Identities recover all lost **BP** and refresh their **MP**.
 
-### Attacks
-* Target an enemy Identity or Structure within **RP**. The target takes damage equal to the attacker's **SP**, adjusted by bonuses and reductions. An attack from 2 or more tiles away is a **ranged attack**.
-* **Retaliation:** a defending Identity that survives, with the attacker within its RP, automatically spends **1 MP** to deal **half its SP** (rounded up) back.
-* **Forced movement** (push/pull) that is blocked by an edge, obstacle or unit deals **1 collision damage**.
-* An Identity reduced to 0 BP is defeated and goes to the discard pile with its attachments. A Structure reduced to 0 BP is destroyed and gives its attacker's controller **+3 Renown**.
+## 7. Movement & combat
 
-### Lanes
-* An Identity in a Lane its controller owns is **defending**. In an enemy Lane it is **invading**. A Lane with Identities from both players is **contested**.
-* **Liberation:** at the end of your turn, an enemy Lane with no enemy Structure and no enemy Identities, where you have an Identity in the enemy's half, becomes **open** (+1 Renown).
+* **Activation:** select an Identity, move it (optional), then immediately resolve any attacks or abilities, then finish and pick another. Each Identity **moves once per turn** (unless an effect allows more), up to its **AP** in tiles, orthogonally or diagonally. It can't pass through other Identities or share a tile. There are no opportunity attacks. Once it starts attacking or using abilities it can't keep moving unless an effect says so.
+* **Attacks** target any enemy Identity or Structure within **RP** tiles, dealing **SP** damage. Other units don't block attacks, and Structures can be attacked even with defenders nearby. **[Impl]** A basic attack costs **2 MP**.
+* **Abilities** cost MP. An Identity may keep attacking and using abilities while it can pay, so MP determines how much it does per turn.
+* **Retaliation:** when an Identity is attacked and survives, it may strike back at the attacker if the attacker is within its RP, paying the attack's MP cost. **[Impl]** This is automatic (toggle in Settings) and deals full SP.
+* **[Impl] Free Steps:** "may move 1 tile" effects grant a Free Step. It can be used during your turn even after the Identity has finished, and expires at end of turn.
+* **Forced movement** (push/pull) that is blocked deals **1 collision damage**.
+* An Identity reduced to 0 BP is defeated and discarded with its attachments. **[Impl]** Tokens are capped at 6 per player.
 
-## 8. Winning [Core]
+## 8. Lanes & positions
 
-* At the start of your turn, gain **+1 Renown for each Lane you control that holds your Structure**.
-* **+3** for destroying an enemy Structure, **+2** for capturing a Lane, **+1** for liberating a Lane.
-* The first player to **20 Renown** wins.
-* Controlling **all 5 Lanes** at the start of your turn wins instantly (**Dominion**).
-* After **round 30**, the player with more Renown wins.
+* An Identity in a Lane its team controls is **defending**, and one in an enemy Lane is **invading**. A Lane with opposing Identities in it is **contested**. Many Shared Abilities key off these.
 
-## 9. The chain (responses) [Framework + Core]
+## 9. Response sequence
 
-* Declaring an attack or playing an Action/Event opens a **chain**. The opponent receives priority and may play a **⚡ Response**. Each Response gives priority back to the other player.
-* When a player **passes**, the chain resolves **newest to oldest** (framework).
-* Targets are re-checked on resolution. An attack whose target is out of range **misses**, and a card whose target is gone **fizzles**.
+* Declaring an attack, playing an Action/Event, or using a Consumable opens a **response sequence**. Every other player, in turn order, may add a **⚡ Response** (a Reaction card or a Consumable marked as a response). Each response gives everyone another chance.
+* When every player passes in a row, the sequence resolves **newest to oldest**. **[Impl]** The player who added the newest item isn't asked again about their own item, and players with no legal response are skipped automatically.
+* Targets are re-checked on resolution: an attack whose target moved out of range **misses**, and a card whose target is gone **fizzles**.
 
 ## 10. Boosters (framework)
 
@@ -135,15 +131,15 @@ Every Identity has a **Unique Ability** and a **Shared Ability** set by its Clas
 * **Hidden Affinity Profile:** 3 Classes (×1.30 weight) and 3 Factions (×1.35 weight).
 * **Duplicates within a pack:** the second copy has ×0.5 weight and the third ×0.1.
 * **Cosmetics:** 81 cosmetic variants (3 primary × 3 secondary × 3 accent colours × 3 patterns) and an 8% foil chance. These never affect gameplay.
-* **[Core]** Copies beyond 3 in your collection are recycled into Acorns.
+* **[Impl]** Copies beyond 3 in your collection are recycled into Acorns.
 
-## 11. Economy & progression [Core]
+## 11. Economy & progression [Impl]
 
 * New players start with the 60-card **Beginner's Grove** deck, 300 Acorns and 1 free booster.
 * **Match rewards (Acorns):**
-  * Win vs AI: 40 + 15 × difficulty (Adventure rivals pay their listed reward). Loss: 15 + 3 × difficulty.
+  * Win vs AI: 40 + 15 × difficulty (Adventure rivals pay their listed reward). Loss: 15 + 3 × difficulty. Multiplayer formats pay ×1.25.
   * Online: 150 for a win, 50 for a loss.
-  * Bonuses: destroyed Structures, captured Lanes, defeated foes, Flawless Defense, first win of the day (+100), and first victory over an Adventure rival (+100 and a free pack).
+  * Bonuses: destroyed Structures, captured Lanes, defeated foes, eliminated players, Flawless Defense, first win of the day (+100), and first victory over an Adventure rival (+100 and a free pack).
   * Daily login gift: +100.
 * **Shop prices:**
   * Booster: 100

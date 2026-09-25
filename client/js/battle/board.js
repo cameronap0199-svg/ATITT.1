@@ -1,14 +1,16 @@
-// 3D tabletop board: lanes, tiles, structures, standee units, highlights and camera.
+// 3D tabletop board: a plus-shaped 39x39 battlefield with each player's three Home
+// Lanes on one side and the Void in the middle. The view is rotated so the local
+// player's side is always at the bottom of the screen.
 import { el, clear } from '../ui.js';
 import { artSVG, RARITY_COLORS } from '../cardView.js';
 import { getCard } from '../../../shared/cards.js';
-import { LANES, LANE_WIDTH, COLS, ROWS } from '../../../shared/constants.js';
+import { SIZE, LANE_L, SIDES } from '../../../shared/constants.js';
+import { onBoard, laneRect } from '../../../shared/engine.js';
 import { hashString } from '../../../shared/rng.js';
 
-const TILE = 84;
-const SROW = 116;
-export const BW = COLS * TILE;
-export const BH = ROWS * TILE + SROW * 2;
+const TILE = 64;
+export const BW = SIZE * TILE;
+export const BH = SIZE * TILE;
 
 const LANE_PALETTES = [
   ['#4f8a4a', '#2f5e33'], ['#3f7d6d', '#285549'], ['#6a8a3c', '#445f25'], ['#5d7a4a', '#3a5530'], ['#487a5e', '#2d5540'],
@@ -16,17 +18,34 @@ const LANE_PALETTES = [
 ];
 const NEUTRAL = ['#5b6b52', '#3e4a38'];
 
+// Player colours: you are always blue, a teammate green, opponents red / amber / violet.
+export const ME_COLOR = ['#4fb3ff', 'rgba(79,179,255,.9)'];
+export const ALLY_COLOR = ['#5fe39a', 'rgba(95,227,154,.9)'];
+export const FOE_COLORS = [['#ff5a6e', 'rgba(255,90,110,.9)'], ['#ffa94a', 'rgba(255,169,74,.9)'], ['#c07dff', 'rgba(192,125,255,.9)']];
+export function colorsFor(view, seat) {
+  const out = {};
+  let k = 0;
+  view.players.forEach((P, q) => {
+    if (q === seat) out[q] = ME_COLOR;
+    else if (P.team === view.players[seat].team) out[q] = ALLY_COLOR;
+    else out[q] = FOE_COLORS[k++ % FOE_COLORS.length];
+  });
+  return out;
+}
+
 const STATUS_ICONS = {
   guard: '🛡️', marked: '🎯', stasis: '🧊', nextAttack: '⚔️', healReduce: '☠️', abilitiesFree: '✨', freeAbility: '✨', anchored: '⚓',
 };
 
 export class Board {
-  constructor(seat, handlers) {
+  constructor(seat, side, handlers) {
     this.seat = seat;
+    this.side = side;
     this.h = handlers;
     this.units = new Map();
     this.structs = new Map();
-    this.cam = { x: BW / 2, y: BH / 2 + 30, z: 0.8, tilt: 42, rot: 0 };
+    this.lit = new Set();
+    this.cam = { x: BW / 2, y: BH / 2, z: 0.8, tilt: 44, rot: 0 };
     this.target = { ...this.cam };
     this.stage = el('div.stage');
     this.world = el('div.world');
@@ -45,74 +64,113 @@ export class Board {
   destroy() { cancelAnimationFrame(this._raf); removeEventListener('resize', this._onResize); this.destroyed = true; }
 
   // ---- coordinates ------------------------------------------------------
-  dx(x) { return this.seat === 0 ? x : COLS - 1 - x; }
-  dy(y) { return this.seat === 0 ? ROWS - 1 - y : y; }
-  tilePx(x, y) { return { left: this.dx(x) * TILE, top: SROW + this.dy(y) * TILE }; }
-  tileCenter(x, y) { const p = this.tilePx(x, y); return { x: p.left + TILE / 2, y: p.top + TILE / 2 }; }
-  laneLeft(l) { const dl = this.seat === 0 ? l : LANES - 1 - l; return dl * LANE_WIDTH * TILE; }
-  structCenter(lane, owner) {
-    const x = this.laneLeft(lane) + TILE;
-    const y = owner === this.seat ? SROW + ROWS * TILE + SROW / 2 : SROW / 2;
-    return { x, y };
+  // Board (x, y) -> display (X, Y) with this player's side at the bottom.
+  disp(x, y) {
+    const M = SIZE - 1;
+    switch (this.side) {
+      case 'N': return { X: M - x, Y: M - y };
+      case 'W': return { X: y, Y: M - x };
+      case 'E': return { X: M - y, Y: x };
+      default: return { X: x, Y: y };
+    }
   }
+  tilePx(x, y) { const d = this.disp(x, y); return { left: d.X * TILE, top: d.Y * TILE }; }
+  tileCenter(x, y) { const p = this.tilePx(x, y); return { x: p.left + TILE / 2, y: p.top + TILE / 2 }; }
+  rectPx(r) {
+    const a = this.disp(r.x0, r.y0), b = this.disp(r.x0 + r.w - 1, r.y0 + r.h - 1);
+    const X0 = Math.min(a.X, b.X), Y0 = Math.min(a.Y, b.Y);
+    return { left: X0 * TILE, top: Y0 * TILE, width: (Math.abs(a.X - b.X) + 1) * TILE, height: (Math.abs(a.Y - b.Y) + 1) * TILE };
+  }
+  // Is a Lane long along the screen's vertical axis?
+  laneVertical(ln) { const r = this.rectPx(ln); return r.height > r.width; }
 
   // ---- build static board -----------------------------------------------
   build() {
     const b = this.board;
     b.appendChild(el('div.table-top'));
+    // the Void: centre square plus any side without a player (filled in by setLanes)
+    const c = LANE_L;
+    const mid = SIZE - 2 * LANE_L;
+    this.voidLayer = el('div');
+    this.voidLayer.appendChild(el('div.void-bg', { style: this.boxStyle(this.rectPx({ x0: c, y0: c, w: mid, h: mid })) }, el('div.void-label', 'THE VOID')));
+    b.appendChild(this.voidLayer);
+    this.laneLayer = el('div');
+    b.appendChild(this.laneLayer);
     this.laneEls = [];
-    for (let l = 0; l < LANES; l++) {
-      const lane = el('div.lane-bg', { style: { left: this.laneLeft(l) + 'px', width: LANE_WIDTH * TILE + 'px', height: BH + 'px' }, dataset: { lane: l } });
-      const decal = el('div.lane-decal', el('div.ld-emoji', ''), el('div.ld-name', ''), el('div.ld-owner', ''));
-      lane.appendChild(decal);
-      lane.appendChild(el('div.lane-num', { style: { top: SROW - 22 + 'px' } }, 'LANE ' + (l + 1)));
-      lane.addEventListener('click', (e) => { if (this.justPanned) return; if (e.target === lane || e.target.closest('.lane-decal')) this.h.onLane && this.h.onLane(l, e); });
-      b.appendChild(lane);
-      this.laneEls.push({ lane, decal });
-    }
-    b.appendChild(el('div.midline', { style: { top: SROW + (ROWS / 2) * TILE + 'px' } }));
+    // tiles (event delegation keeps this cheap)
     this.tiles = new Map();
-    for (let x = 0; x < COLS; x++) {
-      for (let y = 0; y < ROWS; y++) {
+    const frag = document.createDocumentFragment();
+    for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < SIZE; y++) {
+        if (!onBoard(x, y)) continue;
         const p = this.tilePx(x, y);
-        const t = el('div.tile', { style: { left: p.left + 'px', top: p.top + 'px' }, dataset: { x, y } });
-        t.addEventListener('click', (e) => { if (this.justPanned) return; this.h.onTile && this.h.onTile({ x, y }, e); });
-        t.addEventListener('pointerenter', () => this.h.onTileHover && this.h.onTileHover({ x, y }));
-        t.addEventListener('pointerleave', () => this.h.onTileHover && this.h.onTileHover(null));
-        b.appendChild(t);
+        const t = document.createElement('div');
+        t.className = 'tile';
+        t.style.left = p.left + 'px';
+        t.style.top = p.top + 'px';
+        t.dataset.x = x;
+        t.dataset.y = y;
+        frag.appendChild(t);
         this.tiles.set(x + ',' + y, t);
       }
     }
-    this.slots = [];
-    for (let l = 0; l < LANES; l++) {
-      for (const owner of [0, 1]) {
-        const c = this.structCenter(l, owner);
-        const slot = el('div.struct-slot', { style: { left: this.laneLeft(l) + 'px', width: LANE_WIDTH * TILE + 'px', top: (c.y - SROW / 2) + 'px' } }, el('div.pad'));
-        slot.addEventListener('click', (e) => { if (this.justPanned) return; if (e.target === slot || e.target.classList.contains('pad')) this.h.onLane && this.h.onLane(l, e); });
-        b.appendChild(slot);
-        this.slots.push({ l, owner, slot });
-      }
-    }
+    this.tileLayer = el('div.tile-layer');
+    this.tileLayer.appendChild(frag);
+    b.appendChild(this.tileLayer);
+    const tileOf = (e) => { const t = e.target.closest && e.target.closest('.tile'); return t ? { x: +t.dataset.x, y: +t.dataset.y } : null; };
+    this.tileLayer.addEventListener('click', (e) => { if (this.justPanned) return; const p = tileOf(e); if (p && this.h.onTile) this.h.onTile(p, e); });
+    let lastHover = null;
+    this.tileLayer.addEventListener('pointerover', (e) => {
+      const p = tileOf(e);
+      const k = p ? p.x + ',' + p.y : null;
+      if (k === lastHover) return;
+      lastHover = k;
+      this.h.onTileHover && this.h.onTileHover(p);
+    });
+    this.tileLayer.addEventListener('pointerleave', () => { lastHover = null; this.h.onTileHover && this.h.onTileHover(null); });
     this.layer = el('div', { style: { position: 'absolute', inset: 0, transformStyle: 'preserve-3d', pointerEvents: 'none' } });
     b.appendChild(this.layer);
+  }
+  boxStyle(r) { return { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' }; }
+
+  // Lanes are created once the view (and so the seating) is known.
+  setLanes(view) {
+    if (this.lanesBuilt) return;
+    this.lanesBuilt = true;
+    const seated = new Set(view.players.map((P) => P.side));
+    for (const side of SIDES) {
+      if (seated.has(side)) continue;
+      const a = laneRect(side, 0), z = laneRect(side, 2);
+      const x0 = Math.min(a.x0, z.x0), y0 = Math.min(a.y0, z.y0);
+      const x1 = Math.max(a.x0 + a.w, z.x0 + z.w), y1 = Math.max(a.y0 + a.h, z.y0 + z.h);
+      this.voidLayer.appendChild(el('div.void-bg.arm', { style: this.boxStyle(this.rectPx({ x0, y0, w: x1 - x0, h: y1 - y0 })) }));
+    }
+    view.lanes.forEach((ln, l) => {
+      const r = this.rectPx(ln);
+      const vertical = r.height > r.width;
+      const lane = el('div.lane-bg' + (vertical ? '' : '.horiz'), { style: this.boxStyle(r), dataset: { lane: l } });
+      const decal = el('div.lane-decal', el('div.ld-emoji', ''), el('div.ld-name', ''), el('div.ld-owner', ''));
+      lane.appendChild(decal);
+      this.laneLayer.appendChild(lane);
+      this.laneEls.push({ lane, decal });
+    });
   }
 
   // ---- sync with game view ------------------------------------------------
   sync(view, G) {
     this.view = view;
     this.G = G;
-    // lanes
-    view.lanes.forEach((ln, l) => this.syncLane(l, ln.zone ? view.inst[ln.zone] && view.inst[ln.zone].cardId : null, ln.ctrl));
-    // structures
+    this.colors = colorsFor(view, this.seat);
+    this.setLanes(view);
+    view.lanes.forEach((ln, l) => this.syncLane(l, ln.zone ? view.inst[ln.zone] && view.inst[ln.zone].cardId : null, ln.ctrl, ln));
     const seenS = new Set();
     for (const st of Object.values(view.structs)) {
       seenS.add(st.iid);
       let node = this.structs.get(st.iid);
-      if (!node) node = this.addStruct(st.iid, st.cardId, st.lane, st.owner);
+      if (!node) node = this.addStruct(st.iid, st.cardId, st.owner, st.x, st.y);
       this.updateStruct(node, st, G);
     }
     for (const [iid, node] of this.structs) if (!seenS.has(iid) && !node.dataset.dying) { node.remove(); this.structs.delete(iid); }
-    // units
     const seen = new Set();
     for (const u of Object.values(view.units)) {
       seen.add(u.iid);
@@ -122,32 +180,45 @@ export class Board {
       this.updateUnit(node, u, G);
     }
     for (const [iid, node] of this.units) if (!seen.has(iid) && !node.dataset.dying) { node.remove(); this.units.delete(iid); }
-    // obstacles
     this.layer.querySelectorAll('.obstacle').forEach((o) => o.remove());
     for (const o of view.obstacles || []) this.addObstacle(o.x, o.y);
   }
+  sideColor(owner) { return (this.colors && this.colors[owner]) || ['#fff', '#fff']; }
+  paint(node, owner) {
+    const [c, g] = this.sideColor(owner);
+    node.style.setProperty('--side', c);
+    node.style.setProperty('--side-glow', g);
+  }
 
-  syncLane(l, zoneCardId, ctrl) {
-    const { lane, decal } = this.laneEls[l];
+  syncLane(l, zoneCardId, ctrl, ln = null) {
+    const entry = this.laneEls[l];
+    if (!entry) return;
+    const { lane, decal } = entry;
     const card = zoneCardId ? getCard(zoneCardId) : null;
     const pal = card ? LANE_PALETTES[hashString(card.id) % LANE_PALETTES.length] : NEUTRAL;
     lane.style.setProperty('--lane-a', pal[0]);
     lane.style.setProperty('--lane-b', pal[1]);
-    lane.classList.toggle('mine', ctrl === this.seat);
-    lane.classList.toggle('theirs', ctrl !== null && ctrl !== undefined && ctrl !== this.seat);
+    const owned = ctrl !== null && ctrl !== undefined;
+    if (owned) this.paint(lane, ctrl); else { lane.style.removeProperty('--side'); lane.style.removeProperty('--side-glow'); }
+    lane.classList.toggle('owned', owned);
+    const view = this.view;
+    const home = ln && view ? view.players[ln.home] : null;
     decal.children[0].textContent = card ? card.emoji : '🌾';
     decal.children[1].textContent = card ? card.name : 'Unclaimed';
-    decal.children[2].textContent = ctrl === null || ctrl === undefined ? 'OPEN LANE' : ctrl === this.seat ? 'YOUR LANE' : 'ENEMY LANE';
-    decal.children[2].style.color = ctrl === null || ctrl === undefined ? '#ddd' : ctrl === this.seat ? '#9fd6ff' : '#ffb0bb';
-    lane.dataset.tip = card ? `<b>${card.name}</b> (${card.cls} Zone)<br>${card.text}` : '<b>Open Lane</b><br>Play a Zone here to claim it.';
+    const who = !owned ? 'OPEN LANE' : ctrl === this.seat ? 'YOUR LANE' : `${(view && view.players[ctrl].name) || 'ENEMY'}'S LANE`;
+    decal.children[2].textContent = who + (ln && ln.grace ? ' · REBUILDING' : '');
+    decal.children[2].style.color = !owned ? '#ddd' : this.sideColor(ctrl)[0];
+    lane.dataset.tip = (card ? `<b>${card.name}</b> (${card.cls} Zone)<br>${card.text}` : '<b>Unclaimed Lane</b><br>Play a Zone here to claim it.')
+      + (home ? `<br><span class="muted">${home.name}'s Home Lane ${ln.i + 1}</span>` : '');
   }
 
-  addStruct(iid, cardId, lane, owner) {
+  addStruct(iid, cardId, owner, x, y) {
     const card = getCard(cardId);
-    const c = this.structCenter(lane, owner);
+    const c = this.tileCenter(x, y);
     const node = el('div.structure' + (owner === this.seat ? '.mine' : '.theirs'), { style: { left: c.x + 'px', top: c.y + 'px' }, dataset: { iid } },
       el('div.foot'), el('div.ring'),
       el('div.bb', el('div.bld', card.emoji), el('div.sname', card.name), el('div.hpbar', el('i.ghost'), el('i'), el('span.hpt')), el('div.housing')));
+    this.paint(node, owner);
     node.addEventListener('click', (e) => { if (this.justPanned) return; e.stopPropagation(); this.h.onStruct && this.h.onStruct(iid, e); });
     node.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); this.h.onInspect && this.h.onInspect(iid); });
     node.addEventListener('pointerenter', () => this.h.onHoverEntity && this.h.onHoverEntity(iid));
@@ -176,17 +247,18 @@ export class Board {
       el('div.sb', el('div.sb-in',
         el('div.ready-dot', '!'),
         el('div.lbadges'), el('div.badges'),
-        el('div.portrait', { style: { '--rcol': RARITY_COLORS[card.rarity] || '#fff' }, html: artSVG(card, (hashString(iid) % 81)) }, el('div.pe', card.emoji), el('div.pcost', String(card.cost)), el('div.pside')),
+        el('div.portrait', { style: { '--rcol': RARITY_COLORS[card.rarity] || '#fff' }, html: artSVG(card, (hashString(iid) % 81)) }, el('div.pe', card.emoji), el('div.pside')),
         el('div.uname', card.name),
         el('div.hpbar', el('i.ghost'), el('i'), el('span.hpt')),
         el('div.mpbar'))));
+    this.paint(node, owner);
     const sb = node.querySelector('.sb');
     sb.addEventListener('click', (e) => { if (this.justPanned) return; e.stopPropagation(); this.h.onUnit && this.h.onUnit(iid, e); });
     node.addEventListener('click', (e) => { if (this.justPanned) return; e.stopPropagation(); this.h.onUnit && this.h.onUnit(iid, e); });
     const ctx = (e) => { e.preventDefault(); e.stopPropagation(); this.h.onInspect && this.h.onInspect(iid); };
     sb.addEventListener('contextmenu', ctx);
     node.addEventListener('contextmenu', ctx);
-    sb.addEventListener('dblclick', () => this.focusTile(this.view && this.view.units[iid] ? this.view.units[iid] : { x, y }, 1.15));
+    sb.addEventListener('dblclick', () => this.focusTile(this.view && this.view.units[iid] ? this.view.units[iid] : { x, y }, 1.3));
     sb.addEventListener('pointerenter', () => this.h.onHoverEntity && this.h.onHoverEntity(iid));
     sb.addEventListener('pointerleave', () => this.h.onHoverEntity && this.h.onHoverEntity(null));
     this.layer.appendChild(node);
@@ -207,7 +279,7 @@ export class Board {
     setHp(node.querySelector('.hpbar'), u.bp, st.maxBp);
     const mp = node.querySelector('.mpbar');
     clear(mp);
-    for (let i = 0; i < Math.min(8, st.maxMp); i++) mp.appendChild(el('i' + (i < u.mp ? '.on' : '')));
+    for (let i = 0; i < Math.min(10, st.maxMp); i++) mp.appendChild(el('i' + (i < u.mp ? '.on' : '')));
     node.classList.toggle('done', u.state === 'done' && u.owner === this.seat);
     const myTurn = this.view && this.view.active === this.seat && this.view.phase === 'play' && !this.view.chain.length;
     const rd = node.querySelector('.ready-dot');
@@ -238,20 +310,21 @@ export class Board {
 
   // ---- highlights ----------------------------------------------------------
   clearHighlights() {
-    for (const t of this.tiles.values()) t.className = 'tile';
+    for (const t of this.lit) t.className = 'tile';
+    this.lit.clear();
     for (const { lane } of this.laneEls) lane.classList.remove('pick');
-    for (const s of this.slots) s.slot.classList.remove('pick');
     for (const n of this.units.values()) n.classList.remove('target', 'pick', 'selected');
     for (const n of this.structs.values()) n.classList.remove('target', 'pick');
   }
-  tileClass(pos, cls) { const t = this.tiles.get(pos.x + ',' + pos.y); if (t) t.classList.add(cls); }
+  tileClass(pos, cls) { const t = this.tiles.get(pos.x + ',' + pos.y); if (t) { t.classList.add(cls); this.lit.add(t); } }
   tileHas(pos, cls) { const t = this.tiles.get(pos.x + ',' + pos.y); return t && t.classList.contains(cls); }
   entityClass(iid, cls) { const n = this.units.get(iid) || this.structs.get(iid); if (n) n.classList.add(cls); }
-  pickLane(l, withSlotOwner = null) {
-    this.laneEls[l].lane.classList.add('pick');
-    if (withSlotOwner !== null) for (const s of this.slots) if (s.l === l && s.owner === withSlotOwner) s.slot.classList.add('pick');
+  pickLane(l) { if (this.laneEls[l]) this.laneEls[l].lane.classList.add('pick'); }
+  clearPath() { for (const t of this.lit) t.classList.remove('path', 'range'); }
+  // tiles within Chebyshev distance r of pos
+  *around(pos, r) {
+    for (let x = pos.x - r; x <= pos.x + r; x++) for (let y = pos.y - r; y <= pos.y + r; y++) if (onBoard(x, y)) yield { x, y };
   }
-  clearPath() { for (const t of this.tiles.values()) t.classList.remove('path', 'range'); }
 
   // ---- positions on screen ---------------------------------------------------
   screenOf(iid) {
@@ -268,21 +341,34 @@ export class Board {
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
   screenOfLane(l) {
-    const r = this.laneEls[l].lane.getBoundingClientRect();
+    const e = this.laneEls[l];
+    if (!e) return { x: innerWidth / 2, y: innerHeight / 2 };
+    const r = e.lane.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
+  laneCenter(ln) { return { x: ln.x0 + (ln.w >> 1), y: ln.y0 + (ln.h >> 1) }; }
 
   // ---- camera ------------------------------------------------------------
+  // Home view: your three Lanes and the Void in front of them.
   fit(soft = false) {
     const vw = innerWidth, vh = innerHeight;
-    const t = (this.target.tilt * Math.PI) / 180;
     const narrow = vw < 700;
-    const z = Math.max(narrow ? 0.28 : 0.42, Math.min(1.25, Math.min(vw / (BW + (narrow ? 40 : 160)), (vh - 150) / (BH * Math.cos(t) + 300))));
+    const t = (this.target.tilt * Math.PI) / 180;
+    const wantW = (narrow ? 18 : 24) * TILE;
+    const wantH = 22 * TILE * Math.cos(t);
+    const z = Math.max(0.2, Math.min(1.1, Math.min(vw / wantW, (vh - 60) / wantH)));
     this.baseZoom = z;
-    Object.assign(this.target, { z, x: BW / 2, y: BH / 2 + (narrow ? 20 : 95) / z, rot: 0 });
+    // centre a little in front of your Lanes; the hand covers the bottom of the screen
+    Object.assign(this.target, { z, x: BW / 2, y: BH - 11 * TILE, rot: 0 });
     if (!soft) this.cam = { ...this.target };
   }
-  resetCam() { this.target.tilt = 42; this.fit(true); }
+  overview() {
+    const vw = innerWidth, vh = innerHeight;
+    const t = (this.target.tilt * Math.PI) / 180;
+    const z = Math.max(0.12, Math.min(vw / (BW + 80), (vh - 120) / (BH * Math.cos(t) + 200)));
+    Object.assign(this.target, { z, x: BW / 2, y: BH / 2 + 40 / z, rot: 0 });
+  }
+  resetCam() { this.target.tilt = 44; this.fit(true); }
   focusTile(pos, zoomMul = null) {
     const c = this.tileCenter(pos.x, pos.y);
     this.focusPx(c.x, c.y, zoomMul);
@@ -290,21 +376,20 @@ export class Board {
   focusPx(x, y, zoomMul = null) {
     this.target.x = Math.max(0, Math.min(BW, x));
     this.target.y = Math.max(0, Math.min(BH, y));
-    if (zoomMul) this.target.z = Math.min(1.6, this.baseZoom * zoomMul);
+    if (zoomMul) this.target.z = Math.min(1.8, this.baseZoom * zoomMul);
   }
   focusEntity(iid, zoomMul = null) {
-    const u = this.view && this.view.units[iid];
+    const u = this.view && (this.view.units[iid] || this.view.structs[iid]);
     if (u) { this.focusTile(u, zoomMul); return; }
     const n = this.units.get(iid);
-    if (n) { this.focusTile({ x: +n.dataset.x, y: +n.dataset.y }, zoomMul); return; }
-    const st = this.view && this.view.structs[iid];
-    if (st) { const c = this.structCenter(st.lane, st.owner); this.focusPx(c.x, c.y, zoomMul); }
+    if (n) this.focusTile({ x: +n.dataset.x, y: +n.dataset.y }, zoomMul);
   }
+  // Pan toward a point if it's off in the distance; zoom out a little if needed.
   gentleFollow(pos) {
-    // only pan if the point is far from the current focus
     const c = this.tileCenter(pos.x, pos.y);
     const dx = c.x - this.target.x, dy = c.y - this.target.y;
-    if (Math.hypot(dx, dy) > 190) { this.target.x += dx * 0.6; this.target.y += dy * 0.6; }
+    const far = Math.hypot(dx, dy);
+    if (far > 6 * TILE) { this.target.x += dx * 0.7; this.target.y += dy * 0.7; }
   }
   tick() {
     if (this.destroyed) return;
@@ -323,7 +408,7 @@ export class Board {
     this.world.style.setProperty('--tilt', c.tilt + 'deg');
     this.world.style.setProperty('--rot', c.rot + 'deg');
   }
-  zoomBy(f) { this.target.z = Math.max(0.35, Math.min(1.9, this.target.z * f)); }
+  zoomBy(f) { this.target.z = Math.max(0.12, Math.min(1.9, this.target.z * f)); }
   rotateBy(d) { this.target.rot += d; }
   tiltBy(d) { this.target.tilt = Math.max(15, Math.min(68, this.target.tilt + d)); }
   panScreen(dx, dy) {
@@ -360,7 +445,7 @@ export class Board {
       if (pinch && pointers.size === 2) {
         const [a, b] = [...pointers.values()];
         const d = Math.hypot(a.x - b.x, a.y - b.y);
-        this.target.z = Math.max(0.35, Math.min(1.9, pinch.z * (d / pinch.d)));
+        this.target.z = Math.max(0.12, Math.min(1.9, pinch.z * (d / pinch.d)));
         return;
       }
       if (!drag) return;
@@ -389,7 +474,7 @@ export class Board {
   unbind() { removeEventListener('pointermove', this._pm); removeEventListener('pointerup', this._pu); }
 
   // ---- animations ---------------------------------------------------------
-  async animateMove(iid, path, msPerStep = 130) {
+  async animateMove(iid, path, msPerStep = 120) {
     const node = this.units.get(iid);
     if (!node || !path || path.length < 2) return;
     const frames = path.map((p) => { const q = this.tilePx(p.x, p.y); return { transform: `translate3d(${q.left}px, ${q.top}px, 1px)` }; });
@@ -416,7 +501,7 @@ export class Board {
     const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
     const dy = (b.top + b.height / 2) - (a.top + a.height / 2);
     const len = Math.hypot(dx, dy) || 1;
-    const k = Math.min(38, len * 0.45) / len;
+    const k = Math.min(34, len * 0.45) / len;
     const sb = node.querySelector('.sb-in');
     await sb.animate([{ translate: '0 0' }, { translate: `${-dx * k * 0.25}px ${-dy * k * 0.25}px`, offset: 0.35 }, { translate: `${dx * k}px ${dy * k}px`, offset: 0.7 }, { translate: '0 0' }], { duration: ms, easing: 'ease-in-out' }).finished.catch(() => {});
   }
@@ -440,21 +525,21 @@ export class Board {
     if (!n) return;
     [...n.querySelectorAll('.mpbar i')].forEach((i, k) => i.classList.toggle('on', k < mp));
   }
-  async killUnit(iid) {
+  async killUnit(iid, ms = 600) {
     const n = this.units.get(iid);
     if (!n) return;
     n.dataset.dying = '1';
     n.classList.add('dying');
-    await new Promise((r) => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, ms));
     n.remove();
     this.units.delete(iid);
   }
-  async crumble(iid) {
+  async crumble(iid, ms = 900) {
     const n = this.structs.get(iid);
     if (!n) return;
     n.dataset.dying = '1';
     n.classList.add('crumbling');
-    await new Promise((r) => setTimeout(r, 900));
+    await new Promise((r) => setTimeout(r, ms));
     n.remove();
     this.structs.delete(iid);
   }

@@ -30,7 +30,7 @@ export function filterBar(state, onChange, { showOwned = true } = {}) {
   bar.appendChild(sel('cls', 'Any Class', [0, 1, 2, 3, 4].map((i) => [String(i), `${CLASSES.Identity[i]} / ${CLASSES.Zone[i]} / …`])));
   bar.appendChild(sel('faction', 'Any Faction', FACTIONS.map((f) => [f, f])));
   bar.appendChild(sel('arch', 'Any Archetype', ARCHETYPES.map((a) => [a, a])));
-  bar.appendChild(sel('cost', 'Any Cost', [0, 1, 2, 3, 4, 5, 6].map((c) => [String(c), c + (c === 6 ? '+' : '') + ' Sap'])));
+  bar.appendChild(sel('cost', 'Any Tier', [0, 1, 2, 3, 4, 5, 6].map((c) => [String(c), 'Tier ' + c + (c === 6 ? '+' : '')])));
   bar.appendChild(sel('sort', 'Sort: Set #', [['cost', 'Sort: Cost'], ['name', 'Sort: Name'], ['rarity', 'Sort: Rarity'], ['type', 'Sort: Type']]));
   if (showOwned) {
     const o = el('label.row.tiny', { style: { gap: '4px' } });

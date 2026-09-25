@@ -18,19 +18,18 @@ export const RARITY_COLORS = { Base: '#4a8bff', Bronze: '#d4874a', Silver: '#cfd
 export const GLOSSARY = {
   BP: 'Body Points — health. At 0 the Identity is defeated (Structures crumble).',
   SP: 'Soul Points — damage dealt by attacks.',
-  MP: 'Mind Points — spent on abilities and retaliation. Restores 2 at the start of your turn.',
+  MP: 'Mind Points — spent on attacks (2 each), abilities and retaliation. Fully restored at the start of your turn.',
   AP: 'Agility Points — tiles an Identity can move during its activation (diagonals allowed).',
   RP: 'Range Points — how far (in tiles) an Identity can attack or use targeted abilities.',
   Housing: 'How many living Identities can have been summoned through this Structure.',
-  Sap: 'Your resource for playing cards. Refills each turn (3 on turn 1, +1 per turn, max 10).',
-  Renown: 'Victory points. Gain 1 per Lane with your Structure each turn; more for destroying Structures and capturing Lanes. First to 20 wins.',
+  Tier: 'Power tier (1–6). An Identity\'s Stat Budget is 16 + 4 × tier, plus a rarity bonus.',
   Barrier: 'Prevents that much damage, then fades.',
   Guard: 'Reduces damage from each source.',
   Marked: 'Attacks against a Marked Identity deal extra damage.',
   Stasis: 'Cannot move or attack.',
-  Response: 'Can be played while a chain is open — even on your opponent’s turn.',
+  Response: 'Can be played while a response sequence is open — even on another player’s turn.',
   'Free Step': 'Move 1 tile without spending AP — usable even after an Identity’s activation ends.',
-  Retaliation: 'When attacked and still standing, an Identity with the attacker in range automatically spends 1 MP to strike back for half its SP.',
+  Retaliation: 'When attacked and still standing, an Identity with the attacker in range spends 2 MP to strike back for its full SP.',
   Collision: 'Forced movement that is blocked deals 1 damage.',
 };
 
@@ -132,7 +131,7 @@ export function cardEl(cardId, opts = {}) {
 
   const inner = el('div.c-inner');
   const head = el('div.c-head',
-    el('div.c-cost', { 'data-tip': card.type === 'Identity' ? `<b>Sap cost</b> — Identity Stat Budget ${card.isb || '?'}` : '<b>Sap cost</b>' }, String(card.cost)),
+    el('div.c-cost', { 'data-tip': card.type === 'Identity' ? `<b>Tier ${card.cost}</b> — Identity Stat Budget ${card.isb || '?'}` : `<b>Tier ${card.cost}</b> — power level` }, String(card.cost)),
     el('div.c-name', card.name),
     el('div.c-type', { 'data-tip': `<b>${TYPE_LABEL[card.type]}</b>` }, TYPE_ICONS[card.type] || '❔'));
   inner.appendChild(head);
@@ -235,17 +234,17 @@ export function showCardModal(cardId, { variant = 0, foil = false, owned = null,
     el('span.pill', (FACTION_ICONS[card.faction] || '') + ' ' + card.faction),
     card.archetype ? el('span.pill', (ARCHETYPE_ICONS[card.archetype] || '') + ' ' + card.archetype) : null));
   if (card.type === 'Identity') {
-    info.appendChild(el('p.muted.tiny', `Identity Stat Budget ${card.isb} · ${card.cls} weights. Summon it next to one of your Structures with free Housing.`));
+    info.appendChild(el('p.muted.tiny', `Tier ${card.cost} · Identity Stat Budget ${card.isb} · ${card.cls} weights. Summon it into the Lane of one of your Structures with free Housing.`));
     info.appendChild(el('div', { html: `<h3>Unique Ability</h3><p>${abilityHtml(card)}</p>` }));
     if (card.shared) info.appendChild(el('div', { html: `<h3>Shared Ability · ${esc(card.cls)} + ${esc(card.archetype)}</h3><p><b>${esc(card.shared.name)}</b> — ${esc(card.shared.text)}</p>` }));
   } else {
     const how = {
-      Zone: 'Play into an unclaimed Lane (or your own Lane with no Structure) to claim it. You can also capture an enemy Lane with no Structure if one of your Identities is in the enemy half of it.',
-      Structure: 'Build in a Lane you control that has no Structure. Structures house Identities and generate Renown each turn.',
-      Equipment: 'Attach to a friendly Identity (one Equipment each). Stays until the Identity leaves play.',
-      Consumable: 'Attach to a friendly Identity (one Consumable each), then use it from the Identity panel. Discarded after use.',
-      Action: card.play && card.play.timing === 'response' ? 'Response: play it any time you have priority — including in reply to an attack or card on your opponent’s turn.' : 'Play during your turn. Resolves immediately (unless your opponent responds).',
-      Event: 'Play during your turn. Events create broad or lasting effects.',
+      Zone: 'Zone Phase: claim an unclaimed Lane (your Home Lanes any time, others with one of your Identities in them). Capture an enemy Lane whose Structure fell and wasn’t rebuilt on its owner’s next turn.',
+      Structure: 'Build Phase: build on a tile in a Lane you control that has no Structure. Structures house Identities summoned into their Lane.',
+      Equipment: 'Equipment Phase: attach to one of your Identities (one Equipment each). Stays until the Identity leaves play.',
+      Consumable: `Equipment Phase: attach to one of your Identities (one Consumable each), then use it later${card.use && card.use.timing === 'response' ? ' — even as a ⚡Response' : ''}. Discarded after use.`,
+      Action: card.play && card.play.timing === 'response' ? 'Response: play it whenever you may respond — including in reply to an attack or card on another player’s turn.' : 'Play any time during your turn. Other players may respond before it resolves.',
+      Event: 'Play any time during your turn. Events create broad or lasting effects.',
     }[card.type];
     info.appendChild(el('div', { html: `<h3>Effect</h3><p>${esc(card.text)}</p><p class="muted tiny">${esc(how || '')}</p>` }));
   }

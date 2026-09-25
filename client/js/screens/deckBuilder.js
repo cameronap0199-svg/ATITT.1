@@ -101,7 +101,7 @@ export function showDeckBuilder() {
 
   const node = el('div.page',
     el('div.page-head', el('button.btn.ghost', { onclick: showHub }, '← Back'), el('h1', 'Deck Workshop'), el('div.grow'),
-      el('button.btn.small.ghost', { onclick: () => modal({ title: 'Deck Building Rules', body: el('div', { style: { maxWidth: '460px', lineHeight: 1.6 }, html: `<p>• Decks hold <b>${DECK_MIN}–${DECK_MAX}</b> cards, up to <b>${COPY_LIMIT} copies</b> of any card (any rarity).</p><p>• Include Zones (to claim Lanes) and Structures (to house Identities and earn Renown). About 9 Zones and 7 Structures in 60 cards works well.</p><p>• A good curve has plenty of 1–3 Sap Identities.</p><p>• Factions and Archetypes create synergies — but you can mix freely.</p>` }) }) }, '❔ Rules')),
+      el('button.btn.small.ghost', { onclick: () => modal({ title: 'Deck Building Rules', body: el('div', { style: { maxWidth: '460px', lineHeight: 1.6 }, html: `<p>• Decks hold <b>${DECK_MIN}–${DECK_MAX}</b> cards, up to <b>${COPY_LIMIT} copies</b> of any card (any rarity).</p><p>• Include Zones (you have 3 Home Lanes to claim, plus Lanes to capture) and Structures (to house and summon Identities). About 9 Zones and 7 Structures in 60 cards works well.</p><p>• There’s no mana — but each turn follows Zone → Build → Summon → Equip → Fight, and you draw up to 7. Mix sturdy and fast Identities.</p><p>• Factions and Archetypes create synergies — but you can mix freely.</p>` }) }) }, '❔ Rules')),
     el('div.page-body.builder',
       el('div.builder-left', filterBar(state, renderGrid), el('div.scroll', { style: { flex: 1, minHeight: 0 } }, grid)),
       el('div.builder-right.win',

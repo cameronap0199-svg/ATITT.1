@@ -1,18 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMatch, Game, viewFor } from '../shared/engine.js';
+import { createMatch, Game, viewFor, onBoard, laneRect } from '../shared/engine.js';
 import { allCards } from '../shared/cards.js';
 import * as C from '../shared/constants.js';
 
 const id = (name) => allCards().find((c) => c.name === name).id;
 const filler = (n = 60) => Array.from({ length: n }, () => id('Leafcutter Ant'));
 
-// Build a started match (both keep) and return the game
-function setup(deckA = filler(), deckB = filler(), first = 0) {
-  const s = createMatch({ seed: 99, first, players: [{ name: 'A', deck: deckA }, { name: 'B', deck: deckB }] });
+// A match that has finished setup (nobody placed Zones) and is on player `first`'s turn.
+function setup({ n = 2, format = null, first = 0, decks = null } = {}) {
+  const players = Array.from({ length: n }, (_, i) => ({ name: 'P' + i, deck: decks ? decks[i] : filler() }));
+  const s = createMatch({ seed: 99, first, players, format });
   const G = new Game(s);
-  assert.ok(G.act(0, { type: 'mulligan', redraw: false }).ok);
-  assert.ok(G.act(1, { type: 'mulligan', redraw: false }).ok);
+  for (let k = 0; k < n; k++) assert.ok(G.act(s.active, { type: 'ready' }).ok);
+  assert.equal(s.phase, 'play');
   return G;
 }
 function giveCard(G, p, name) {
@@ -27,159 +28,245 @@ function place(G, p, name, x, y) {
   G.dirty();
   return u;
 }
+// Zone + Structure for player p in its home lane i; returns { lane, st }
+function base(G, p, i = 1, structName = 'Moss Hut') {
+  const lane = G.s.lanes.find((ln) => ln.home === p && ln.i === i);
+  G.placeZone(p, G.newInst(id('Dewfall Glade'), p), lane.id);
+  const t = { x: lane.x0 + 2, y: lane.y0 + (lane.side === 'S' ? 8 : lane.side === 'N' ? 3 : 2) };
+  if (lane.side === 'W') { t.x = lane.x0 + 3; t.y = lane.y0 + 2; }
+  if (lane.side === 'E') { t.x = lane.x0 + 8; t.y = lane.y0 + 2; }
+  G.placeStruct(p, G.newInst(id(structName), p), t);
+  return { lane: lane.id, st: G.structInLane(lane.id) };
+}
 
-test('match starts with homelands, base camps and correct Sap', () => {
+test('battlefield: plus-shaped 39x39 board, 3 home lanes of 5x12 per player, Void in the middle', () => {
+  assert.equal(C.SIZE, 39);
+  assert.ok(!onBoard(0, 0) && !onBoard(38, 38) && onBoard(19, 19) && onBoard(0, 19) && onBoard(19, 0));
+  const G = setup({ n: 4, format: 'ffa4' });
+  assert.equal(G.s.lanes.length, 12);
+  for (const ln of G.s.lanes) {
+    assert.equal(ln.w * ln.h, C.LANE_W * C.LANE_L);
+    for (let x = ln.x0; x < ln.x0 + ln.w; x++) for (let y = ln.y0; y < ln.y0 + ln.h; y++) {
+      assert.ok(onBoard(x, y));
+      assert.equal(G.laneAt(x, y), ln.id);
+    }
+  }
+  assert.ok(G.isVoid(19, 19));
+  // a player's three lanes are adjacent
+  const s0 = [0, 1, 2].map((i) => laneRect('S', i));
+  assert.equal(s0[0].x0 + C.LANE_W, s0[1].x0);
+});
+
+test('setup: players may only place Zones into their own Home Lanes, then play starts', () => {
+  const s = createMatch({ seed: 5, first: 1, players: [{ name: 'A', deck: filler() }, { name: 'B', deck: filler() }] });
+  const G = new Game(s);
+  assert.equal(s.phase, 'setup');
+  assert.equal(G.P(0).hand.length, C.HAND_SIZE);
+  const z = giveCard(G, 1, 'Dewfall Glade');
+  const foreign = s.lanes.find((ln) => ln.home === 0).id;
+  assert.equal(G.act(1, { type: 'play', iid: z, targets: [foreign] }).ok, false);
+  const mine = s.lanes.find((ln) => ln.home === 1).id;
+  assert.ok(G.act(1, { type: 'play', iid: z, targets: [mine] }).ok);
+  assert.equal(s.lanes[mine].ctrl, 1);
+  const st = giveCard(G, 1, 'Moss Hut');
+  assert.equal(G.act(1, { type: 'play', iid: st, targets: [{ x: s.lanes[mine].x0, y: s.lanes[mine].y0 }] }).ok, false, 'no building in setup');
+  assert.ok(G.act(1, { type: 'ready' }).ok);
+  assert.equal(s.active, 0);
+  assert.ok(G.act(0, { type: 'ready' }).ok);
+  assert.equal(s.phase, 'play');
+  assert.equal(s.active, 1);
+});
+
+test('turn phases run in order: cards of a passed phase can no longer be played', () => {
   const G = setup();
   const s = G.s;
-  assert.equal(s.phase, 'play');
-  assert.equal(s.lanes[C.HOME_LANES[0]].ctrl, 0);
-  assert.equal(s.lanes[C.HOME_LANES[1]].ctrl, 1);
-  assert.equal(Object.keys(s.structs).length, 2);
-  assert.equal(G.P(0).sap, C.SAP_START);
-  assert.equal(G.P(0).hand.length, C.START_HAND); // first player does not draw
-  assert.equal(G.P(0).renown, 1); // base camp lane
-});
-
-test('summon, move and attack with retaliation', () => {
-  const G = setup();
-  const card = giveCard(G, 0, 'Barkhide Badger');
-  const tiles = G.summonTiles(0);
-  assert.ok(tiles.length > 0);
-  let r = G.act(0, { type: 'play', iid: card, targets: [{ x: tiles[0].x, y: tiles[0].y }] });
-  assert.ok(r.ok, r.error);
-  const u = G.unit(card);
-  assert.ok(u);
-  assert.equal(G.P(0).sap, C.SAP_START - 2);
-  // put an enemy next to it
-  const e = place(G, 1, 'Nesting Heron', u.x, u.y + 1);
-  const before = e.bp;
-  r = G.act(0, { type: 'attack', unit: u.iid, target: e.iid });
-  assert.ok(r.ok, r.error);
-  const dmg = r.events.filter((x) => x.t === 'damage' && x.target === e.iid).reduce((a, x) => a + x.amount, 0);
-  assert.ok(dmg >= 1);
-  if (G.unit(e.iid)) {
-    assert.equal(G.unit(e.iid).bp, before - dmg);
-    assert.ok(r.events.some((x) => x.t === 'retaliate'), 'survivor retaliates');
-  }
-  // cannot attack twice
-  assert.equal(G.act(0, { type: 'attack', unit: u.iid, target: e.iid }).ok, false);
-});
-
-test('movement respects AP and undo restores the move', () => {
-  const G = setup();
-  const u = place(G, 0, 'Burrow Rabbit', 0, 1);
-  const reach = G.reachable(u);
-  assert.ok(reach.size > 0);
-  const far = [...reach.values()].sort((a, b) => b.cost - a.cost)[0];
-  assert.ok(far.cost <= G.moveBudget(u));
-  const to = far.path[far.path.length - 1];
-  let r = G.act(0, { type: 'move', unit: u.iid, to });
-  assert.ok(r.ok, r.error);
-  assert.deepEqual({ x: G.unit(u.iid).x, y: G.unit(u.iid).y }, to);
-  assert.ok(G.s.undo);
-  r = G.act(0, { type: 'undo' });
-  assert.ok(r.ok);
-  assert.deepEqual({ x: G.unit(u.iid).x, y: G.unit(u.iid).y }, { x: 0, y: 1 });
-  // cannot move into an occupied tile or beyond budget
-  place(G, 1, 'Leafcutter Ant', 0, 2);
-  assert.equal(G.act(0, { type: 'move', unit: u.iid, to: { x: 0, y: 2 } }).ok, false);
-  assert.equal(G.act(0, { type: 'move', unit: u.iid, to: { x: 9, y: 7 } }).ok, false);
-});
-
-test('zones claim lanes; structures build on controlled lanes; capture needs a raider in the enemy half', () => {
-  const G = setup();
-  G.P(0).sap = 10;
-  const z = giveCard(G, 0, 'Dewfall Glade');
-  assert.ok(G.zoneLanes(0).includes(0));
-  assert.ok(!G.zoneLanes(0).includes(C.HOME_LANES[1]), 'cannot take enemy lane with a structure');
-  assert.ok(G.act(0, { type: 'play', iid: z, targets: [0] }).ok);
-  assert.equal(G.s.lanes[0].ctrl, 0);
+  const lane = s.lanes.find((ln) => ln.home === 0 && ln.i === 1);
+  const zone = giveCard(G, 0, 'Dewfall Glade');
+  assert.ok(G.act(0, { type: 'play', iid: zone, targets: [lane.id] }).ok);
   const st = giveCard(G, 0, 'Moss Hut');
-  assert.ok(G.act(0, { type: 'play', iid: st, targets: [0] }).ok);
-  assert.ok(G.structInLane(0));
-  // enemy lane without structure: needs raider in enemy half
-  const enemyZone = G.newInst(id('Misty Hollow'), 1);
-  G.s.lanes[4].zone = enemyZone; G.s.lanes[4].ctrl = 1; G.dirty();
-  assert.ok(!G.zoneLanes(0).includes(4));
-  place(G, 0, 'Leafcutter Ant', 8, 5); // enemy half for player 1 is y >= 4
-  assert.ok(G.zoneLanes(0).includes(4));
+  assert.ok(G.act(0, { type: 'play', iid: st, targets: [{ x: lane.x0 + 2, y: lane.y0 + 8 }] }).ok);
+  assert.equal(s.step, 'build');
+  const idc = giveCard(G, 0, 'Barkhide Badger');
+  assert.ok(G.act(0, { type: 'play', iid: idc, targets: [{ x: lane.x0 + 2, y: lane.y0 + 1 }] }).ok);
+  assert.equal(s.step, 'summon');
   const z2 = giveCard(G, 0, 'Contested Border');
-  const ren = G.P(0).renown;
-  assert.ok(G.act(0, { type: 'play', iid: z2, targets: [4] }).ok);
-  assert.equal(G.s.lanes[4].ctrl, 0);
-  assert.equal(G.P(0).renown, ren + C.RENOWN_CAPTURE);
+  assert.equal(G.canPlay(0, z2), false, 'Zone phase has passed');
+  assert.ok(G.act(0, { type: 'nextStep' }).ok);
+  assert.equal(s.step, 'equip');
 });
 
-test('destroying a structure grants renown', () => {
+test('structures house Identities by class and summon anywhere in their Lane', () => {
   const G = setup();
-  const st = G.structInLane(C.HOME_LANES[1]);
-  st.bp = 1;
-  const u = place(G, 0, 'Stoat Stalker', C.HOME_LANES[1] * 2, 7);
-  const ren = G.P(0).renown;
-  const r = G.act(0, { type: 'attack', unit: u.iid, target: st.iid });
-  assert.ok(r.ok, r.error);
-  assert.ok(!G.structInLane(C.HOME_LANES[1]));
-  assert.equal(G.P(0).renown, ren + C.RENOWN_STRUCTURE_KILL);
+  const { lane, st } = base(G, 0, 1, 'Thornwall'); // Bastion: housing 2
+  assert.equal(G.structHousing(st), C.HOUSING_BY_CLASS.Bastion);
+  assert.equal(st.bp, Math.round(12 * C.STRUCTURE_BP_SCALE));
+  const ln = G.s.lanes[lane];
+  const outside = { x: ln.x0 - 1, y: ln.y0 + 1 };
+  assert.equal(G.structForSummon(0, outside), null);
+  for (let k = 0; k < 2; k++) {
+    const c = giveCard(G, 0, 'Leafcutter Ant');
+    assert.ok(G.act(0, { type: 'play', iid: c, targets: [{ x: ln.x0 + k, y: ln.y0 }] }).ok);
+  }
+  const extra = giveCard(G, 0, 'Leafcutter Ant');
+  assert.equal(G.canPlay(0, extra), false, 'housing full');
 });
 
-test('liberation at end of turn clears an undefended enemy lane', () => {
+test('move once, then attack for 2 MP each while MP lasts; retaliation costs the defender MP', () => {
   const G = setup();
-  const z = G.newInst(id('Misty Hollow'), 1);
-  G.s.lanes[4].zone = z; G.s.lanes[4].ctrl = 1; G.dirty();
-  place(G, 0, 'Leafcutter Ant', 9, 6);
+  const a = place(G, 0, 'Barkhide Badger', 19, 20);
+  const d = place(G, 1, 'Mossback Tortoise', 19, 18);
+  G.s.step = 'combat';
+  assert.ok(G.act(0, { type: 'move', unit: a.iid, to: { x: 19, y: 19 } }).ok);
+  assert.equal(G.act(0, { type: 'move', unit: a.iid, to: { x: 18, y: 19 } }).ok, false, 'only one move per turn');
+  const mp0 = a.mp, dmp0 = d.mp, dbp0 = d.bp, abp0 = a.bp;
+  assert.ok(G.act(0, { type: 'attack', unit: a.iid, target: d.iid }).ok);
+  assert.equal(a.mp, mp0 - C.ATTACK_COST);
+  assert.ok(d.bp < dbp0);
+  assert.equal(d.mp, dmp0 - C.ATTACK_COST, 'defender paid to retaliate');
+  assert.ok(a.bp < abp0, 'attacker took retaliation damage');
+  assert.equal(G.act(0, { type: 'move', unit: a.iid, to: { x: 18, y: 19 } }).ok, false, 'no moving after attacking');
+  if (G.unit(d.iid) && a.mp >= C.ATTACK_COST) assert.ok(G.act(0, { type: 'attack', unit: a.iid, target: d.iid }).ok, 'second attack');
+});
+
+test('Identities fully recover BP and MP at the start of their controller\'s turn', () => {
+  const G = setup();
+  const u = place(G, 1, 'Mossback Tortoise', 19, 12);
+  u.bp = 1; u.mp = 0;
   G.act(0, { type: 'endTurn' });
-  assert.equal(G.s.lanes[4].ctrl, null);
+  assert.equal(G.s.active, 1);
+  assert.equal(u.bp, G.maxBp(u));
+  assert.equal(u.mp, G.maxMp(u));
 });
 
-test('response chain: Brace gives a barrier before the attack resolves', () => {
+test('capture: the defender gets a turn to rebuild, then an invader in the Lane can replace the Zone', () => {
   const G = setup();
-  const a = place(G, 0, 'Stoat Stalker', 4, 3);
-  const d = place(G, 1, 'Mossback Tortoise', 4, 4);
+  const { lane, st } = base(G, 1, 1);
+  place(G, 1, 'Leafcutter Ant', 19, 20); // keep P1 alive
+  const ln = G.s.lanes[lane];
+  const raider = place(G, 0, 'Barkhide Badger', ln.x0 + 1, ln.y0 + ln.h - 1);
+  G.destroyStruct(st, { p: 0 });
+  assert.ok(ln.grace);
+  const z = giveCard(G, 0, 'Contested Border');
+  assert.equal(G.zoneLaneOk(0, lane), false, 'not during the turn it fell');
+  G.act(0, { type: 'endTurn' });
+  G.act(1, { type: 'endTurn' }); // defender does not rebuild
+  assert.equal(G.s.active, 0);
+  assert.equal(ln.grace, null);
+  assert.ok(G.zoneLaneOk(0, lane));
+  assert.ok(G.act(0, { type: 'play', iid: z, targets: [lane] }).ok);
+  assert.equal(ln.ctrl, 0);
+  assert.equal(G.s.stats[0].captures, 1);
+  void raider;
+});
+
+test('a Lane outside your Home Lanes needs one of your Identities in it to claim', () => {
+  const G = setup();
+  const foreign = G.s.lanes.find((ln) => ln.home === 1 && ln.i === 0);
+  assert.equal(G.zoneLaneOk(0, foreign.id), false);
+  place(G, 0, 'Leafcutter Ant', foreign.x0, foreign.y0);
+  assert.ok(G.zoneLaneOk(0, foreign.id));
+});
+
+test('elimination: no Structures and no Identities; the last team standing wins', () => {
+  const G = setup();
+  base(G, 0, 1);
+  const { st } = base(G, 1, 1);
+  const u = place(G, 1, 'Leafcutter Ant', 19, 19);
+  G.P(1).established = true;
+  G.s.step = 'combat';
+  G.destroyStruct(st, { p: 0 });
+  G.checkEliminations();
+  assert.equal(G.P(1).eliminated, false, 'an Identity keeps them in the game');
+  G.dealDamage(u.iid, 99, { p: 0 });
+  G.checkEliminations();
+  assert.equal(G.P(1).eliminated, true);
+  assert.equal(G.s.winner, G.team(0));
+  assert.deepEqual(G.s.winners, [0]);
+});
+
+test('2v2: teammates cannot attack each other and the team wins together', () => {
+  const G = setup({ n: 4, format: '2v2' });
+  assert.equal(G.team(0), G.team(2));
+  const a = place(G, 0, 'Barkhide Badger', 19, 19);
+  const ally = place(G, 2, 'Leafcutter Ant', 19, 18);
+  const foe = place(G, 1, 'Leafcutter Ant', 20, 19);
+  G.s.step = 'combat';
+  const targets = G.attackTargets(a);
+  assert.ok(!targets.includes(ally.iid) && targets.includes(foe.iid));
+  for (const q of [0, 2]) base(G, q, 1);
+  G.P(1).established = G.P(3).established = true;
+  G.eliminate(1, 'test');
+  G.checkVictory();
+  assert.equal(G.s.winner, null);
+  G.eliminate(3, 'test');
+  G.checkVictory();
+  assert.deepEqual(G.s.winners.sort(), [0, 2]);
+});
+
+test('free-for-all: turns go around the table and skip eliminated players', () => {
+  const G = setup({ n: 3, format: 'ffa3' });
+  assert.deepEqual(G.s.players.map((P) => P.side), ['S', 'W', 'N']);
+  base(G, 0, 1); base(G, 2, 1);
+  G.P(1).established = true;
+  G.eliminate(1, 'test');
+  G.act(0, { type: 'endTurn' });
+  assert.equal(G.s.active, 2);
+});
+
+test('response sequence: another player can Brace before an attack resolves', () => {
+  const G = setup();
+  const a = place(G, 0, 'Barkhide Badger', 19, 20);
+  const d = place(G, 1, 'Mossback Tortoise', 19, 19);
+  G.P(1).hand = [];
   const brace = giveCard(G, 1, 'Brace');
-  G.P(1).sap = 3;
-  let r = G.act(0, { type: 'attack', unit: a.iid, target: d.iid });
-  assert.ok(r.ok);
-  assert.equal(G.s.priority, 1, 'defender gets priority');
-  assert.equal(G.act(0, { type: 'endTurn' }).ok, false, 'attacker must wait');
-  r = G.act(1, { type: 'play', iid: brace, targets: [d.iid] });
-  assert.ok(r.ok, r.error);
-  assert.equal(G.s.chain.length, 0, 'chain resolved');
-  const blocked = r.events.filter((e) => e.t === 'damage' && e.target === d.iid).reduce((n, e) => n + e.blocked, 0);
-  assert.equal(blocked, 2);
+  G.P(0).hand = [giveCard(G, 0, 'Brace')].filter(() => false);
+  G.s.step = 'combat';
+  assert.ok(G.act(0, { type: 'attack', unit: a.iid, target: d.iid }).ok);
+  assert.equal(G.s.priority, 1);
+  const before = d.bp;
+  assert.ok(G.act(1, { type: 'play', iid: brace, targets: [d.iid] }).ok);
+  assert.equal(G.s.priority, null, 'attacker has nothing to add, so the sequence resolves');
+  assert.equal(G.s.chain.length, 0);
+  assert.equal(before - d.bp, Math.max(0, G.stat(a, 'sp') - 2));
 });
 
-test('push into an occupied tile deals collision damage', () => {
+test('forced movement into an occupied tile deals collision damage', () => {
   const G = setup();
-  const pusher = place(G, 0, 'Streamrunner Otter', 4, 2);
-  const target = place(G, 1, 'Leafcutter Ant', 4, 3);
-  place(G, 1, 'Leafcutter Ant', 4, 4);
-  const bp = target.bp;
-  G.push(target, pusher, 1, 0, { srcUnit: pusher.iid });
-  assert.equal(G.unit(target.iid)?.bp ?? 0, bp - C.COLLISION_DAMAGE);
+  const u = place(G, 1, 'Leafcutter Ant', 19, 19);
+  place(G, 1, 'Leafcutter Ant', 19, 18);
+  const bp = u.bp;
+  G.forceMove(u, { dx: 0, dy: -1 }, 2, 0);
+  assert.equal(u.bp, bp - C.COLLISION_DAMAGE);
 });
 
-test('forage discards a card and draws a new one once per turn', () => {
+test('End Phase discards and an empty deck reshuffles the discard pile', () => {
   const G = setup();
-  const n = G.P(0).hand.length;
-  const card = G.P(0).hand[0];
-  assert.ok(G.act(0, { type: 'forage', iid: card }).ok);
-  assert.equal(G.P(0).hand.length, n);
-  assert.ok(G.P(0).discard.includes(card));
-  assert.equal(G.act(0, { type: 'forage', iid: G.P(0).hand[0] }).ok, false);
+  const P = G.P(0);
+  const toss = P.hand.slice(0, 3);
+  assert.ok(G.act(0, { type: 'endTurn', discard: toss }).ok);
+  assert.equal(P.discard.length, 3);
+  G.P(0).deck = [];
+  G.act(1, { type: 'endTurn' });
+  assert.equal(P.hand.length, C.HAND_SIZE, 'drew back up to seven from the reshuffled discard');
+  assert.equal(P.discard.length, 0);
 });
 
-test('views hide the opponent hand and decks', () => {
+test('undo restores a move', () => {
   const G = setup();
+  const u = place(G, 0, 'Barkhide Badger', 19, 20);
+  G.s.step = 'combat';
+  assert.ok(G.act(0, { type: 'move', unit: u.iid, to: { x: 19, y: 18 } }).ok);
+  assert.ok(G.s.undo);
+  assert.ok(G.act(0, { type: 'undo' }).ok);
+  assert.deepEqual([G.unit(u.iid).x, G.unit(u.iid).y], [19, 20]);
+});
+
+test('views hide other players\' hands and decks', () => {
+  const G = setup({ n: 3, format: 'ffa3' });
   const v = viewFor(G.s, 0);
-  assert.ok(v.players[1].hand.every((h) => h === null));
-  assert.equal(v.players[0].deck.length, 0);
-  assert.ok(v.players[0].deckCount > 0);
-});
-
-test('reaching the renown target wins', () => {
-  const G = setup();
-  G.P(0).renown = C.WIN_RENOWN - 1;
-  G.gainRenown(0, 1, 'test');
-  assert.equal(G.s.winner, 0);
-  assert.equal(G.s.phase, 'over');
+  assert.equal(v.players[1].hand.every((x) => x === null), true);
+  assert.equal(v.players[0].hand.every((x) => typeof x === 'string'), true);
+  assert.equal(v.players[2].deck.length, 0);
+  assert.ok(v.players[2].deckCount > 0);
+  for (const iid of G.P(1).hand) assert.equal(v.inst[iid], undefined);
 });

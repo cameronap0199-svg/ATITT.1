@@ -65,6 +65,14 @@
 .vs-side .vs-name { font-family: var(--font-head); font-weight: 800; font-size: 30px; text-shadow: 0 3px 0 #000; }
 .vs-side .vs-quote { max-width: 360px; font-style: italic; text-align: center; background: rgba(0, 0, 0, .35); padding: 10px 14px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .5); }
 .vs-mid { font-family: var(--font-title); font-size: 120px; font-weight: 900; color: #fff; text-shadow: 0 0 30px #ffd76a, 0 6px 0 #6b3; animation: vsPop .7s .35s cubic-bezier(.2, 2, .4, 1) both; z-index: 2; }
+.vs-screen.multi { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; background: radial-gradient(ellipse at 50% 40%, #1b2d6b, #050b18 70%); }
+.vs-format { font-family: var(--font-head); font-weight: 900; font-size: 26px; letter-spacing: .2em; color: #ffd76a; text-shadow: 0 3px 0 #000; animation: vsPop .6s cubic-bezier(.2, 2, .4, 1) both; }
+.vs-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.vs-team { display: flex; gap: 10px; }
+.vs-screen.multi .vs-side { height: auto; border-radius: 18px; padding: 18px 22px; clip-path: none; min-width: 150px; }
+.vs-screen.multi .vs-side .avatar { width: 110px; height: 110px; font-size: 66px; }
+.vs-screen.multi .vs-side .vs-name { font-size: 20px; }
+.vs-screen.multi .vs-mid { font-size: 64px; }
 @keyframes vsLeft { from { transform: translateX(-100%); } }
 @keyframes vsRight { from { transform: translateX(100%); } }
 @keyframes vsPop { from { transform: scale(4) rotate(-20deg); opacity: 0; } }

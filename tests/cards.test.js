@@ -63,9 +63,22 @@ test('every Identity class covers all 15 archetypes', () => {
 
 test('identity stats follow ISB x class weight', () => {
   const c = getCard(allCards().find((x) => x.name === 'Canopy Owl').id);
-  const B = C.ISB_BASE + C.ISB_PER_COST * c.cost + C.RARITY_ISB_BONUS[c.rarity];
+  const B = C.ISB_BASE + C.ISB_PER_TIER * c.cost + C.RARITY_ISB_BONUS[c.rarity];
   assert.equal(c.isb, B);
-  assert.equal(c.stats.bp, Math.round(B * C.CLASS_WEIGHTS.Silviculturist.bp));
+  assert.equal(c.stats.bp, Math.round(Math.round(B * C.CLASS_WEIGHTS.Silviculturist.bp) * C.BP_SCALE));
+  assert.equal(c.stats.sp, Math.round(B * C.CLASS_WEIGHTS.Silviculturist.sp));
+  for (const x of allCards().filter((k) => k.type === 'Identity')) {
+    assert.ok(x.stats.ap <= C.STAT_CAPS.ap && x.stats.rp <= C.STAT_CAPS.rp, x.name);
+    assert.ok(x.stats.mp >= C.ATTACK_COST, x.name + ' can attack');
+  }
+});
+
+test('structures take housing from their class; no card mentions the old Sap/Renown economy', () => {
+  for (const c of allCards()) {
+    if (c.type === 'Structure') assert.equal(c.housing, C.HOUSING_BY_CLASS[c.cls], c.name);
+    const text = (c.text || '') + (c.shared ? c.shared.text : '');
+    assert.ok(!/\bSap\b|Renown/.test(text), c.name + ': ' + text);
+  }
 });
 
 test('starter deck is legal and made of Base/Bronze cards', () => {

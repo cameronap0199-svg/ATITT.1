@@ -1,5 +1,5 @@
-// Match controllers. LocalMatch runs the engine in the browser vs an AI rival;
-// OnlineMatch mirrors a server-authoritative match over WebSockets.
+// Match controllers. LocalMatch runs the engine in the browser against AI bots
+// (any format); OnlineMatch mirrors a server-authoritative match over WebSockets.
 import { createMatch, Game, viewFor } from '../../../shared/engine.js';
 import { aiPlan } from '../../../shared/ai.js';
 import { randomSeed } from '../../../shared/rng.js';
@@ -23,52 +23,55 @@ function getWorker() {
   return worker;
 }
 
+// players: [{ name, avatar, deck, bot, difficulty }] in seat order; seat 0 is the human.
 export class LocalMatch {
-  constructor({ me, foe, difficulty, first = null, seed = randomSeed() }) {
+  constructor({ players, format = '1v1', first = null, seed = randomSeed() }) {
     this.mode = 'ai';
     this.seat = 0;
-    this.difficulty = difficulty;
-    this.state = createMatch({ seed, first: first ?? (Math.random() < 0.5 ? 0 : 1), players: [me, { ...foe, bot: true }] });
+    this.difficulties = players.map((p) => p.difficulty || 5);
+    this.bots = players.map((p, i) => i !== 0 && p.bot !== false);
+    const f = first ?? Math.floor(Math.random() * players.length);
+    this.state = createMatch({ seed, format, first: f, players: players.map((p, i) => ({ name: p.name, deck: p.deck, avatar: p.avatar, bot: i !== 0 })) });
     this.game = new Game(this.state);
     this.aiSeed = seed;
   }
   view() { return viewFor(this.state, this.seat); }
   apply(seat, action) { return this.game.act(seat, action); }
-  needsAI() {
+  // Which bot (if any) has to act now
+  actingBot() {
     const s = this.state;
-    if (s.phase === 'over') return false;
-    if (s.phase === 'mulligan') return !s.players[1].mulligan;
-    if (s.chain.length) return s.priority === 1;
-    return s.active === 1;
+    if (s.phase === 'over') return -1;
+    const p = s.chain.length ? s.priority : s.active;
+    if (p === null || p === undefined) return -1;
+    return this.bots[p] && !s.players[p].eliminated ? p : -1;
   }
-  async think() {
+  needsAI() { return this.actingBot() >= 0; }
+  async think(p) {
     const snapshot = JSON.parse(JSON.stringify({ ...this.state, undo: null }));
     const seed = (this.aiSeed = (this.aiSeed * 1103515245 + 12345) >>> 0);
+    const difficulty = this.difficulties[p];
     const w = getWorker();
     if (w) {
       const id = ++reqId;
       const plan = await new Promise((resolve) => {
         pending.set(id, { resolve });
-        w.postMessage({ id, state: snapshot, p: 1, difficulty: this.difficulty, seed });
+        w.postMessage({ id, state: snapshot, p, difficulty, seed });
         setTimeout(() => { if (pending.has(id)) { pending.delete(id); resolve(null); } }, 20000);
       });
       if (plan) return plan;
     }
     await new Promise((r) => setTimeout(r, 30));
-    return aiPlan(snapshot, 1, this.difficulty, seed);
+    return aiPlan(snapshot, p, difficulty, seed);
   }
   dispose() {}
 }
 
 export class OnlineMatch {
-  constructor(net, { seat, opponent, matchId }) {
+  constructor(net, { seat, matchId }) {
     this.mode = 'online';
     this.net = net;
     this.seat = seat;
-    this.opponent = opponent;
     this.matchId = matchId;
-    this.latest = null;
-    this.listeners = [];
   }
   send(action) { this.net.send({ t: 'act', action }); }
   dispose() {}

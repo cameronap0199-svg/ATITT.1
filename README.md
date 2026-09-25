@@ -1,9 +1,9 @@
 # 🌳 KNOTWOOD — Tactical Card Battle
 
-An anime-flavoured, early-2000s-JRPG-styled **tactical trading card game** built from the *Phase 2 – Card Framework* design document (Set 1: **Knotwood Forest**).
+An anime-flavoured, early-2000s-JRPG-styled **tactical trading card game** built from the *Phase 1 – Core Game Rules* and *Phase 2 – Card Framework* design documents (Set 1: **Knotwood Forest**).
 
-* **Duel AI rivals** — a 10-stage Adventure ladder of rivals with scaling difficulty, plus Free Battle at any difficulty (1–10).
-* **Play online** — Quick Match or private 4-letter room codes, with turn timers, reconnection and emotes.
+* **Battle AI bots** — a 10-stage Adventure ladder of rivals with scaling difficulty, plus Free Battle at any difficulty (1–10) in **1v1, 2v2 (with a bot ally) or Free-for-All for 3–4 players**.
+* **Play online** — Quick Match duels, or private 4-letter rooms for any format (1v1 / 2v2 / FFA up to 4) where bots fill empty seats; turn timers, reconnection and emotes.
 * **Collect** — earn Acorns every match, buy booster packs in the shop and open them in a pack-opening ceremony with rarity reveals.
 * **Build decks** — a Deck Workshop with filters, mana curve, validation and Auto-Fill. You start with a 60-card beginner deck.
 * **The full Set 1** — all **280 cards** in the exact type / class / rarity distribution of the design doc, all **75 Class + Archetype shared abilities**, 8 Factions, 15 Archetypes and 7 rarity frames (Base leather → Infinite holo).
@@ -28,21 +28,23 @@ npm start
 
 ```bash
 npm test                    # engine, card set, booster odds and AI tests
-npm run sim -- 10 5 5       # 10 headless AI-vs-AI games at difficulty 5 vs 5
-node tests/stress.js 30     # 30 games across all difficulty pairings
+npm run sim -- 10 5 5       # 10 headless AI-vs-AI duels at difficulty 5 vs 5
+npm run sim -- 4 6 6 ffa4   # ...or any format: 1v1, 2v2, ffa3, ffa4
+node tests/stress.js 30     # 30 games across difficulties and formats
 ```
 
 ---
 
 ## How the game plays
 
-The design document defines the cards; the core turn rules (board, resources, win condition) were not included, so they are defined here in a way that stays consistent with the framework. The full reference is in [`docs/RULES.md`](docs/RULES.md) and in-game under **How to Play**.
+The core rules follow *Phase 1 – Core Game Rules*; the cards follow *Phase 2 – Card Framework*. The full reference is in [`docs/RULES.md`](docs/RULES.md) and in-game under **How to Play**.
 
-* **Board:** 5 Lanes × 2 tiles wide, 8 rows long. Structures sit at each Lane's edge. Each player starts with a *Homeland* Zone and a *Base Camp* Structure.
-* **Sap:** your per-turn resource (3 on turn 1, +1 per turn, max 10).
-* **Win:** first to **20 Renown**. Each Lane holding your Structure earns +1 Renown per turn. Destroying Structures gives +3, capturing Lanes +2 and liberating Lanes +1. Controlling all 5 Lanes wins instantly.
-* **Identities** are summoned beside your Structures (limited by Housing). They move with AP, attack targets within RP for SP damage, spend MP on abilities and retaliate automatically.
-* **Responses:** ⚡ Response cards can interrupt attacks and cards. The chain resolves newest to oldest.
+* **Board:** a square 39×39 battlefield. Each player owns one side with **three adjacent Home Lanes** (5×12 tiles); the centre (and any empty side) is **the Void**. Your side is always drawn at the bottom.
+* **Win:** eliminate everyone else. You stay in while you control at least one Structure **or** one Identity. Teams win together in 2v2.
+* **Turn:** Draw up to 7 → Zone → Build → Summon → Equipment → Movement & Combat → End (discard any cards you don't want). There is no mana: phases, housing and your hand are the limits.
+* **Territory:** Zones claim Lanes, Structures (one per Lane) house and summon Identities into their Lane. Destroy an enemy Structure; if its owner doesn't rebuild on their next turn, an Identity of yours in that Lane lets you **capture** it with your own Zone.
+* **Combat:** each Identity moves once (up to AP), then attacks for SP within RP at **2 MP per attack** and uses abilities while MP lasts. Defenders **retaliate** by paying the same MP. Identities fully recover BP and MP at the start of their controller's turn.
+* **Responses:** ⚡ Response cards and Consumables can interrupt; every player gets a chance in turn order and the newest item resolves first.
 
 ### Controls
 
@@ -54,8 +56,8 @@ The design document defines the cards; the core turn rules (board, resources, wi
 | End turn / pass | `Space` |
 | Next ready Identity | `Tab` |
 | Undo move | `Z` |
-| Forage (swap a card) | `G` |
-| Camera | Drag / right-drag pan · wheel zoom · middle-drag or `Q`/`E` rotate · `R`/`F` tilt · `C` reset |
+| Whole battlefield / home view | `V` / `C` |
+| Camera | Drag / right-drag pan · wheel zoom · middle-drag or `Q`/`E` rotate · `R`/`F` tilt |
 
 ---
 
@@ -70,13 +72,13 @@ client/js/battle/       battle view & animations, 3D board + camera, match contr
 client/js/cardView.js   card rendering + procedural art
 client/js/audio.js      synthesized SFX + chiptune sequencer
 client/js/fx.js         particle effects
-shared/constants.js     all tuning numbers (board size, Sap, Renown, ISB…)
+shared/constants.js     all tuning numbers (board geometry, formats, phases, ISB, caps…)
 shared/cards.js         the 280-card set, 75 shared abilities, tokens
-shared/engine.js        rules engine (deterministic, JSON state, chain/response system)
+shared/engine.js        rules engine (deterministic JSON state, N players & teams, phases, response sequence)
 shared/ai.js            AI planner with difficulty profiles
 shared/packs.js         booster generation (affinity, slot rarities, wildcard, duplicates)
 shared/decks.js         deck rules, beginner deck, rival ladder & deck generator
-server/server.js        static server + WebSocket matchmaking (authoritative engine)
+server/server.js        static server + WebSocket matchmaking & rooms (authoritative engine, server-side bots)
 tests/                  node:test suites + simulations
 ```
 

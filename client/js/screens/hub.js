@@ -22,7 +22,7 @@ export function showHub() {
 
   const items = [
     { ic: '⚔️', label: 'Adventure', sub: 'Climb the Rival Ladder', go: showLadder },
-    { ic: '🎲', label: 'Free Battle', sub: 'Duel an AI at any difficulty', go: showFreeBattle },
+    { ic: '🎲', label: 'Free Battle', sub: 'Duel, 2v2 or FFA vs AI bots', go: showFreeBattle },
     { ic: '🌐', label: 'Online Duel', sub: 'Battle other players', go: showOnline },
     { ic: '🛒', label: 'Shop', sub: 'Buy booster packs', go: showShop, badge: p.packs ? `${p.packs} to open` : null },
     { ic: '🃏', label: 'Deck Workshop', sub: 'Build and tune decks', go: showDeckBuilder },
@@ -73,7 +73,7 @@ export function showHub() {
     el('p', p.packs ? `You have ${p.packs} unopened booster pack${p.packs > 1 ? 's' : ''}. Rip ’em open!` : 'Every pack: 12 cards, at least one Gold-or-better Wildcard.'),
     el('div.f-ic', '🎁'));
   const onlineTile = el('div.win.feature', { onclick: showOnline },
-    el('h3', 'Online Duel'), el('p', 'Quick match or invite a friend with a room code.'), el('div.f-ic', '🌐'));
+    el('h3', 'Online Battle'), el('p', 'Quick duels, or rooms for up to 4 players.'), el('div.f-ic', '🌐'));
   const collTile = el('div.win.feature', { onclick: showCollection },
     el('h3', 'Collection'),
     el('p', `${collectionCount()} of ${cardCount()} cards discovered.`),
@@ -83,9 +83,10 @@ export function showHub() {
   const news = el('div.win',
     el('div.win-title', 'TRAVELLER’S NOTES'),
     el('div.news', { html: `
-      <p><b>Goal:</b> reach <b>20 Renown</b>. Each Lane holding your Structure earns 1 Renown per turn; destroying enemy Structures (+3) and capturing Lanes (+2) earn more.</p>
+      <p><b>Goal:</b> eliminate your rivals! A player is out once they have no Structures and no Identities left. Destroy Structures, then capture their Lanes with your own Zones.</p>
       <p><b>Tip:</b> Click an Identity to see where it can move (blue) and what it can hit (red). Hover an enemy to preview damage.</p>
-      <p><b>Tip:</b> <b>Forage</b> once per turn (1 Sap) to swap a card you can’t use for a fresh draw.</p>` }));
+      <p><b>Tip:</b> Identities fully heal at the start of their owner’s turn — focus fire to finish them. Attacks cost 2 MP, so high-MP Identities can strike several times!</p>
+      <p><b>New:</b> 2v2 and Free-for-All battles for up to 4 players, against bots or online.</p>` }));
 
   const node = el('div.hub',
     el('div.hub-left', el('div.hub-logo', 'KNOTWOOD'), playerWin, el('div.win', list), deckWin),
