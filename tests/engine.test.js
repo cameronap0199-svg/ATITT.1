@@ -128,13 +128,13 @@ test('move once, then attack for 2 MP each while MP lasts; retaliation costs the
   if (G.unit(d.iid) && a.mp >= C.ATTACK_COST) assert.ok(G.act(0, { type: 'attack', unit: a.iid, target: d.iid }).ok, 'second attack');
 });
 
-test('Identities fully recover BP and MP at the start of their controller\'s turn', () => {
+test('MP refreshes at the start of the controller\'s turn, but BP damage stays', () => {
   const G = setup();
   const u = place(G, 1, 'Mossback Tortoise', 19, 12);
   u.bp = 1; u.mp = 0;
   G.act(0, { type: 'endTurn' });
   assert.equal(G.s.active, 1);
-  assert.equal(u.bp, G.maxBp(u));
+  assert.equal(u.bp, 1, 'no free healing');
   assert.equal(u.mp, G.maxMp(u));
 });
 

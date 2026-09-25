@@ -43,7 +43,7 @@ The core rules follow *Phase 1 – Core Game Rules*; the cards follow *Phase 2 �
 * **Win:** eliminate everyone else. You stay in while you control at least one Structure **or** one Identity. Teams win together in 2v2.
 * **Turn:** Draw up to 7 → Zone → Build → Summon → Equipment → Movement & Combat → End (discard any cards you don't want). There is no mana: phases, housing and your hand are the limits.
 * **Territory:** Zones claim Lanes, Structures (one per Lane) house and summon Identities into their Lane. Destroy an enemy Structure; if its owner doesn't rebuild on their next turn, an Identity of yours in that Lane lets you **capture** it with your own Zone.
-* **Combat:** each Identity moves once (up to AP), then attacks for SP within RP at **2 MP per attack** and uses abilities while MP lasts. Defenders **retaliate** by paying the same MP. Identities fully recover BP and MP at the start of their controller's turn.
+* **Combat:** each Identity moves once (up to AP), then attacks for SP within RP at **2 MP per attack** and uses abilities while MP lasts. Defenders **retaliate** by paying the same MP. MP refills at the start of your turn, but **BP damage stays** until healed.
 * **Responses:** ⚡ Response cards and Consumables can interrupt; every player gets a chance in turn order and the newest item resolves first.
 
 ### Controls

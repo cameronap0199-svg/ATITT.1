@@ -16,7 +16,7 @@ export const ACCENT_NAMES = ['Blossom', 'Amber', 'Frost'];
 export const RARITY_COLORS = { Base: '#4a8bff', Bronze: '#d4874a', Silver: '#cfd8e3', Gold: '#ffd24d', Crystal: '#7fd8ff', Void: '#b25cff', Infinite: '#ffffff' };
 
 export const GLOSSARY = {
-  BP: 'Body Points — health. At 0 the Identity is defeated (Structures crumble).',
+  BP: 'Body Points — health. Damage stays between turns until healed. At 0 the Identity is defeated (Structures crumble).',
   SP: 'Soul Points — damage dealt by attacks.',
   MP: 'Mind Points — spent on attacks (2 each), abilities and retaliation. Fully restored at the start of your turn.',
   AP: 'Agility Points — tiles an Identity can move during its activation (diagonals allowed).',

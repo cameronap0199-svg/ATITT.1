@@ -530,7 +530,7 @@ export class Game {
     P.turns++;
     if (p === this.roundStarter()) s.round++;
     this.expireStatuses('sot', { p });
-    // Identities fully recover Body and Mind before their controller's turn
+    // Mind refreshes before their controller's turn; Body damage stays until healed
     for (const u of this.unitsOf(p)) {
       u.state = 'ready';
       u.apSpent = 0;
@@ -538,8 +538,6 @@ export class Game {
       u.apBase = 0;
       u.act = null;
       u.firstStepUsed = false;
-      const mb = this.maxBp(u);
-      if (u.bp < mb) { u.bp = mb; }
       u.mp = this.maxMp(u);
     }
     this.emit({ t: 'turn', p, serial: s.turnSerial, round: s.round });

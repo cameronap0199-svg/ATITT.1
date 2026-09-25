@@ -85,7 +85,7 @@ export function showHub() {
     el('div.news', { html: `
       <p><b>Goal:</b> eliminate your rivals! A player is out once they have no Structures and no Identities left. Destroy Structures, then capture their Lanes with your own Zones.</p>
       <p><b>Tip:</b> Click an Identity to see where it can move (blue) and what it can hit (red). Hover an enemy to preview damage.</p>
-      <p><b>Tip:</b> Identities fully heal at the start of their owner’s turn — focus fire to finish them. Attacks cost 2 MP, so high-MP Identities can strike several times!</p>
+      <p><b>Tip:</b> Damage sticks between turns, but MP refills — wear enemies down, and pull hurt Identities back to heal. Attacks cost 2 MP, so high-MP Identities can strike several times!</p>
       <p><b>New:</b> 2v2 and Free-for-All battles for up to 4 players, against bots or online.</p>` }));
 
   const node = el('div.hub',

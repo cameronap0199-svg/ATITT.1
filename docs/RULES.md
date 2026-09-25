@@ -93,7 +93,7 @@ Every Identity has a **Unique Ability** and a **Shared Ability** set by its Clas
 6. **Movement & Combat** — activate Identities one at a time.
 7. **End** — effects that end "this turn" expire, you may discard cards, then play passes clockwise.
 
-**[Impl]** Playing a card moves you forward to its phase, and you can't go back. You can also skip ahead from the phase tracker. Actions and Events may be played at any point in your turn. At the **start of each of your turns**, your Identities recover all lost **BP** and refresh their **MP**.
+**[Impl]** Playing a card moves you forward to its phase, and you can't go back. You can also skip ahead from the phase tracker. Actions and Events may be played at any point in your turn. At the **start of each of your turns**, your Identities refresh their **MP**. **[Impl]** Lost **BP does not regenerate** — damage stays until an effect heals it, so fights wear units down across turns.
 
 ## 7. Movement & combat
 

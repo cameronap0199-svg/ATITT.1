@@ -46,7 +46,6 @@ const nearStruct = (E, m) => E.nearFriendlyStruct(m, 2);
 const struct2 = (E, m) => E.structsOf(m.owner).filter((st) => E.dist(m, st) <= 2).sort((a, b) => E.dist(m, a) - E.dist(m, b))[0];
 const freeStep = (E, u, why) => E.grantFreeSteps(u, 1, why);
 const laneOf = (E, u) => E.laneOf(u);
-const topBarrier = (E, u, n) => { if (u && u.barrier < n) E.giveBarrier(u, n - u.barrier); };
 const actDebuff = (E, u, stat, v, label) => E.addStatus(u, { stat, v, at: 'act', label });
 
 // ---- Silviculturist -------------------------------------------------------
@@ -566,7 +565,7 @@ const T = {
   invaderSP: (n, name = 'Raider') => ({ name, text: `+${n} SP while this Identity occupies an enemy-controlled Lane.`, hooks: { stat: (E, src, u, k) => (k === 'sp' && u.iid === src.unit && E.isInvading(u) ? n : 0) } }),
   factionAura: (fac, name) => ({ name, text: `Other friendly ${fac} Identities within 2 tiles gain +1 SP.`, hooks: { stat(E, src, u, k) { if (k !== 'sp' || u.iid === src.unit || !E.ally(u.owner, src.owner)) return 0; const m = me(E, src); return m && E.faction(u) === fac && ch(u, m) <= 2 ? 1 : 0; } } }),
   thorns: (n, name = 'Thorny Hide') => ({ name, text: `When an adjacent enemy attacks this Identity, deal ${n} damage to the attacker.`, hooks: { on(E, src, ev, d) { if (ev === 'afterAttack' && d.target === src.unit) { const a = E.unit(d.unit); const m = me(E, src); if (a && m && ch(a, m) === 1) E.dealDamage(a.iid, n, { kind: 'effect', unit: m.iid, p: m.owner }); } } } }),
-  regen: (n, name = 'Regrowth') => ({ name, text: `At the start of your turn, this Identity gains a Barrier of ${n} (does not stack).`, hooks: { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) topBarrier(E, me(E, src), n); } } }),
+  regen: (n, name = 'Regrowth') => ({ name, text: `At the start of your turn, restore ${n} BP to this Identity.`, hooks: { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) E.heal(me(E, src), n); } } }),
   pathfinder: (name = 'Pathfinder') => ({ name, text: 'The first tile this Identity moves each activation costs no AP.', hooks: { firstStepFree: (E, src, u) => u.iid === src.unit && u.state !== 'done' } }),
   killDraw: (name = 'Trophy') => ({ name, text: 'Whenever this Identity defeats an enemy Identity, draw a card.', hooks: { on(E, src, ev, d) { if (ev === 'defeated' && d.killer === src.unit && E.foe(d.owner, src.owner)) E.draw(src.owner, 1); } } }),
   siege: (n, name = 'Siegebreaker') => ({ name, text: `+${n} SP when attacking Structures.`, hooks: { attackBonus: (E, src, u, t, ctx) => (u.iid === src.unit && ctx.isStruct ? n : 0) } }),
@@ -747,7 +746,7 @@ const IDENTITIES = {
 const inLane = (E, src, u) => E.laneOf(u) === src.lane;
 const ZONES = {
   Environmental: [
-    ['Dewfall Glade', 'Feathered', 'Succulence', 1, '🌿', 'At the start of your turn, your Identities in this Lane gain a Barrier of 1 (does not stack).', { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) for (const u of E.unitsInLane(src.lane, d.p)) topBarrier(E, u, 1); } }],
+    ['Dewfall Glade', 'Feathered', 'Succulence', 1, '🌿', 'At the start of your turn, your Identities in this Lane restore 1 BP.', { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) for (const u of E.unitsInLane(src.lane, d.p)) E.heal(u, 1); } }],
     ['Misty Hollow', 'Ghoul', 'Obscurity', 1, '🌫️', 'Identities in this Lane have -1 RP (minimum 1).', { stat: (E, src, u, k) => (k === 'rp' && inLane(E, src, u) ? -1 : 0) }],
     ['Sunbeam Meadow', 'Pelted', 'Labor', 1, '🌻', 'At the end of an Identity\'s activation in this Lane, it restores 1 MP.', { on(E, src, ev, d) { if (ev === 'activationEnd') { const u = E.unit(d.unit); if (u && inLane(E, src, u)) E.restoreMp(u, 1); } } }],
     ['Spore Fog', 'Magically-Mutated', 'Venom', 1, '🍄', 'Abilities used by enemy Identities in this Lane cost 1 additional MP.', { abilityCost: (E, src, u) => (inLane(E, src, u) && E.foe(u.owner, src.owner) ? 1 : 0) }],
@@ -799,12 +798,12 @@ const ZONES = {
 const nearSt = (E, src, u, n = 2) => { const st = E.struct(src.struct); return st && E.dist(u, st) <= n; };
 const STRUCTS = {
   Shelter: [
-    ['Moss Hut', 'Pelted', 'Succulence', 2, 8, 2, '🛖', 'At the start of your turn, friendly Identities within 2 tiles gain a Barrier of 1 (does not stack).', { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) for (const u of E.unitsOf(src.owner)) if (nearSt(E, src, u)) topBarrier(E, u, 1); } }],
+    ['Moss Hut', 'Pelted', 'Succulence', 2, 8, 2, '🛖', 'At the start of your turn, restore 1 BP to each friendly Identity within 2 tiles.', { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) for (const u of E.unitsOf(src.owner)) if (nearSt(E, src, u)) E.heal(u, 1); } }],
     ['Hollow Log Refuge', 'Feathered', 'Obscurity', 2, 9, 2, '🪵', 'Friendly Identities within 1 tile take 1 less damage from ranged attacks.', { incoming(E, src, dmg) { const u = E.unit(dmg.target); if (u && u.owner === src.owner && dmg.attack && dmg.ranged && nearSt(E, src, u, 1)) dmg.amount -= 1; } }],
     ['Bramble Burrow', 'Arthropod', 'Hardpan', 2, 8, 2, '🌰', 'Identities summoned here gain a Barrier that prevents the next 2 damage.', { on(E, src, ev, d) { if (ev === 'summoned' && d.struct === src.struct) E.giveBarrier(E.unit(d.unit), 2); } }],
     ['Lantern Cottage', 'Character', 'Seclusion', 3, 10, 2, '🏮', 'Friendly Identities within 2 tiles have +1 maximum MP.', { stat: (E, src, u, k) => (k === 'mp' && u.owner === src.owner && nearSt(E, src, u) ? 1 : 0) }],
     ['Root Cellar', 'Magically-Mutated', 'Persistence', 3, 10, 2, '🥔', 'Once per turn, when a friendly Identity within 2 tiles would be defeated, it survives with 1 BP instead.', { lethal(E, src, u) { const st = E.struct(src.struct); return st && u.owner === src.owner && E.dist(u, st) <= 2 && E.once(st, 'rootCellar'); } }],
-    ['Healer\'s Hollow', 'Scales', 'Succulence', 3, 11, 2, '💚', 'At the start of your turn, friendly Identities within 2 tiles gain a Barrier of 2 (does not stack).', { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) for (const u of E.unitsOf(src.owner)) if (nearSt(E, src, u)) topBarrier(E, u, 2); } }],
+    ['Healer\'s Hollow', 'Scales', 'Succulence', 3, 11, 2, '💚', 'At the start of your turn, restore 2 BP to each friendly Identity within 2 tiles.', { on(E, src, ev, d) { if (ev === 'turnStart' && d.p === src.owner) for (const u of E.unitsOf(src.owner)) if (nearSt(E, src, u)) E.heal(u, 2); } }],
     ['Sanctuary Tree', 'Magically-Mutated', 'Infrastructure', 4, 14, 3, '🌳', 'Friendly Identities within 2 tiles take 1 less damage and cannot be targeted by enemy Actions or Events.', { incoming(E, src, dmg) { const u = E.unit(dmg.target); if (u && u.owner === src.owner && nearSt(E, src, u)) dmg.amount -= 1; }, untargetable: (E, src, u) => u.owner === src.owner && nearSt(E, src, u) }],
   ],
   Bastion: [

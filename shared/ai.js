@@ -171,9 +171,9 @@ export function evaluate(G, p, prof = difficultyProfile(6)) {
     const v = unitValue(G, u);
     const mine = G.ally(u.owner, p);
     if (!mine) {
-      // Damage heals at the start of its owner's turn, so it only counts partly.
+      // Damage sticks, so wearing enemies down is real progress.
       const frac = Math.max(0, u.bp) / Math.max(1, G.maxBp(u));
-      score += w(u.owner) * v * (0.7 + 0.3 * frac);
+      score += w(u.owner) * v * (0.4 + 0.6 * frac);
       continue;
     }
     const own = u.owner === p ? 1 : 0.8;

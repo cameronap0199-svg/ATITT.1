@@ -37,7 +37,7 @@ const SECTIONS = [
     </ol>
     <p>Playing a card moves you to its phase automatically, but you can't go back — e.g. once you summon, you can't build any more this turn. The phase tracker (bottom right) shows where you are; click a later phase to skip ahead.</p>
     <p><b>Actions and Events</b> can be played any time during your own turn. ⚡<b>Response</b> cards can also be played while a response sequence is open.</p>
-    <p>At the start of each of your turns, your Identities fully recover their <b>BP and MP</b> — damage doesn't carry over, so finish your targets within a turn!</p>`],
+    <p>At the start of each of your turns, your Identities refresh their <b>MP</b>. <b>BP does not regenerate</b> — damage stays until something heals it.</p>`],
   ['🚩 Territory', `
     <h2>Zones, Structures &amp; Capture</h2>
     <ul>
