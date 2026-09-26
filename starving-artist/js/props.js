@@ -40,8 +40,9 @@ function emissive(m) { m.userData.noBake = true; return m; }
 
 // Unique material for textures that change at runtime (paintings, screens).
 export function uniquePlane(w, h, texture, { emissive: em = 0.55, color = 0xffffff, transparent = false, side } = {}) {
-  const m = new THREE.Mesh(paint(new THREE.PlaneGeometry(w, h), color), mat({ map: texture, emissive: em, transparent, side }));
-  m.userData.noBake = true;
+  // Baked with the room's light like any prop; emissive decides how much it glows on its own.
+  const m = new THREE.Mesh(paint(new THREE.PlaneGeometry(w, h), color), mat({ map: texture, emissive: em, transparent, side, dyn: 0.6 }));
+  if (em >= 1) m.userData.noBake = true;
   return m;
 }
 

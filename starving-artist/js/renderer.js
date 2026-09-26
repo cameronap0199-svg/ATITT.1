@@ -20,6 +20,12 @@ export const shared = {
   uLRange: { value: new Array(MAXL).fill(1) },
   uLCount: { value: 0 },
   uGlobalWob: { value: 0 },
+  // phone flashlight (a per-vertex spotlight, like the era's hardware would have done it)
+  uSpotPos: { value: new THREE.Vector3() },
+  uSpotDir: { value: new THREE.Vector3(0, 0, -1) },
+  uSpotCol: { value: new THREE.Vector3(0, 0, 0) },
+  uSpotRange: { value: 16 },
+  uSpotCone: { value: new THREE.Vector2(0.82, 0.95) },
 };
 
 const VERT = /* glsl */`
@@ -28,6 +34,8 @@ uniform float uTime; uniform vec2 uSnap; uniform float uAffine; uniform float uW
 uniform vec3 uLPos[MAXL]; uniform vec3 uLCol[MAXL]; uniform float uLRange[MAXL]; uniform int uLCount;
 uniform float uFogNear; uniform float uFogFar; uniform float uFogMul;
 uniform vec3 uProbe; uniform float uUseProbe; uniform float uEmissive; uniform float uDyn;
+uniform vec3 uSpotPos; uniform vec3 uSpotDir; uniform vec3 uSpotCol; uniform float uSpotRange; uniform vec2 uSpotCone;
+attribute vec3 albedo;
 varying vec3 vUvW; varying vec3 vCol; varying float vFog;
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -49,8 +57,19 @@ void main() {
     float ndl = dot(wn, d / max(dist, 0.001)) * 0.5 + 0.5;
     dyn += uLCol[i] * att * ndl;
   }
+  if (uSpotCol.r + uSpotCol.g + uSpotCol.b > 0.0) {
+    vec3 sd = wp.xyz - uSpotPos;
+    float sdist = length(sd);
+    vec3 sn = sd / max(sdist, 0.001);
+    float cone = smoothstep(uSpotCone.x, uSpotCone.y, dot(sn, uSpotDir));
+    float satt = clamp(1.0 - sdist / uSpotRange, 0.0, 1.0);
+    satt = satt * (0.35 + 0.65 * satt);
+    float sndl = max(dot(wn, -sn), 0.0) * 0.75 + 0.25;
+    dyn += uSpotCol * cone * satt * sndl;
+  }
   // baked geometry: colour already holds light, so add dynamic light; probe-lit objects: colour is albedo
-  vec3 lit = mix(base + dyn * uDyn, base * (uProbe + dyn * uDyn), uUseProbe);
+  // baked props carry their albedo separately so moving light takes their colour
+  vec3 lit = mix(base + dyn * uDyn * albedo, base * (uProbe + dyn * uDyn), uUseProbe);
   vCol = mix(lit, base, uEmissive);
   vec4 vp = viewMatrix * wp;
   vec4 cp = projectionMatrix * vp;
@@ -107,9 +126,11 @@ export function mat(opts = {}) {
   };
   const m = new THREE.ShaderMaterial({
     uniforms: u, vertexShader: VERT, fragmentShader: FRAG, vertexColors: true,
-    transparent: !!opts.transparent, side: opts.side ?? THREE.FrontSide,
-    depthWrite: opts.depthWrite ?? !opts.transparent,
+    transparent: !!opts.transparent || !!opts.additive, side: opts.side ?? THREE.FrontSide,
+    depthWrite: opts.depthWrite ?? !(opts.transparent || opts.additive),
+    blending: opts.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
   });
+  m.defaultAttributeValues = { ...m.defaultAttributeValues, albedo: [1, 1, 1] };
   m.userData.opts = opts;
   return m;
 }
@@ -131,6 +152,7 @@ uniform sampler2D tScene; uniform vec2 uRes; uniform float uTime;
 uniform float uDither; uniform float uLevels; uniform float uCRT; uniform float uVignette; uniform float uGrain;
 uniform float uDesat; uniform vec3 uTint; uniform float uGlitch; uniform float uAberr; uniform vec3 uFadeColor;
 uniform float uFade; uniform float uWarp; uniform float uBloom; uniform float uInvert;
+uniform float uGamma; uniform float uFlash; uniform float uRed; uniform float uTrack;
 varying vec2 vUv;
 float hash(vec2 p) { p = mod(p, 512.0); return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 float bayer(vec2 p) {
@@ -146,6 +168,12 @@ void main() {
   if (uWarp > 0.0) {
     uv.x += sin(uv.y * 9.0 + uTime * 1.3) * 0.006 * uWarp;
     uv.y += cos(uv.x * 7.0 + uTime * 1.1) * 0.004 * uWarp;
+  }
+  float trackBand = 0.0;
+  if (uTrack > 0.0) {
+    float ty = fract(uTime * 0.21);
+    trackBand = smoothstep(0.035, 0.0, abs(uv.y - ty)) * uTrack;
+    uv.x += (hash(vec2(floor(uv.y * 120.0), floor(uTime * 30.0))) - 0.5) * 0.03 * trackBand;
   }
   if (uGlitch > 0.0) {
     float band = floor(uv.y * 30.0);
@@ -172,8 +200,12 @@ void main() {
   c *= uTint;
   c = mix(c, 1.0 - c, uInvert);
   c += (hash(px + fract(uTime * 7.13) * 100.0) - 0.5) * uGrain;
+  c += trackBand * (hash(px * 1.7 + uTime) * 0.35);
   vec2 d = vUv - 0.5;
   c *= 1.0 - dot(d, d) * uVignette;
+  if (uRed > 0.0) c = mix(c, vec3(0.32, 0.0, 0.02), uRed * smoothstep(0.12, 0.55, dot(d, d) * 2.2));
+  c = pow(max(c, 0.0), vec3(1.0 / uGamma));
+  c += uFlash;
   if (uDither > 0.0) c += (bayer(px) - 0.5) / uLevels;
   c = floor(clamp(c, 0.0, 1.0) * uLevels + 0.5) / uLevels;
   if (uCRT > 0.0) c *= 1.0 - uCRT * 0.14 * step(0.62, fract(vUv.y * uRes.y));
@@ -198,7 +230,7 @@ export class PS1Renderer {
         uDither: { value: 1 }, uLevels: { value: 31 }, uCRT: { value: 1 }, uVignette: { value: 1.1 }, uGrain: { value: 0.035 },
         uDesat: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) }, uGlitch: { value: 0 }, uAberr: { value: 0 },
         uFadeColor: { value: new THREE.Color(0, 0, 0) }, uFade: { value: 1 }, uWarp: { value: 0 }, uBloom: { value: 0.6 },
-        uInvert: { value: 0 },
+        uInvert: { value: 0 }, uGamma: { value: 1 }, uFlash: { value: 0 }, uRed: { value: 0 }, uTrack: { value: 0 },
       },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: POST_FRAG, depthTest: false, depthWrite: false,

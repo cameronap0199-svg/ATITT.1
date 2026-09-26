@@ -28,10 +28,54 @@ class AudioEngine {
     this.revGain = ctx.createGain(); this.revGain.gain.value = 0.9;
     this.reverb.connect(this.revGain); this.revGain.connect(this.comp);
     this.noiseBuf = this._noise(2);
+    this._persistent();
     this.applyVolumes();
     this._tick = setInterval(() => this._schedule(), 90);
     this.setMood(this._pendingMood || 'title');
   }
+
+  // Always-running layers whose level the game steers: phone static (Alienate is near),
+  // a pulsing tension bed (it is hunting), and the reverb size of the current room.
+  _persistent() {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 0.7;
+    const am = ctx.createGain(); am.gain.value = 0;
+    this.staticGain = ctx.createGain(); this.staticGain.gain.value = 0;
+    src.connect(bp); bp.connect(am); am.connect(this.staticGain); this.staticGain.connect(this.sfx);
+    const lfo = ctx.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 7.3;
+    const lg = ctx.createGain(); lg.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
+    const bias = ctx.createConstantSource ? ctx.createConstantSource() : null;
+    if (bias) { bias.offset.value = 0.55; bias.connect(am.gain); bias.start(); }
+    src.start(); lfo.start();
+    this.staticLfo = lfo;
+    // tension: a heartbeat-like sub pulse and a thin dissonant shimmer
+    this.tensionGain = ctx.createGain(); this.tensionGain.gain.value = 0;
+    const tl = ctx.createBiquadFilter(); tl.type = 'lowpass'; tl.frequency.value = 240;
+    const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 46.25;
+    const o2 = ctx.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = 46.9;
+    const pulse = ctx.createGain(); pulse.gain.value = 0.5;
+    const pl = ctx.createOscillator(); pl.frequency.value = 1.6; const plg = ctx.createGain(); plg.gain.value = 0.5; pl.connect(plg); plg.connect(pulse.gain);
+    o1.connect(tl); o2.connect(tl); tl.connect(pulse); pulse.connect(this.tensionGain);
+    const sh = ctx.createOscillator(); sh.type = 'sine'; sh.frequency.value = 1864; const sh2 = ctx.createOscillator(); sh2.type = 'sine'; sh2.frequency.value = 1976;
+    const shg = ctx.createGain(); shg.gain.value = 0.012; sh.connect(shg); sh2.connect(shg); shg.connect(this.tensionGain);
+    this.tensionGain.connect(this.music);
+    for (const o of [o1, o2, pl, sh, sh2]) o.start();
+    this.tensionPulse = pl;
+  }
+  setStatic(v) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.staticGain.gain.setTargetAtTime(Math.max(0, Math.min(1, v)) * 0.16, t, 0.08);
+    this.staticLfo.frequency.setTargetAtTime(5 + v * 14, t, 0.2);
+  }
+  setTension(v) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tensionGain.gain.setTargetAtTime(Math.max(0, Math.min(1, v)) * 0.55, t, 0.4);
+    this.tensionPulse.frequency.setTargetAtTime(1.2 + v * 1.6, t, 0.5);
+  }
+  setReverb(v) { if (this.ctx) this.revGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.8); }
 
   applyVolumes() {
     if (!this.ctx) return;
@@ -328,7 +372,30 @@ class AudioEngine {
       case 'thud': this._tone({ freq: 55, slide: 0.5, peak: 0.6, d: 0.5 }); this._noiseHit({ type: 'lowpass', freq: 200, peak: 0.5, d: 0.4, rev: 0.5 }); break;
       case 'tear': this._noiseHit({ type: 'bandpass', freq: 3200, q: 0.8, a: 0.02, peak: 0.3, d: 0.6, rev: 0.3 }); break;
       case 'splash': this._noiseHit({ type: 'lowpass', freq: 1400, peak: 0.3, d: 0.6, pos, rev: 0.4 }); break;
-      case 'breath': this._noiseHit({ type: 'bandpass', freq: 700, q: 1, a: 0.35, peak: 0.05 * (opts.vol || 1), d: 0.6 }); break;
+      case 'breath': this._noiseHit({ type: 'bandpass', freq: 700, q: 1, a: 0.35, peak: 0.05 * (opts.vol || 1), d: 0.6, pos }); break;
+      case 'scream': {
+        const f = this._noiseHit({ type: 'bandpass', freq: 900, q: 3, a: 0.04, peak: 0.45, d: 1.1, pos, rev: 0.7 });
+        f.frequency.linearRampToValueAtTime(2600, t + 0.3); f.frequency.linearRampToValueAtTime(700, t + 1.1);
+        const o = this._tone({ freq: 380, type: 'sawtooth', a: 0.03, peak: 0.09, d: 1.0, pos, slide: 0.45, rev: 0.6 });
+        o.detune.setValueAtTime(0, t); o.detune.linearRampToValueAtTime(900, t + 0.2); o.detune.linearRampToValueAtTime(-600, t + 1);
+        break;
+      }
+      case 'flashlight': this._noiseHit({ type: 'highpass', freq: 3500, peak: 0.12, d: 0.03 }); this._tone({ freq: 2400, type: 'square', peak: 0.02, d: 0.02 }); break;
+      case 'boot': {
+        [0, 7, 12, 16, 19, 24].forEach((n, i) => this._tone({ t: t + 0.05 + i * 0.11, freq: NOTE(48 + n), type: 'triangle', a: 0.02, peak: 0.06, d: 3.2, rev: 1 }));
+        this._tone({ t: t + 0.8, freq: NOTE(72), type: 'sine', a: 0.6, peak: 0.07, d: 3.5, rev: 1.2 });
+        this._tone({ t: t + 0.8, freq: NOTE(79), type: 'sine', a: 0.6, peak: 0.05, d: 3.5, rev: 1.2 });
+        break;
+      }
+      case 'start': [0, 4, 7, 11, 14].forEach((n, i) => this._tone({ t: t + i * 0.05, freq: NOTE(67 + n), type: 'triangle', peak: 0.06, d: 1.2, rev: 0.9 })); break;
+      case 'save': [0, 5].forEach((n, i) => this._tone({ t: t + i * 0.12, freq: NOTE(88 + n), type: 'square', peak: 0.02, d: 0.12 })); break;
+      case 'page': this._noiseHit({ type: 'bandpass', freq: 3200, q: 0.8, a: 0.05, peak: 0.12, d: 0.35 }); this._noiseHit({ t: t + 0.18, type: 'bandpass', freq: 2400, q: 0.8, a: 0.03, peak: 0.08, d: 0.25 }); break;
+      case 'lightsOut': this._noiseHit({ type: 'lowpass', freq: 500, peak: 0.5, d: 0.3, rev: 0.8 }); this._tone({ freq: 120, type: 'square', peak: 0.08, d: 0.9, slide: 0.3 }); break;
+      case 'slam': this._noiseHit({ type: 'lowpass', freq: 380, peak: 0.8, d: 0.5, pos, rev: 0.9 }); this._tone({ freq: 60, slide: 0.5, peak: 0.5, d: 0.5, pos }); break;
+      case 'crash': this._noiseHit({ type: 'highpass', freq: 800, peak: 0.45, d: 0.9, pos, rev: 0.6 }); this._noiseHit({ t: t + 0.04, type: 'lowpass', freq: 300, peak: 0.5, d: 0.4, pos }); break;
+      case 'clack': for (let i = 0; i < 16; i++) this._noiseHit({ t: t + Math.random() * 0.12, type: 'bandpass', freq: 1800 + Math.random() * 1500, q: 6, peak: 0.12, d: 0.05, rev: 0.4 }); break;
+      case 'whoosh': { const f = this._noiseHit({ type: 'bandpass', freq: 300, q: 1.2, a: 0.8, peak: 0.25, d: 1.0, rev: 0.6 }); f.frequency.linearRampToValueAtTime(3200, t + 1.6); break; }
+      case 'item': [0, 4, 7, 12].forEach((n, i) => this._tone({ t: t + i * 0.08, freq: NOTE(72 + n), type: 'triangle', peak: 0.07, d: 0.9, rev: 0.7 })); break;
       case 'gasp': this._noiseHit({ type: 'bandpass', freq: 1100, q: 1.5, a: 0.05, peak: 0.2, d: 0.35 }); break;
       case 'shutter': this._noiseHit({ type: 'highpass', freq: 3000, peak: 0.2, d: 0.05, pos }); this._noiseHit({ t: t + 0.07, type: 'highpass', freq: 2500, peak: 0.15, d: 0.05, pos }); break;
       case 'clap': for (let i = 0; i < 24; i++) this._noiseHit({ t: t + Math.random() * 1.6, type: 'bandpass', freq: 1500 + Math.random() * 1000, q: 1, peak: 0.05, d: 0.04, rev: 0.3 }); break;

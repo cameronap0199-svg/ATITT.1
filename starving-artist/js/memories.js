@@ -5,7 +5,8 @@ import * as P from './props.js';
 import { tex, faceTex, toTex } from './tex.js';
 import { audio } from './audio.js';
 import { S } from './state.js';
-import { CHAPTERS } from './story.js';
+import { CHAPTERS, KEEPSAKES } from './story.js';
+import { Motes, lightShaft } from './fx3d.js';
 import { renderComposition, newPaintCanvas } from './painting.js';
 import { MEM_A } from './mem_a.js';
 import { MEM_B } from './mem_b.js';
@@ -40,6 +41,15 @@ export class MemCtx {
     this.prog[id] = (this.prog[id] || 0) + n;
     const s = this.step(id);
     if (this.isDone(id)) { audio.play('pickup'); if (s?.onDone) s.onDone(); }
+    const p = this.prioOf(id);
+    if (p && this.isPicked(p) && this.prioDone(p) && !this._kept?.[p]) {
+      (this._kept ||= {})[p] = true;
+      const kd = KEEPSAKES[this.k]?.[p];
+      if (kd) {
+        S.cur.keepsakes.push([this.k, p]);
+        setTimeout(() => this.game.ui.itemCard({ icon: kd[1], kick: 'KEEPSAKE', name: kd[0], desc: kd[2] }), 700);
+      }
+    }
     this.refreshHud();
     if (this.picked && this.picked.every((p) => this.steps[p].every((x) => this.isDone(x.id)))) setTimeout(() => this._resolveAll(), 900);
   }
@@ -137,7 +147,7 @@ export class MemCtx {
   // Easel helper: returns { easel, cover(on) }, and shows the finished painting when painted.
   easel(i, j, opts = {}) {
     const surf = newPaintCanvas();
-    const g = surf.getContext('2d'); g.fillStyle = '#f6f2ea'; g.fillRect(0, 0, surf.width, surf.height);
+    const g = surf.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#f6f2ea'; g.fillRect(0, 0, surf.width, surf.height);
     const t = toTex(surf, { repeat: false });
     const e = P.easel(t, { w: 1.1, h: 0.82 });
     this.world.prop(e, i, j, { ...opts, collide: 0.05 });
@@ -159,18 +169,32 @@ export async function runMemory(game, k) {
   const ctx = new MemCtx(game, k);
   game.memCtx = ctx;
   ctx.steps = def.steps;
+  await game.beginLoad(true);
   const built = def.build(ctx);
   ctx.world = built.world;
   game.setWorld(built.world, built.spawn);
   game.player.floorY = undefined;
+  game.setFlashlight(false);
+  game.alert = 0; game.proximity = 0;
+  // memories are warm and dusty; light pours in through the windows
+  const motes = new Motes(built.world.scene, { count: 90, color: k === 2 ? 0xd8e8d0 : 0xffe8c8, size: 0.03, radius: 7, y0: 0.3, y1: 3 });
+  built.world.onUpdate((dt, t) => motes.update(dt, t, game.camera));
+  for (const sh of built.world.shafts || []) {
+    const s = lightShaft(sh.w, sh.h, sh.color ?? 0xfff0d8, sh.op ?? 0.14);
+    s.position.set(sh.x, sh.y || 0, sh.z); s.rotation.set(sh.tx || 0, sh.ry || 0, sh.tz || 0);
+    built.world.scene.add(s);
+    built.world.onUpdate((dt, t) => { s.userData.mat.uniforms.uOpacity.value = s.userData.base * (0.85 + 0.15 * Math.sin(t * 0.5 + sh.x)); });
+  }
   game.setMood({ fog: [0xfff4e6, 5, 26], desat: 0.05, tint: [1.07, 1.0, 0.92], vignette: 1.5, grain: 0.05, bloom: 0.55, warp: 0.12, music: 'memory', corrupt: Math.min(0.5, k * 0.08), ambient: ['crackle', 'room'], playerLight: 0, ...(built.mood || {}) });
   game.ui.setTasks(null);
   game.hint(null);
   game.mode = 'cutscene';
+  await game.endLoad();
   await game.fade(0, 2.2);
   await game.ui.card(`MEMORY ${k + 1} · ${ch.when.toUpperCase()}`, ch.title, `Nate, age ${ch.age}`);
   if (built.onEnter) await built.onEnter(ctx);
-  for (const l of def.intro) { const d = game.ui.subtitle(l); await wait(d + 250); }
+  for (const l of def.intro) { const d = game.ui.subtitle(l); await game.skippable(d + 250); }
+  game.ui.clearSubtitle();
   const picked = await game.ui.pickPriorities({ chapterName: `MEMORY ${k + 1}`, question: ch.question, create: ch.create, bond: ch.bond, duty: ch.duty });
   ctx.picked = picked;
   ctx.refreshHud();

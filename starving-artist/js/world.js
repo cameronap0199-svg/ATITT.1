@@ -126,7 +126,12 @@ export class World {
       if (b.yOnly) { const dx = cam.position.x - b.obj.position.x, dz = cam.position.z - b.obj.position.z; b.obj.rotation.set(0, Math.atan2(dx, dz), 0); }
       else b.obj.quaternion.copy(cam.quaternion);
     }
-    for (const d of this.dynamics) { if (d.visible) setProbe(d, this.level.probe(d.position)); }
+    // re-sample baked light for moving objects only when they have actually moved
+    for (const d of this.dynamics) {
+      if (!d.visible) continue;
+      const lp = d.userData._probeAt;
+      if (!lp || lp.distanceToSquared(d.position) > 0.09) { setProbe(d, this.level.probe(d.position)); d.userData._probeAt = d.position.clone(); }
+    }
     for (const f of [...this.updaters]) f(dt, this.t);
   }
 

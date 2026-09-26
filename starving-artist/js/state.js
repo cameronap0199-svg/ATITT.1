@@ -17,6 +17,9 @@ export function newState() {
     playTime: 0,
     finalComp: null,
     flags: {},
+    pages: [],          // sketchbook pages found
+    keepsakes: [],      // [chapter, priority] pairs
+    visited: [],        // Venue map cells seen
   };
 }
 
@@ -70,6 +73,9 @@ export function ending(st = S.cur) {
 export function save() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S.cur)); } catch { /* storage unavailable */ }
 }
+export function peekSave() {
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.records ? s : null; } catch { return null; }
+}
 export function hasSave() {
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return !!(s && s.records); } catch { return false; }
 }
@@ -92,7 +98,7 @@ export function recordEnding(id) {
 export const DEFAULT_SETTINGS = {
   master: 0.8, music: 0.7, sfx: 0.9, sens: 1, invertY: false, fov: 70, res: 240,
   dither: true, crt: true, snap: true, affine: true, grain: true, headBob: true,
-  reduceFlash: false, hints: true, textSpeed: 1, textSize: 1, blips: true,
+  reduceFlash: false, hints: true, textSpeed: 1, textSize: 1, blips: true, gamma: 1, calibrated: false,
 };
 export function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch { return { ...DEFAULT_SETTINGS }; }

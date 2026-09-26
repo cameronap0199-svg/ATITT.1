@@ -9,7 +9,7 @@ export function rng(seed = 1) {
 export function canvas(w, h) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
-  const g = c.getContext('2d');
+  const g = c.getContext('2d', { willReadFrequently: true });
   g.imageSmoothingEnabled = false;
   return [c, g];
 }
@@ -284,10 +284,19 @@ const GEN = {
   },
   paper: () => plain('#f4efe2', 10, 32, 101),
   canvasBlank: () => {
-    const c = plain('#f6f2ea', 8, 32, 111); const g = c.getContext('2d');
-    g.fillStyle = 'rgba(0,0,0,0.05)'; for (let i = 0; i < 32; i += 2) g.fillRect(0, i, 32, 1);
+    // primed linen: a fine weave, faint gesso brush marks, darker tacked edges
+    const [c, g] = canvas(64, 48);
+    g.fillStyle = '#f3eee4'; g.fillRect(0, 0, 64, 48);
+    const r = rng(111);
+    for (let y = 0; y < 48; y++) for (let x = 0; x < 64; x++) if ((x + y) % 2 === 0) { g.fillStyle = `rgba(120,100,80,${0.04 + r() * 0.03})`; g.fillRect(x, y, 1, 1); }
+    for (let i = 0; i < 18; i++) { g.fillStyle = `rgba(255,255,255,${0.25 + r() * 0.3})`; g.fillRect(r() * 60, r() * 46, 6 + r() * 14, 1); }
+    const gr = g.createRadialGradient(32, 24, 12, 32, 24, 40);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(90,70,50,0.28)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 48);
+    g.fillStyle = '#8a8070'; for (let x = 4; x < 64; x += 10) { g.fillRect(x, 0, 1, 1); g.fillRect(x, 47, 1, 1); }
     return c;
   },
+
   fabricBlue: () => plain('#5a78b8', 18, 32, 121),
   fabricPink: () => plain('#e6a3bd', 18, 32, 122),
   fabricGreen: () => plain('#7aa071', 18, 32, 123),

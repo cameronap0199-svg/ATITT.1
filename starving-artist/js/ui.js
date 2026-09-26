@@ -3,6 +3,8 @@
 import { input } from './input.js';
 import { audio } from './audio.js';
 import { renderComposition, newPaintCanvas } from './painting.js';
+import { ideaIcon } from './ideas.js';
+import { PAGES, KEEPSAKES } from './story.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -32,7 +34,13 @@ export class UI {
       <div id="priority" class="overlay hidden"></div>
       <div id="menu" class="overlay hidden"></div>
       <div id="ending" class="overlay hidden"></div>
-      <div id="clicklock" class="hidden">click to continue</div>`);
+      <div id="clicklock" class="hidden">click to continue</div>
+      <div id="lb-top"></div><div id="lb-bot"></div>
+      <div id="loadscr" class="hidden"><div class="ld-tip"></div><div class="ld-right"><canvas class="ld-spin" width="32" height="32"></canvas><span class="ld-text">NOW LOADING</span></div></div>
+      <div id="saveicon" class="hidden"><div class="card-ico"><i></i></div><span>SAVING</span></div>
+      <div id="itemcard" class="hidden"><canvas width="44" height="44"></canvas><div><div class="ic-kick"></div><div class="ic-name"></div><div class="ic-desc"></div></div></div>
+      <div id="note" class="overlay hidden"><div class="paper"><div class="n-kick"></div><h3 class="n-title"></h3><canvas class="n-sketch" width="192" height="144"></canvas><p class="n-text"></p><div class="n-hint">E / click to close</div></div></div>
+      <div id="boot" class="overlay hidden"></div>`);
     this.$ = (id) => document.getElementById(id);
     this.dlg = this.$('dialogue');
     this.dlg.addEventListener('mousedown', (e) => { if (!e.target.closest('.choice')) this._advance(); });
@@ -91,6 +99,58 @@ export class UI {
     await wait(900);
   }
   hideHud(h) { this.$('hud').style.visibility = h ? 'hidden' : ''; }
+  cinematic(on) { document.body.classList.toggle('cine', !!on); }
+
+  // PS1-style loading screen with a tip and a spinning painted canvas.
+  loading(on, tip = '', light = false) {
+    const l = this.$('loadscr');
+    l.classList.toggle('light', light);
+    if (!on) { l.classList.add('hidden'); cancelAnimationFrame(this._ldRaf); return; }
+    l.querySelector('.ld-tip').textContent = tip;
+    l.classList.remove('hidden');
+    const c = l.querySelector('.ld-spin'), g = c.getContext('2d');
+    const t0 = performance.now();
+    const spin = () => {
+      const t = (performance.now() - t0) / 1000;
+      g.clearRect(0, 0, 32, 32);
+      const w = Math.abs(Math.cos(t * 3)) * 22 + 2;
+      g.fillStyle = '#c9a24a'; g.fillRect(16 - w / 2 - 2, 4, w + 4, 24);
+      g.fillStyle = Math.cos(t * 3) > 0 ? '#f6f2ea' : '#1a1418'; g.fillRect(16 - w / 2, 6, w, 20);
+      this._ldRaf = requestAnimationFrame(spin);
+    };
+    spin();
+  }
+  saveIcon() {
+    const s = this.$('saveicon');
+    s.classList.remove('hidden'); audio.play('save');
+    clearTimeout(this._saveT); this._saveT = setTimeout(() => s.classList.add('hidden'), 2400);
+  }
+  itemCard({ icon, kick, name, desc }) {
+    const el = this.$('itemcard');
+    const c = el.querySelector('canvas'); const g = c.getContext('2d'); g.clearRect(0, 0, 44, 44);
+    if (icon) g.drawImage(ideaIcon(icon, 44, 44), 0, 0);
+    el.querySelector('.ic-kick').textContent = kick; el.querySelector('.ic-name').textContent = name; el.querySelector('.ic-desc').textContent = desc || '';
+    el.classList.remove('hidden', 'in'); void el.offsetWidth; el.classList.add('in');
+    audio.play('item');
+    clearTimeout(this._itemT); this._itemT = setTimeout(() => el.classList.add('hidden'), 4600);
+  }
+  // A sketchbook page, read in place. Resolves when dismissed.
+  readNote(page, idx) {
+    return new Promise((res) => {
+      const n = this.$('note');
+      n.querySelector('.n-kick').textContent = `SKETCHBOOK PAGE ${idx + 1} / ${PAGES.length}`;
+      n.querySelector('.n-title').textContent = page.title;
+      n.querySelector('.n-text').textContent = page.text;
+      const items = page.sketch.map((id, i) => ({ id, x: 40 + i * (112 / Math.max(1, page.sketch.length - 1 || 1)), y: 120 - (i % 2) * 14, s: 1.2 }));
+      renderComposition(n.querySelector('.n-sketch'), { bg: page.bg, items, strokes: [], seed: idx + 11, insp: [] });
+      n.classList.remove('hidden');
+      audio.play('page');
+      this._note = () => { n.classList.add('hidden'); this._note = null; audio.play('page'); res(); };
+      const close = () => { n.removeEventListener('click', close); if (this._note) this._note(); };
+      setTimeout(() => n.addEventListener('click', close), 250);
+      this._noteT = 0.35;
+    });
+  }
 
   // ------------------------------------------------------------ dialogue
   say(name, text, opts = {}) {
@@ -152,6 +212,7 @@ export class UI {
   inDialogue() { return !!this._mode; }
 
   update(dt) {
+    if (this._note) { this._noteT -= dt; if (this._noteT <= 0 && input.anyAdvance()) this._note(); return; }
     const ty = this._typing;
     if (this._mode === 'say' && ty) {
       ty.t += dt;
@@ -249,12 +310,12 @@ export class UI {
     if ((input.code('Enter') || input.code('pad:interact')) && this._menuSel >= 0) this._menuBtns[this._menuSel].click();
   }
 
-  title({ hasSave, endings, onContinue, onNew, onSettings, onControls, onEndings }) {
+  title({ hasSave, contLabel = '', endings, onContinue, onNew, onSettings, onControls, onEndings }) {
     const m = this.menu(`
       <div class="title-wrap">
         <h1 class="logo">Starving Artist<small>A MEMORY IN SEVEN CANVASES</small></h1>
         <div class="title-menu">
-          <button class="btn" id="m-cont" ${hasSave ? '' : 'disabled'}>Continue</button>
+          <button class="btn" id="m-cont" ${hasSave ? '' : 'disabled'}>Continue${contLabel ? `<small class="sub">${esc(contLabel)}</small>` : ''}</button>
           <button class="btn" id="m-new">New Memory</button>
           <button class="btn" id="m-set">Settings</button>
           <button class="btn" id="m-ctl">Controls</button>
@@ -295,7 +356,7 @@ export class UI {
     const rows = [
       ['AUDIO'], ['master', 'Master volume', 'range', 0, 1, 0.05], ['music', 'Music', 'range', 0, 1, 0.05], ['sfx', 'Sound effects', 'range', 0, 1, 0.05], ['blips', 'Dialogue voice blips', 'bool'],
       ['CONTROLS'], ['sens', 'Mouse / stick sensitivity', 'range', 0.2, 3, 0.05], ['invertY', 'Invert look', 'bool'], ['fov', 'Field of view', 'range', 55, 100, 1], ['headBob', 'Head bob', 'bool'],
-      ['PICTURE'], ['res', 'Resolution', 'select', [[200, '200p (crunchy)'], [240, '240p (PS1)'], [360, '360p'], [480, '480p (clean)']]],
+      ['PICTURE'], ['gamma', 'Brightness', 'range', 0.7, 1.7, 0.05], ['res', 'Resolution', 'select', [[200, '200p (crunchy)'], [240, '240p (PS1)'], [360, '360p'], [480, '480p (clean)']]],
       ['dither', 'Dithering', 'bool'], ['snap', 'Vertex wobble (jitter)', 'bool'], ['affine', 'Texture warping', 'bool'], ['crt', 'CRT lines', 'bool'], ['grain', 'Film grain', 'bool'],
       ['ACCESSIBILITY'], ['reduceFlash', 'Reduce flashing & glitches', 'bool'], ['hints', 'Objective hints', 'bool'], ['textSize', 'Text size', 'range', 0.8, 1.5, 0.05], ['textSpeed', 'Text speed', 'range', 0.5, 3, 0.1],
     ];
@@ -319,6 +380,7 @@ export class UI {
       <b>W A S D</b><span>walk (arrows also work)</span>
       <b>Mouse</b><span>look (click the screen to capture the mouse)</span>
       <b>Shift</b><span>run — you tire quickly</span>
+      <b>F</b><span>phone flashlight (once Nate has it) — it helps you see, and helps it see you</span>
       <b>E / Space / Click</b><span>interact · advance dialogue</span>
       <b>1 2 3</b><span>pick dialogue choices / priorities</span>
       <b>Tab / J</b><span>journal of memories</span>
@@ -351,20 +413,100 @@ export class UI {
     m.querySelector('#p-quit').onclick = () => { audio.play('click'); onQuit(); };
   }
 
-  journal(state, chapters, onBack) {
-    const entries = state.records.map((r, i) => {
-      const ch = chapters[i];
-      return `<div class="j-entry"><canvas data-i="${i}" width="192" height="144"></canvas><div>
-        <h3>${esc(ch.title)} <span style="font-size:18px;color:#aaa">· age ${ch.age}</span></h3>
-        <div class="tags">${r.picked.map((p) => `<span class="tag ${p}">${PR[p].name}</span>`).join('')}<span class="tag neg">${PR[r.neglected].name}</span></div>
-        <div class="note">${(r.notes || []).map(esc).join(' ')}</div>
-        ${r.comp && !r.comp.blank ? `<div class="note" style="color:#f6c7d8">“${esc(r.comp.title)}”</div>` : ''}
-      </div></div>`;
-    }).join('') || '<p>No memories yet. Find a blank canvas.</p>';
-    const m = this.menu(`<div class="panel journal"><h2>Nate's Journal</h2>${entries}<button class="btn" id="j-back" style="margin-top:14px">Back</button></div>`);
-    m.querySelectorAll('canvas').forEach((c) => { const r = state.records[+c.dataset.i]; renderComposition(c, r.comp || { blank: true, seed: +c.dataset.i + 1 }); });
+  journal(state, chapters, onBack, tab = 'mem', mapFn = null) {
+    const tabs = [['mem', 'Memories'], ['keep', 'Keepsakes'], ['page', `Sketchbook ${state.pages.length}/${PAGES.length}`], ['map', 'Map']];
+    let body = '';
+    if (tab === 'mem') {
+      body = state.records.map((r, i) => {
+        const ch = chapters[i];
+        return `<div class="j-entry"><canvas data-i="${i}" width="192" height="144"></canvas><div>
+          <h3>${esc(ch.title)} <span style="font-size:18px;color:#aaa">· age ${ch.age}</span></h3>
+          <div class="tags">${r.picked.map((p) => `<span class="tag ${p}">${PR[p].name}</span>`).join('')}<span class="tag neg">${PR[r.neglected].name}</span></div>
+          <div class="note">${(r.notes || []).map(esc).join(' ')}</div>
+          ${r.comp && !r.comp.blank ? `<div class="note" style="color:#f6c7d8">“${esc(r.comp.title)}”</div>` : ''}
+        </div></div>`;
+      }).join('') || '<p>No memories yet. Find a blank canvas.</p>';
+    } else if (tab === 'keep') {
+      const items = [];
+      KEEPSAKES.forEach((row, ch) => ['create', 'bond', 'duty'].forEach((p) => {
+        const got = state.keepsakes.some(([c, q]) => c === ch && q === p);
+        if (ch < state.records.length || got) items.push({ got, ch, p, def: row[p] });
+      }));
+      body = items.length ? `<div class="keep-grid">${items.map((it, i) => `<div class="keep ${it.got ? '' : 'lost'}" data-i="${i}"><canvas data-icon="${it.got ? it.def[1] : ''}" width="44" height="44"></canvas><div><b>${it.got ? esc(it.def[0]) : '— neglected —'}</b><span>${it.got ? esc(it.def[2]) : esc(chapters[it.ch].title) + ' · ' + PR[it.p].name}</span></div></div>`).join('')}</div>`
+        : '<p>Keepsakes are the things a memory leaves behind, when you live it.</p>';
+    } else if (tab === 'page') {
+      body = `<div class="page-grid">${PAGES.map((pg, i) => { const got = state.pages.includes(pg.id); return `<button class="pagebtn ${got ? '' : 'lost'}" data-i="${i}" ${got ? '' : 'disabled'}><span>${i + 1}</span>${got ? esc(pg.title) : '???'}</button>`; }).join('')}</div>
+        <p style="font-size:18px;color:#aaa">Torn-out pages of Nate's old sketchbook are hidden around the Vista Venue. Some only appear later.</p>`;
+    } else {
+      body = '<canvas class="mapc" width="408" height="360"></canvas><p class="maplegend"><b style="color:#b0405a">▲</b> you · <b style="color:#c9a24a">■</b> canvas · <b style="color:#3a6ab0">✎</b> page found</p>';
+    }
+    const m = this.menu(`<div class="panel journal"><h2>Nate's Journal</h2><div class="jtabs">${tabs.map(([k, n]) => `<button class="jtab ${k === tab ? 'on' : ''}" data-t="${k}">${n}</button>`).join('')}</div>
+      <div class="jbody">${body}</div><button class="btn" id="j-back" style="margin-top:14px">Back</button></div>`);
+    m.querySelectorAll('.jtab').forEach((b) => b.addEventListener('click', () => { audio.play('page'); this.journal(state, chapters, onBack, b.dataset.t, mapFn); }));
+    m.querySelectorAll('.j-entry canvas').forEach((c) => { const r = state.records[+c.dataset.i]; renderComposition(c, r.comp || { blank: true, seed: +c.dataset.i + 1 }); });
+    m.querySelectorAll('.keep canvas').forEach((c) => { if (c.dataset.icon) c.getContext('2d').drawImage(ideaIcon(c.dataset.icon, 44, 44), 0, 0); });
+    m.querySelectorAll('.pagebtn').forEach((b) => b.addEventListener('click', async () => {
+      const i = +b.dataset.i; this.hideMenu(); await this.readNote(PAGES[i], i); this.journal(state, chapters, onBack, 'page', mapFn);
+    }));
+    const mc = m.querySelector('.mapc');
+    if (mc) { if (mapFn) mapFn(mc); else { const g = mc.getContext('2d'); g.fillStyle = '#e8dcc4'; g.fillRect(0, 0, mc.width, mc.height); g.fillStyle = '#6a5a4a'; g.font = 'italic 20px serif'; g.textAlign = 'center'; g.fillText('You can\'t map a memory.', mc.width / 2, mc.height / 2); } }
     m.querySelector('#j-back').onclick = () => { audio.play('back'); onBack(); };
   }
+
+  // ------------------------------------------------------------ boot
+  // First screen: a gesture gate (browsers only allow sound after one).
+  gate() {
+    return new Promise((res) => {
+      const b = this.$('boot');
+      b.innerHTML = '<div class="gate"><div class="g-title">STARVING ARTIST</div><div class="g-press">CLICK OR PRESS ANY KEY</div><div class="g-note">headphones recommended</div></div>';
+      b.classList.remove('hidden');
+      const go = () => { window.removeEventListener('keydown', go); b.removeEventListener('pointerdown', go); res(); };
+      window.addEventListener('keydown', go); b.addEventListener('pointerdown', go);
+    });
+  }
+  async bootLogo() {
+    const b = this.$('boot');
+    b.innerHTML = '<div class="logo-seq"><canvas width="96" height="96"></canvas><div class="ls-name">VISTA VENUE</div><div class="ls-sub">SOFTWARE · MMXXVI</div></div>';
+    const c = b.querySelector('canvas'), g = c.getContext('2d');
+    let skip = false;
+    const sk = () => { skip = true; };
+    window.addEventListener('keydown', sk); b.addEventListener('pointerdown', sk);
+    audio.play('boot');
+    const t0 = performance.now();
+    await new Promise((res) => {
+      const f = () => {
+        const t = (performance.now() - t0) / 1000;
+        g.clearRect(0, 0, 96, 96);
+        // a spinning low-poly easel with a blank canvas
+        const a = t * 1.6, w = Math.cos(a) * 34;
+        g.strokeStyle = '#8a5a36'; g.lineWidth = 4;
+        g.beginPath(); g.moveTo(48 - w * 0.6, 90); g.lineTo(48, 12); g.lineTo(48 + w * 0.6, 90); g.stroke();
+        g.fillStyle = '#c9a24a'; g.fillRect(48 - Math.abs(w) - 3, 22, Math.abs(w) * 2 + 6, 44);
+        g.fillStyle = Math.cos(a) > 0 ? '#f6f2ea' : '#2a1a14'; g.fillRect(48 - Math.abs(w), 25, Math.abs(w) * 2, 38);
+        b.querySelector('.logo-seq').style.opacity = Math.min(1, t / 0.8, Math.max(0, (4.2 - t) / 0.8));
+        if (t < 4.4 && !skip) requestAnimationFrame(f); else res();
+      };
+      f();
+    });
+    window.removeEventListener('keydown', sk); b.removeEventListener('pointerdown', sk);
+    b.innerHTML = '';
+  }
+  calibrate(onChange) {
+    return new Promise((res) => {
+      const b = this.$('boot');
+      const s = this.settings;
+      b.innerHTML = `<div class="calib"><h2>Brightness</h2><p>Adjust until the left symbol is <b>barely visible</b> and the right one is clearly visible.</p>
+        <div class="cal-row"><div class="cal-box"><i style="background:#0b0a0e"></i></div><div class="cal-box"><i style="background:#1d1a22"></i></div></div>
+        <input type="range" id="cal-g" min="0.7" max="1.7" step="0.05" value="${s.gamma}"><button class="btn" id="cal-ok" style="text-align:center">Confirm</button>
+        <p style="font-size:17px;color:#888">You can change this later in Settings.</p></div>`;
+      const box = [...b.querySelectorAll('.cal-box i')];
+      const apply = () => { const gma = s.gamma; box[0].style.filter = box[1].style.filter = `brightness(${Math.pow(gma, 2.2)})`; };
+      apply();
+      b.querySelector('#cal-g').addEventListener('input', (e) => { s.gamma = +e.target.value; apply(); onChange(); });
+      b.querySelector('#cal-ok').onclick = () => { audio.play('click'); s.calibrated = true; onChange(); b.innerHTML = ''; res(); };
+    });
+  }
+  hideBoot() { this.$('boot').classList.add('hidden'); this.$('boot').innerHTML = ''; }
 
   // ------------------------------------------------------------ endings
   async endingText(lines, name, { hold = 3000, light = false } = {}) {

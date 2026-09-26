@@ -39,6 +39,7 @@ export function apartment(ctx, variant) {
   const world = new World(ctx.game, { builder: B, regions, lights, sky: 'skyWhite', seed: 3 + ctx.k });
   ctx.world = world;
   world.onWall(P.windowQuad(2.6, 1.6, V.sky), 3, 1, 'n', 1.7, { along: 1, bake: false });
+  world.shafts = [{ x: 8, z: 3.4, w: 2.4, h: 4.6, color: V.win, op: variant === 'fever' ? 0.05 : 0.16, tx: -0.62 }];
   world.onWall(P.doorMesh(1.0, 2.2, 0xe8e0d6), 6, 3, 'e', 0);
   world.prop(P.counter(3.6, true), 5, 1, { dx: 1, dz: -0.55, collide: 0.02 });
   world.prop(P.fridge(), 6, 2, { dx: 0.55, ry: -Math.PI / 2, collide: 0.02 });
@@ -179,6 +180,7 @@ const M2 = {
     const mach = P.espresso(); world.prop(mach, 6, 2, { dz: -0.2, y: 0.95 });
     world.onWall(P.windowQuad(1.8, 1.4, 'skyNight'), 9, 3, 'e', 1.7, { bake: false });
     world.onWall(P.windowQuad(1.8, 1.4, 'skyNight'), 9, 5, 'e', 1.7, { bake: false });
+    world.shafts = [{ x: 9, z: 9, w: 1.6, h: 3.4, color: 0xffc080, op: 0.12 }, { x: 15, z: 9, w: 1.6, h: 3.4, color: 0xffc080, op: 0.12 }, { x: 9, z: 12, w: 1.4, h: 3.4, color: 0xffb070, op: 0.1 }];
     world.onWall(P.uniquePlane(2.4, 0.5, textTex('THE DAILY GRIND', { w: 128, h: 26, color: '#ffd8a0', bg: '#2a1810', size: 18 }), { emissive: 1 }), 5, 1, 'n', 2.8);
     for (let i = 0; i < 16; i++) { const s = P.sphere(0.05, [0xffd24a, 0xf6a6c1, 0x9ad0f5][i % 3], 4, null, { emissive: 1 }); s.userData.noBake = true; world.prop(s, 1, 1, { pos: new THREE.Vector3(2.5 + i * 1.0, 3.1 + Math.sin(i) * 0.12, 2.2), bake: false }); }
     for (const [i, j] of [[2, 4], [8, 4], [6, 6], [4, 5]]) { world.prop(P.table(1.0, 1.0, 0x6a4a34), i, j, { collide: 0.02 }); }

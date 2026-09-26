@@ -23,6 +23,7 @@ A first playthrough takes about 60 minutes and is meant for one sitting. Headpho
 | Move | WASD / arrows | left stick | left stick |
 | Look | mouse (click to capture) | right stick | drag the right side |
 | Run | Shift (stamina) | L3 / LT | RUN toggle |
+| Phone flashlight | F | Y | ☀ |
 | Interact / advance | E, Space, click | A | tap, or E button |
 | Choices | 1 2 3, arrows | d-pad + A | tap |
 | Journal | Tab / J | Select | J |
@@ -42,6 +43,16 @@ Painting: drag Ideas onto the canvas, drag to move them, scroll or `[` `]` to re
 Seven chapters: *Moving Day, Open Mic, Fever, The Commission, Holiday, The Opening*, and a final canvas.
 
 **Four endings:** Natalee, Gone, Cult Following, and Boring. Which one you get depends on your Create / Bond / Duty balance and how much of Inspiration you obeyed.
+
+## Presentation
+
+- A boot sequence and brightness calibration, then a live title screen set in the Venue.
+- Cinematic letterboxing in cutscenes, NOW LOADING screens with tips, and a memory-card save icon.
+- A phone viewmodel with a real flashlight (a per-vertex spotlight, as the hardware of the era would have done it). Its screen dissolves into static and the speaker hisses when Alienate is near.
+- Dust motes, falling ash, light shafts, paint splatters and drips, and Alienate's black footprints.
+- Alienate moves in stop-motion, twitches, breathes, freezes and screams before it charges, and is drawn to your light.
+- Scripted set pieces in every chapter, per-room ambience and reverb, and a tension layer during hunts.
+- 12 collectible sketchbook pages of backstory, a keepsake for every priority you complete, and a hand-drawn auto-map in the journal.
 
 ## Quality of life
 

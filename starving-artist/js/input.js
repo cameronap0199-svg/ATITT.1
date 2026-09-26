@@ -7,7 +7,8 @@ const BIND = {
   turnLeft: ['ArrowLeft'],
   turnRight: ['ArrowRight'],
   run: ['ShiftLeft', 'ShiftRight'],
-  interact: ['KeyE', 'KeyF', 'Enter', 'Space'],
+  interact: ['KeyE', 'Enter', 'Space'],
+  flashlight: ['KeyF', 'KeyL'],
   pause: ['Escape', 'KeyP'],
   journal: ['Tab', 'KeyJ'],
 };
@@ -36,7 +37,7 @@ class Input {
     const el = document.createElement('div');
     el.id = 'touch'; el.className = 'hidden';
     el.innerHTML = '<div class="t-stick"><div class="t-knob"></div></div><div class="t-look"></div>' +
-      '<button class="t-btn t-use">E</button><button class="t-btn t-run">RUN</button><button class="t-btn t-pause">II</button><button class="t-btn t-jour">J</button>';
+      '<button class="t-btn t-use">E</button><button class="t-btn t-run">RUN</button><button class="t-btn t-light hidden">☀</button><button class="t-btn t-pause">II</button><button class="t-btn t-jour">J</button>';
     root.appendChild(el);
     this.touchEl = el;
     const stick = el.querySelector('.t-stick'), knob = el.querySelector('.t-knob'), look = el.querySelector('.t-look');
@@ -64,10 +65,11 @@ class Input {
     btn('.t-use', () => this.pressedSet.add('pad:interact'));
     btn('.t-run', () => { this.touchRun = !this.touchRun; el.querySelector('.t-run').classList.toggle('on', this.touchRun); });
     btn('.t-pause', () => this.pressedSet.add('pad:pause'));
+    btn('.t-light', () => this.pressedSet.add('pad:light'));
     btn('.t-jour', () => this.pressedSet.add('pad:journal'));
     window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && !this.touch) { this.touch = true; this.dragMode = true; document.body.classList.add('is-touch'); } }, true);
   }
-  showTouch(on) { if (this.touchEl) this.touchEl.classList.toggle('hidden', !(on && this.touch)); }
+  showTouch(on, light = false) { if (!this.touchEl) return; this.touchEl.classList.toggle('hidden', !(on && this.touch)); this.touchEl.querySelector('.t-light').classList.toggle('hidden', !light); }
 
   attach(canvas) {
     this.canvas = canvas;
@@ -124,6 +126,7 @@ class Input {
     if (edge(1)) this.pressedSet.add('pad:back');
     if (edge(9)) this.pressedSet.add('pad:pause');
     if (edge(8)) this.pressedSet.add('pad:journal');
+    if (edge(3)) this.pressedSet.add('pad:light');
     if (edge(12)) this.pressedSet.add('pad:up');
     if (edge(13)) this.pressedSet.add('pad:down');
     this.pad.run = b[10] || b[6] || b[4];
@@ -141,6 +144,7 @@ class Input {
     if (action === 'interact' && (this.pressedSet.has('pad:interact') || (this.locked && this.mouseClicked))) return true;
     if (action === 'pause' && this.pressedSet.has('pad:pause')) return true;
     if (action === 'journal' && this.pressedSet.has('pad:journal')) return true;
+    if (action === 'flashlight' && this.pressedSet.has('pad:light')) return true;
     return false;
   }
   anyAdvance() { return this.pressed('interact') || this.mouseClicked || this.pressedSet.has('pad:back'); }

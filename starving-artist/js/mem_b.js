@@ -191,6 +191,7 @@ const M5 = {
     world.onUpdate((dt, t) => { flame.scale.y = 0.8 + Math.sin(t * 13) * 0.15 + Math.sin(t * 7) * 0.1; });
     world.onWall(P.windowQuad(1.6, 1.2, 'skyNight'), 3, 1, 'n', 1.7, { bake: false });
     world.onWall(P.windowQuad(1.6, 1.2, 'skyNight'), 6, 1, 'n', 1.7, { bake: false });
+    world.shafts = [{ x: 3.5, z: 4, w: 1.6, h: 3.2, color: 0xffb070, op: 0.1 }, { x: 11, z: 7, w: 1.6, h: 2.8, color: 0xff9050, op: 0.12 }];
     world.prop(P.couch(0x8a5a4a), 3, 5, { dz: 0.2, ry: Math.PI, collide: 0.02 });
     const dining = P.table(2.2, 1.1, 0x8a5a36); world.prop(dining, 5, 3, { dx: 0.5, collide: 0.02 });
     for (const [dx, dz] of [[-0.5, 0], [0.5, 0], [1.5, 0]]) world.prop(P.plate(true), 5, 3, { dx: dx + 0.1, dz, y: 0.8, bake: false });
@@ -322,6 +323,7 @@ const M6 = {
     ];
     const world = new World(ctx.game, { builder: B, regions, lights, sky: 'skyNight', seed: 61 });
     ctx.world = world;
+    world.shafts = [{ x: 12, z: 11, y: 0.3, w: 2.2, h: 4.6, color: 0xffffff, op: 0.16 }, { x: 7, z: 3.2, w: 1.4, h: 4.6, color: 0xfff0e0, op: 0.09, tx: 0.25 }, { x: 13, z: 3.2, w: 1.4, h: 4.6, color: 0xfff0e0, op: 0.09, tx: 0.25 }, { x: 19, z: 3.2, w: 1.4, h: 4.6, color: 0xfff0e0, op: 0.09, tx: 0.25 }];
     // Her own paintings on the walls
     const spots = [[3, 1, 'n'], [6, 1, 'n'], [9, 1, 'n'], [1, 4, 'w'], [1, 7, 'w']];
     S.cur.records.slice(0, 5).forEach((r, idx) => {

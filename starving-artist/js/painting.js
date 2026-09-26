@@ -76,7 +76,7 @@ function tearOut(g, x, y, s) {
 // ---------------------------------------------------------------- composition render
 // opts: { alien: {stage, creep}, faceless, desat, drips, torn, unsigned }
 export function renderComposition(canvasEl, comp, opts = {}) {
-  const g = canvasEl.getContext('2d');
+  const g = canvasEl.getContext('2d', { willReadFrequently: true });
   g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, PW, PH);
   const al = opts.alien && opts.alien.stage > 0 && comp?.alien ? comp.alien : null;
@@ -139,7 +139,7 @@ function grain(g, seed, amt) {
   g.putImageData(img, 0, 0);
 }
 
-export function newPaintCanvas() { const c = document.createElement('canvas'); c.width = PW; c.height = PH; return c; }
+export function newPaintCanvas() { const c = document.createElement('canvas'); c.width = PW; c.height = PH; c.getContext('2d', { willReadFrequently: true }); return c; }
 
 // Work out where Alienate will live inside a finished composition.
 export function computeAlienSpot(comp) {

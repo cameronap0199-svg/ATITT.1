@@ -6,6 +6,8 @@ import { mat, ensureColor } from './renderer.js';
 import { tex, rng } from './tex.js';
 
 export const WALL = 0, FLOOR = 1, VOID = 2, WATER = 3;
+// Quads per cell edge. Floors, ceilings and walls must match so no T-junction cracks appear.
+const SUB = 3;
 
 export class GridBuilder {
   constructor(w, h) {
@@ -225,6 +227,7 @@ export class Level {
       ensureColor(geo);
       const pos = geo.getAttribute('position'), nor = geo.getAttribute('normal'), col = geo.getAttribute('color');
       const alb = m.userData.albedo || (m.userData.albedo = col.array.slice());
+      if (!geo.getAttribute('albedo')) geo.setAttribute('albedo', new THREE.BufferAttribute(new Float32Array(alb), 3));
       nm.getNormalMatrix(m.matrixWorld);
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
@@ -248,6 +251,7 @@ export class Level {
     };
     const c = this.cell;
     const tmpP = new THREE.Vector3(), tmpN = new THREE.Vector3();
+    const bakeCache = new Map();
     // Emit a quad subdivided into nu x nv, corner p0, edge vectors eu, ev, normal n. UV from world coords.
     const quad = (b, p0, eu, ev, n, nu, nv, uvFn, amb, tint, dark = null) => {
       const verts = [];
@@ -255,7 +259,10 @@ export class Level {
         const row = [];
         for (let iu = 0; iu <= nu; iu++) {
           tmpP.set(p0.x + eu.x * iu / nu + ev.x * jv / nv, p0.y + eu.y * iu / nu + ev.y * jv / nv, p0.z + eu.z * iu / nu + ev.z * jv / nv);
-          const L = this.lightAt(tmpP, n, amb);
+          // neighbouring quads share edge vertices: bake each position+normal once
+          const key = Math.round(tmpP.x * 64) * 73856093 ^ Math.round(tmpP.y * 64) * 19349663 ^ Math.round(tmpP.z * 64) * 83492791 ^ ((n.x + 2) * 3 + (n.y + 2) * 17 + (n.z + 2) * 131) | 0;
+          let L = bakeCache.get(key);
+          if (!L || L.amb !== amb) { L = this.lightAt(tmpP, n, amb); L.amb = amb; bakeCache.set(key, L); }
           const j = 1 + (R() - 0.5) * 0.06;
           let dk = 1;
           if (dark) dk = dark(tmpP);
@@ -294,12 +301,12 @@ export class Level {
         if (fz < 0.01 && !open(i, j - 1)) k *= 0.82; if (fz > 0.99 && !open(i, j + 1)) k *= 0.82;
         return k;
       };
-      quad(bucket(fKey, fs), new THREE.Vector3(x0, fy, z0), new THREE.Vector3(0, 0, c), new THREE.Vector3(c, 0, 0), new THREE.Vector3(0, 1, 0), 2, 2,
+      quad(bucket(fKey, fs), new THREE.Vector3(x0, fy, z0), new THREE.Vector3(0, 0, c), new THREE.Vector3(c, 0, 0), new THREE.Vector3(0, 1, 0), SUB, SUB,
         (p) => [p.x / fs, p.z / fs], amb, tint, nearWallDark);
       if (isWater) waterQuads.push([x0, z0, r]);
       // ceiling (normal down): eu = +x, ev = +z -> x cross z = -y
       if (r.ceil) {
-        quad(bucket(r.ceil, r.ceilScale || 2), new THREE.Vector3(x0, ty, z0), new THREE.Vector3(c, 0, 0), new THREE.Vector3(0, 0, c), new THREE.Vector3(0, -1, 0), 2, 2,
+        quad(bucket(r.ceil, r.ceilScale || 2), new THREE.Vector3(x0, ty, z0), new THREE.Vector3(c, 0, 0), new THREE.Vector3(0, 0, c), new THREE.Vector3(0, -1, 0), SUB, SUB,
           (p) => [p.x / (r.ceilScale || 2), p.z / (r.ceilScale || 2)], amb, tint);
       }
       // four edges
@@ -317,17 +324,17 @@ export class Level {
         if (!this.inside(ni, nj) || this.type[this.idx(ni, nj)] === WALL) {
           const wt = this.inside(ni, nj) && this.wallTex[this.idx(ni, nj)] || r.wall;
           const hgt = ty - fy;
-          quad(bucket(wt, ws), new THREE.Vector3(p0.x, fy, p0.z), eu, new THREE.Vector3(0, hgt, 0), n, 2, Math.max(1, Math.round(hgt / 1.5)), uvW, amb, tint, wallDark);
+          quad(bucket(wt, ws), new THREE.Vector3(p0.x, fy, p0.z), eu, new THREE.Vector3(0, hgt, 0), n, SUB, Math.max(2, Math.round(hgt / 1.1)), uvW, amb, tint, wallDark);
         } else if (this.type[this.idx(ni, nj)] === VOID) {
           // slab edge: floor seen from the side, dropping into the void
-          quad(bucket(r.edge || r.wall, ws), new THREE.Vector3(p0.x, fy - 0.6, p0.z), eu, new THREE.Vector3(0, 0.6, 0), n, 2, 1, uvW, amb, [tint[0] * 0.6, tint[1] * 0.6, tint[2] * 0.6]);
+          quad(bucket(r.edge || r.wall, ws), new THREE.Vector3(p0.x, fy - 0.6, p0.z), eu, new THREE.Vector3(0, 0.6, 0), n, SUB, 1, uvW, amb, [tint[0] * 0.6, tint[1] * 0.6, tint[2] * 0.6]);
         } else {
           // step between different floor heights / ceiling heights
           const nfy = floorY(ni, nj), nty = topY(ni, nj);
-          if (nfy > fy) quad(bucket(isWater ? (r.poolFloor || r.wall) : r.wall, ws), new THREE.Vector3(p0.x, fy, p0.z), eu, new THREE.Vector3(0, nfy - fy, 0), n, 2, 1, uvW, amb, tint);
+          if (nfy > fy) quad(bucket(isWater ? (r.poolFloor || r.wall) : r.wall, ws), new THREE.Vector3(p0.x, fy, p0.z), eu, new THREE.Vector3(0, nfy - fy, 0), n, SUB, 1, uvW, amb, tint);
           if (nty < ty && r.ceil) {
             const nr = this.reg(ni, nj);
-            if (nr.ceil) quad(bucket(r.wall, ws), new THREE.Vector3(p0.x, nty, p0.z), eu, new THREE.Vector3(0, ty - nty, 0), n, 2, 1, uvW, amb, tint);
+            if (nr.ceil) quad(bucket(r.wall, ws), new THREE.Vector3(p0.x, nty, p0.z), eu, new THREE.Vector3(0, ty - nty, 0), n, SUB, 1, uvW, amb, tint);
           }
         }
       }

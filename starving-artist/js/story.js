@@ -237,3 +237,42 @@ export const ENDINGS = {
     ],
   },
 };
+
+// ------------------------------------------------------------------ collectibles
+// Sketchbook pages hidden in the Vista Venue. at: [cellX, cellZ, wallSide|null], k: first chapter it appears.
+export const PAGES = [
+  { id: 'p1', k: 0, at: [26, 34, 'w'], title: 'The first drawing', sketch: ['sun', 'house', 'mom', 'self'], bg: 'dawn',
+    text: 'Age six. Crayon on the back of a church bulletin. Mom kept it in her purse for years. Across the top, in purple: NATALEE REYES, ARTTIST. Two Ts. I was very sure about it.' },
+  { id: 'p2', k: 1, at: [35, 29, null], title: 'Why "Nate"', sketch: ['self', 'frame'], bg: 'mirror',
+    text: 'Natalee is what Mom calls me when she is scared for me. Nate is what I sign on the canvas. Nate sounds like somebody who doesn\'t need anyone. I practised it in the mirror until it stopped sounding like a lie.' },
+  { id: 'p3', k: 1, at: [33, 20, 'e'], title: 'Mr. Delgado', sketch: ['brush', 'heart', 'cup'], bg: 'room',
+    text: 'Mr. Delgado, junior year: "Paint what you can\'t say out loud. Then go eat lunch. Both of those matter." I wrote the first half on my wall. I never wrote down the second half.' },
+  { id: 'p4', k: 1, at: [34, 5, null], title: 'The museum', sketch: ['house', 'door', 'star', 'cloud'], bg: 'dawn',
+    text: 'When I was nine I drew a museum with a fountain in the middle and a front door that was only painted on. I told Teo it was where my paintings would live when I was famous. He believed me. He still does.' },
+  { id: 'p5', k: 2, at: [39, 36, null], title: 'Inspiration', sketch: ['eye', 'sun'], bg: 'fever',
+    text: 'It doesn\'t feel like a voice. It feels like knowing. Put the sun there. Leave that space empty. It is always right about the painting. That is the worst part. It is only ever right about the painting.' },
+  { id: 'p6', k: 2, at: [53, 20, null], title: 'Hunger', sketch: ['cup', 'clock'], bg: 'blank',
+    text: 'Artists starve, right? That is the deal. You trade the boring parts of being alive for the good part. Nobody told me the boring parts were the parts holding me up.' },
+  { id: 'p7', k: 3, at: [13, 31, 'w'], title: 'A letter from Teo', sketch: ['teo', 'self', 'house'], bg: 'home',
+    text: '"Dear Nate. I drew you at the museum from my dream. You were looking for something and you looked tired. I hope you find it. Also Mom says call her. Love, Teo (13 and 3/4)"' },
+  { id: 'p8', k: 3, at: [16, 31, null], title: '3:33', sketch: ['bed', 'clock', 'person'], bg: 'night',
+    text: 'Something stands at the foot of my bed at 3:33. It has my hair. It doesn\'t have a face yet. I think it is waiting for me to paint one.' },
+  { id: 'p9', k: 4, at: [30, 43, null], title: '@thevistavenue', sketch: ['eye', 'crowd', 'phone'], bg: 'gallery',
+    text: '"We don\'t want your time. We want you. Just the parts you don\'t use anyway: sleep, dinner, Sunday phone calls. Give us those and we will give you everything." They were so polite about it.' },
+  { id: 'p10', k: 4, at: [42, 52, null], title: 'Receipt', sketch: ['cup', 'brush'], bg: 'blank',
+    text: 'Receipt, folded into a paper crane. 1 can chicken & stars, $1.29. 1 tube cadmium red, $38.50. At the bottom, in my handwriting: priorities :)' },
+  { id: 'p11', k: 5, at: [51, 49, null], title: 'The Following', sketch: ['crowd', 'lamp', 'halo'], bg: 'gallery',
+    text: 'They don\'t hate me. That is what is frightening. They love me the way you love a lamp: completely, and only while I\'m switched on.' },
+  { id: 'p12', k: 5, at: [60, 56, null], title: 'Alien-Nate', sketch: ['self', 'moon', 'star'], bg: 'night',
+    text: 'I made her up when I was twelve. Alien-Nate: me, on another planet, alone, painting forever with nobody to interrupt. I drew her smiling. I thought she would be happy.' },
+];
+
+// Keepsakes: one for each priority completed in each memory. icon is an Idea id.
+export const KEEPSAKES = [
+  { create: ['First Brush', 'brush', 'A cheap sable brush. Its first stroke was a sunset.'], bond: ['Dad\'s Toolbox', 'key', 'Every apartment has one drawer that sticks.'], duty: ['Spare Key', 'key', 'Apartment 4C. The first key that was only hers.'] },
+  { create: ['Open Mic Flyer', 'frame', '"Featuring local artist NATE." Her name, in a font she hated.'], bond: ['Birthday Candle', 'candle', 'A blue "13", slightly melted. Teo gave it to her to keep.'], duty: ['Name Tag', 'heart', 'DAILY GRIND · NATE. The pin is bent.'] },
+  { create: ['Fever Sketch', 'eye', 'She doesn\'t remember drawing it. It remembers her.'], bond: ['Spirited Away DVD', 'star', 'Priya\'s copy. It never went back.'], duty: ['Pill Bottle', 'cup', 'Take one daily with food. Both halves of that mattered.'] },
+  { create: ['$800 Receipt', 'phone', 'Paid in full, before she had painted anything.'], bond: ['Pozole Jar', 'heart', 'Mom\'s jar, washed and returned. Then filled again.'], duty: ['Rent Receipt', 'house', 'Paid. $61.14 left. She kept it as proof she could.'] },
+  { create: ['Childhood Paintbox', 'brush', 'Half-empty pans of watercolour. The purple is completely gone.'], bond: ['Teo\'s Drawing', 'teo', 'The two of them, smiling. Her hand has six fingers.'], duty: ['Payment Plan', 'key', 'Due the fifth. "Merry Christmas, Ms. Reyes."'] },
+  { create: ['Gallery Placard', 'frame', 'NATE — NEW WORK. Someone has drawn a small heart on the back.'], bond: ['Train Ticket Stub', 'train', 'One way, to Portland. Priya left it in her coat pocket on purpose.'], duty: ['Signed Contract', 'key', 'Fifty percent. She read every page.'] },
+];

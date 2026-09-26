@@ -12,6 +12,8 @@ import { renderComposition, newPaintCanvas } from './painting.js';
 import { S, neglect, inspiration, alienStage, alienIntensity, counts } from './state.js';
 import { CHAPTERS, FINAL_PAINT } from './story.js';
 import { Alienate } from './alienate.js';
+import { addAtmosphere, addPages, addSetPieces, roomAudio, trackVisited } from './venue_fx.js';
+import { lightShaft } from './fx3d.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -246,7 +248,7 @@ export function buildVenue(game, k, { title = false } = {}) {
     await game.think(k < 3 ? 'The door is painted on. Beautifully, actually.' : k < 5 ? 'Painted on. Someone has scratched at it from this side. With fingernails.' : 'There was never a way out. Only through.');
   } });
   const say = (text, i, j, side, y, opts = {}) => world.onWall(P.uniquePlane(opts.w || 3.6, opts.h || 0.72, textTex(text, { w: 128, h: 26, color: opts.color || '#3a2a48', size: 18, italic: true }), { emissive: 1, transparent: true }), i, j, side, y, { inset: 0.04 });
-  say('welcome back.', 28, 26, 'n', 5.2, { w: 5, h: 1 });
+  say('welcome back.', 28, 26, 'n', 4.6, { w: 7, h: 1.4 });
   if (n.duty >= 2) say('eat something.', 27, 31, 'w', 3.4, { color: '#8a2030' });
   if (n.bond >= 2) say('call your mother.', 35, 31, 'e', 3.4, { color: '#304888' });
   if (n.create >= 2) say('later. later. later.', 31, 36, 's', 5.5, { color: '#606060' });
@@ -335,11 +337,13 @@ export function buildVenue(game, k, { title = false } = {}) {
     } else if (idx === k && !title) {
       const easel = P.easel(tex('canvasBlank'), { w: 1.3, h: 0.98 });
       world.prop(easel, d.i, d.j, { dx: d.dx || 0, dz: d.dz || 0, ry: d.ry, y: d.y || 0, collide: 0.05 });
-      easel.userData.canvas.material.uniforms.uEmissive.value = 1;
+      easel.userData.canvas.material.uniforms.uEmissive.value = 0.74;
       V.blank = easel;
       const lp = easel.userData.canvas.getWorldPosition(new THREE.Vector3());
       const glow = world.addLight({ pos: lp.clone().add(new THREE.Vector3(0, 0.4, 0)), color: new THREE.Color(1, 0.95, 0.85), intensity: 0.9, range: 6 });
-      world.onUpdate((dt, t) => { glow.intensity = 0.7 + Math.sin(t * 2) * 0.25; easel.userData.canvas.material.uniforms.uAdd.value.setScalar(0.05 + Math.sin(t * 2) * 0.05); });
+      const beam = lightShaft(1.3, 7, 0xfff4e0, 0.12);
+      beam.position.set(lp.x, d.y || 0, lp.z); world.scene.add(beam);
+      world.onUpdate((dt, t) => { glow.intensity = 0.7 + Math.sin(t * 2) * 0.25; easel.userData.canvas.material.uniforms.uAdd.value.setRGB(0.05 + Math.sin(t * 2) * 0.04, 0.045 + Math.sin(t * 2) * 0.035, 0.03 + Math.sin(t * 2) * 0.02); beam.userData.mat.uniforms.uOpacity.value = 0.09 + Math.sin(t * 2) * 0.03; });
     }
   }
   // The Long Hall collection: frames for all six memories
@@ -512,7 +516,11 @@ function watchersTick(game, V, dt, list) {
 // ------------------------------------------------------------------ run
 export async function runVenue(game, k) {
   const st = S.cur;
+  await game.beginLoad(k > 0 && k < 7);
   const V = buildVenue(game, k);
+  addAtmosphere(game, V, k);
+  addPages(game, V, k);
+  addSetPieces(game, V, k);
   const world = V.world;
   game.venue = V;
   const mood = MOODS[Math.min(k, 6)];
@@ -530,6 +538,10 @@ export async function runVenue(game, k) {
   }
   game.setWorld(world, spawn);
   game.player.floorY = undefined;
+  roomAudio(game, V);
+  trackVisited(game, V);
+  game.setFlashlight(k >= 4, k >= 4);
+  game.alert = 0;
   game.setMood({
     fog: mood.fog, desat: Math.min(0.6, mood.desat + n.create * 0.06), tint: mood.tint, vignette: 1.1 + k * 0.1, grain: 0.035 + k * 0.006, bloom: mood.bloom, warp: k >= 5 ? 0.2 : 0,
     music: k >= 4 ? 'horror' : 'venue', corrupt: mood.corrupt, ambient: k >= 4 ? ['room', 'hum'] : ['room'], playerLight: k >= 4 ? 1.6 : 0,
@@ -545,9 +557,13 @@ export async function runVenue(game, k) {
     world.interact({ obj: V.blank.userData.canvas, r: 0.9, reach: 2.8, prompt: 'Touch the blank canvas', use: async () => {
       game.mode = 'cutscene';
       game.hint(null);
-      audio.play('chime'); audio.play('whisper', { vol: 0.4 });
+      audio.play('chime'); audio.play('whisper', { vol: 0.4 }); audio.play('whoosh');
       game.player.lookTarget = V.blank.userData.canvas.getWorldPosition(new THREE.Vector3());
+      const fov0 = game.player.settings.fov;
+      game.player.settings.fov = 28;
+      game.fx.track = 0.4;
       await game.fade(1, 1.6, 0xfff8f0);
+      game.player.settings.fov = fov0; game.fx.track = 0;
       game.player.lookTarget = null;
       if (V.alien) V.alien.mode = 'off';
       game.proximity = 0;
@@ -563,7 +579,7 @@ export async function runVenue(game, k) {
     setupAlienFx(game, V, alien);
   }
 
-  await wait(200);
+  await game.endLoad();
   game.mode = 'cutscene';
   await game.fade(0, 1.8);
 
@@ -600,6 +616,7 @@ export async function runVenue(game, k) {
     world.trigger({ pos: world.at(39, 31), r: 3, fn: () => alien.startGlimpse(world.at(53, 21), game.player, { vanishDist: 9, life: 18 }) });
   } else if (k === 4) {
     openGateAnim(world, 'g4', V.gates.g4);
+    game.ui.itemCard({ icon: 'phone', kick: 'NATE\'S PHONE', name: 'The flashlight still works', desc: (input.touch ? 'Tap ☀' : input.usingPad ? 'Press Y' : 'Press F') + ' to toggle it. The dark is getting closer.' });
     game.ui.subtitle('The bedroom has a back door now. Behind it, a lift going down.');
     game.hint('Take the lift down.');
     world.trigger({ pos: world.at(16, 25), r: 2.5, fn: () => alien.startGlimpse(world.at(24, 25), game.player, { vanishDist: 6, life: 10 }) });
@@ -679,6 +696,7 @@ export async function runVenue(game, k) {
         got++; audio.play('pickup');
         const lines = ['"You are cordially invited to watch Nate disappear."', '"Admit one. No plus-ones. No family."', '"Dress code: whoever they want you to be."'];
         game.ui.subtitle(lines[got - 1], 3200);
+        if (got === 2 && V.onSecondInvite) V.onSecondInvite();
         if (got < 3) game.hint(`Find the three invitations (${got}/3).`);
         else {
           game.hint('The curtain is rising. Get to the stage.');
@@ -716,6 +734,7 @@ function setupAlienFx(game, V, alien) {
   world.onUpdate((dt, t) => {
     const p = game.player;
     alien.update(dt, t, p);
+    game.alert = alien.mode === 'chase' || alien.mode === 'spotted' ? 1 : alien.mode === 'search' ? 0.55 : alien.group.visible && alien.mode !== 'off' ? Math.max(0.12, Math.min(0.4, 1 - (alien.dist || 99) / 30)) : 0;
     if (alien.mode === 'off' || !alien.group.visible) { game.proximity = Math.max(0, game.proximity - dt); return; }
     const d = alien.pos.distanceTo(p.pos);
     const los = world.level.los(alien.pos, p.pos);
@@ -746,7 +765,7 @@ async function finale(game, V, resolveVenue) {
   await wait(3400);
   // The audience has turned around; Alienate stands among them.
   for (const m of V.audience) m.rotation.y = 0;
-  alien.show(true); alien.mode = 'scripted'; alien.script = (dt, t) => alien.idleAnim(t);
+  alien.show(true); alien.mode = 'scripted'; alien.script = (dt, t) => alien.idleAnim(t, dt);
   alien.place(world.at(56, 50), game.player.pos);
   audio.play('stinger', { vol: 0.6 });
   openGateAnim(world, 'g8', V.gates.g8);
@@ -783,7 +802,8 @@ async function finale(game, V, resolveVenue) {
   // The white room
   world.trigger({ pos: world.at(54, 13), r: 1.5, fn: async () => {
     game.mode = 'cutscene';
-    alien.script = (dt, t) => alien.idleAnim(t);
+    alien.mode = 'scripted';
+    alien.script = (dt, t) => alien.idleAnim(t, dt);
     game.setMood({ fog: [0xfff8f0, 8, 40], desat: 0, warp: 0, music: 'none', ambient: ['room'], playerLight: 0 });
     world.setSky('skyWhite');
     game.proximity = 0;
@@ -869,6 +889,7 @@ function startWeepingChase(game, V, start) {
 // ------------------------------------------------------------------ title screen world
 export function buildTitleWorld(game) {
   const V = buildVenue(game, 0, { title: true });
+  addAtmosphere(game, V, 0);
   const world = V.world;
   const center = new THREE.Vector3(64, 3, 64);
   const cam = (dt, t) => {
