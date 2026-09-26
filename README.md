@@ -10,6 +10,8 @@ An anime-flavoured, early-2000s-JRPG-styled **tactical trading card game** built
 
 No build step and no art assets: everything, including card art, frames, particles, music and sound effects, is generated procedurally in the browser.
 
+> **Also in this repo:** [`tap-tap-tactical/`](tap-tap-tactical/README.md) holds **Tap Tap Tactical: The Psychosis Protocol**, a separate cyberpunk, dystopian, comedic, horror, religious rail-shooter. You reload, heal and stay sane with DDR arrows. Run `npm start` and open `http://localhost:8080/tap-tap-tactical/`.
+
 ---
 
 ## Quick start
@@ -80,6 +82,7 @@ shared/packs.js         booster generation (affinity, slot rarities, wildcard, d
 shared/decks.js         deck rules, beginner deck, rival ladder & deck generator
 server/server.js        static server + WebSocket matchmaking & rooms (authoritative engine, server-side bots)
 tests/                  node:test suites + simulations
+tap-tap-tactical/       separate game: Tap Tap Tactical — The Psychosis Protocol (see its README)
 ```
 
 The profile (collection, decks, Acorns) is saved in your browser's `localStorage`. You can export or import it from Settings.
