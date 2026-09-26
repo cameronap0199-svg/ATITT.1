@@ -26,7 +26,7 @@ const MIME = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.md': 'text/markdown; charset=utf-8',
 };
-const PUBLIC = ['index.html', 'client/', 'shared/', 'favicon.svg', 'manifest.webmanifest'];
+const PUBLIC = ['index.html', 'client/', 'shared/', 'favicon.svg', 'manifest.webmanifest', 'starving-artist/'];
 
 // ---------------------------------------------------------------------------
 // Static files
@@ -35,6 +35,8 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   let rel = decodeURIComponent(url.pathname).replace(/^\/+/, '');
   if (rel === '' || rel === '/') rel = 'index.html';
+  if (rel === 'starving-artist') { res.writeHead(301, { location: '/starving-artist/' }); res.end(); return; }
+  if (rel.endsWith('/')) rel += 'index.html';
   if (rel === 'health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, online: clients.size, matches: matches.size })); return; }
   const allowed = PUBLIC.some((p) => (p.endsWith('/') ? rel.startsWith(p) : rel === p));
   const file = path.resolve(ROOT, rel);
