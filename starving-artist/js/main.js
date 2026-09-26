@@ -33,6 +33,7 @@ class Game {
     this.playerLight = this.lights.add({ pos: new THREE.Vector3(), color: new THREE.Color(1, 0.86, 0.68), intensity: 0, range: 11 });
     this.t = 0;
     input.attach(this.canvas);
+    input.attachTouch(document.body);
     input.onUnlock = () => this.onUnlock();
     this.ui.hooks = { unlock: () => input.unlock(), relock: () => input.lock(), onSettings: () => this.applySettings() };
     this.canvas.addEventListener('click', () => { audio.init(); if (this.mode === 'play' || this.mode === 'busy' || this.mode === 'cutscene') input.lock(); });
@@ -205,6 +206,7 @@ class Game {
     this.painter.tick(dt);
     this.lights.update(this.camera.position, this.t);
     this.ui.needClick(m === 'play' && !input.locked && !input.dragMode && !this.ui.menuOpen() && document.hasFocus());
+    input.showTouch((m === 'play' || m === 'busy') && !this.ui.menuOpen());
     this.updatePost(dt);
     if (this.world) this.R.render(this.world.scene, this.camera);
     input.endFrame();

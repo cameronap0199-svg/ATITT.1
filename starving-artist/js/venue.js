@@ -575,7 +575,7 @@ export async function runVenue(game, k) {
     await intro(['The Vista Venue.', 'A museum of everything she almost was.']);
     game.hint('Find the blank canvas.');
     await wait(1500);
-    game.ui.toast(input.usingPad ? 'Left stick to walk · Right stick to look · A to interact' : 'WASD to walk · Mouse to look · E to interact · Shift to run', 6000);
+    game.ui.toast(input.touch ? 'Left stick to walk · Drag to look · Tap to interact' : input.usingPad ? 'Left stick to walk · Right stick to look · A to interact' : 'WASD to walk · Mouse to look · E to interact · Shift to run', 6000);
   } else if (k < 6) {
     game.mode = 'play';
     const made = recPrev?.comp && !recPrev.comp.blank;

@@ -191,6 +191,8 @@ export class Painter {
           <div class="p-row p-sizes"><button data-size="2">·</button><button class="on" data-size="4">•</button><button data-size="8">●</button></div>
           <div class="p-label">WASH</div>
           <div class="p-bgs"></div>
+          <div class="p-label">SELECTED</div>
+          <div class="p-row p-sel"><button data-act="smaller" title="Smaller ( [ )">−</button><button data-act="bigger" title="Bigger ( ] )">+</button><button data-act="flip" title="Flip (F)">⇋</button><button data-act="del" title="Remove (Del)">✕</button></div>
           <div class="p-row"><button class="p-undo">↶ Undo</button><button class="p-clear">Clear</button></div>
           <div class="p-spacer"></div>
           <div class="p-count"></div>
@@ -220,7 +222,8 @@ export class Painter {
     const pos = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * PW, (e.clientY - r.top) / r.height * PH]; };
     this._pos = pos;
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
-    cv.addEventListener('mousedown', (e) => {
+    cv.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
       if (!this.active) return;
       const [x, y] = pos(e);
       if (e.button === 2) { const i = this.hit(x, y); if (i >= 0) { this.snap(); this.comp.items.splice(i, 1); this.sel = -1; audio.play('remove'); this.redraw(); } return; }
@@ -230,7 +233,7 @@ export class Painter {
       if (i >= 0) { this.snap(); const it = this.comp.items[i]; this.moving = { i, ox: x - it.x, oy: y - it.y }; this.comp.items.push(this.comp.items.splice(i, 1)[0]); this.sel = this.moving.i = this.comp.items.length - 1; }
       this.redraw();
     });
-    window.addEventListener('mousemove', (e) => {
+    window.addEventListener('pointermove', (e) => {
       if (!this.active) return;
       if (this.newDrag) { this.dragEl.style.left = e.clientX + 'px'; this.dragEl.style.top = e.clientY + 'px'; return; }
       const [x, y] = pos(e);
@@ -240,7 +243,7 @@ export class Painter {
       this.mouse = [x, y];
       this.drawOverlay();
     });
-    window.addEventListener('mouseup', (e) => {
+    window.addEventListener('pointerup', (e) => {
       if (!this.active) return;
       if (this.newDrag) {
         const r = cv.getBoundingClientRect();
@@ -284,11 +287,21 @@ export class Painter {
       b.addEventListener('click', () => { this.color = c; colors.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); if (this.tool !== 'brush') this.el.querySelector('[data-tool=brush]').click(); audio.play('click'); });
       colors.appendChild(b);
     });
+    this.el.querySelectorAll('.p-sel button').forEach((b) => b.addEventListener('click', () => {
+      const it = this.comp.items[this.sel];
+      if (!it) { audio.play('back'); return; }
+      this.snap();
+      if (b.dataset.act === 'smaller') it.s = clamp(it.s * 0.88, 0.35, 3);
+      if (b.dataset.act === 'bigger') it.s = clamp(it.s * 1.12, 0.35, 3);
+      if (b.dataset.act === 'flip') it.flip = !it.flip;
+      if (b.dataset.act === 'del') { this.comp.items.splice(this.sel, 1); this.sel = -1; audio.play('remove'); } else audio.play('click');
+      this.redraw();
+    }));
     this.q('.p-undo').addEventListener('click', () => this.undo());
     this.q('.p-clear').addEventListener('click', () => { this.snap(); this.comp.items = []; this.comp.strokes = []; this.sel = -1; audio.play('remove'); this.redraw(); });
     this.q('.p-finish').addEventListener('click', () => this.finish());
     this.q('.p-bubble-x').addEventListener('click', () => this.dismissInsp());
-    this.q('.p-bubble-icon').addEventListener('mousedown', (e) => { if (this.curInsp?.kind === 'place') this.startNewDrag(this.curInsp.idea, e); });
+    this.q('.p-bubble-icon').addEventListener('pointerdown', (e) => { if (this.curInsp?.kind === 'place') this.startNewDrag(this.curInsp.idea, e); });
     this.q('.p-title-ok').addEventListener('click', () => this.commitTitle());
     this.q('.p-title-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.commitTitle(); e.stopPropagation(); });
   }
@@ -429,7 +442,7 @@ export class Painter {
       const b = document.createElement('button'); b.className = 'p-idea';
       b.appendChild(ideaIcon(id, 44, 44));
       const s = document.createElement('span'); s.textContent = IDEAS[id].name; b.appendChild(s);
-      b.addEventListener('mousedown', (e) => this.startNewDrag(id, e));
+      b.addEventListener('pointerdown', (e) => this.startNewDrag(id, e));
       b.addEventListener('mouseenter', () => audio.play('hover'));
       grid.appendChild(b);
     }

@@ -325,6 +325,7 @@ export class UI {
       <b>Esc / P</b><span>pause</span>
       <b>Painting</b><span>drag ideas · scroll to resize · F flip · right-click remove · Ctrl+Z undo</span>
       <b>Gamepad</b><span>left stick move · right stick look · A interact · Start pause · Select journal</span>
+      <b>Touch</b><span>left stick move · drag right side to look · tap or E to interact · RUN toggles running</span>
       </div><button class="btn" id="k-back" style="margin-top:16px">Back</button></div>`);
     m.querySelector('#k-back').onclick = () => { audio.play('back'); onBack(); };
   }

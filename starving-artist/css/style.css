@@ -193,6 +193,19 @@ button.big:not(:disabled):hover { box-shadow: 0 0 20px var(--pink); }
 .gallery figure { margin: 0; }
 .gallery canvas { width: 104px; height: 78px; image-rendering: pixelated; border: 3px solid #c9a24a; }
 .gallery figcaption { font-family: var(--serif); font-style: italic; font-size: 15px; color: #ccc; max-width: 104px; }
+#touch { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+#touch .t-stick { position: absolute; left: 4vw; bottom: 6vh; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.2); pointer-events: auto; touch-action: none; }
+#touch .t-knob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: rgba(246,199,216,.35); border: 2px solid rgba(255,255,255,.4); }
+#touch .t-look { position: absolute; left: 40%; right: 0; top: 0; bottom: 0; pointer-events: auto; touch-action: none; }
+#touch .t-btn { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(20,12,30,.45); color: #fff; font-family: var(--ui); font-size: 22px; }
+#touch .t-use { right: 5vw; bottom: 12vh; width: 84px; height: 84px; font-size: 34px; background: rgba(246,199,216,.3); }
+#touch .t-run { right: calc(5vw + 100px); bottom: 7vh; width: 64px; height: 64px; font-size: 18px; }
+#touch .t-run.on { background: var(--pink); color: var(--ink); }
+#touch .t-pause { right: 16px; top: 16px; width: 48px; height: 48px; }
+#touch .t-jour { right: 76px; top: 16px; width: 48px; height: 48px; }
+body.is-touch #tasks { top: 76px; }
+.p-canvas-wrap, .p-idea, .p-bubble-icon { touch-action: none; }
+.p-sel button { font-size: 22px; }
 #clicklock { position: fixed; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); font-size: 30px; color: #fff; text-shadow: 2px 2px 0 #000; cursor: pointer; }
 #loading { position: fixed; inset: 0; z-index: 100; background: #000; display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--pink); letter-spacing: 6px; }
 #scan { position: fixed; inset: 0; pointer-events: none; z-index: 60; background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.06) 2px 3px); }

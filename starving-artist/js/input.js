@@ -27,7 +27,47 @@ class Input {
     this.pad = { x: 0, y: 0, lx: 0, ly: 0, buttons: [] };
     this.padPrev = [];
     this.usingPad = false;
+    this.touch = false;
+    this.touchRun = false;
   }
+
+  // Virtual stick (left), drag-to-look (right), tap to interact, buttons.
+  attachTouch(root) {
+    const el = document.createElement('div');
+    el.id = 'touch'; el.className = 'hidden';
+    el.innerHTML = '<div class="t-stick"><div class="t-knob"></div></div><div class="t-look"></div>' +
+      '<button class="t-btn t-use">E</button><button class="t-btn t-run">RUN</button><button class="t-btn t-pause">II</button><button class="t-btn t-jour">J</button>';
+    root.appendChild(el);
+    this.touchEl = el;
+    const stick = el.querySelector('.t-stick'), knob = el.querySelector('.t-knob'), look = el.querySelector('.t-look');
+    let sId = null, sx = 0, sy = 0, lId = null, lx = 0, ly = 0, lStart = 0, lMoved = 0;
+    const R = 50;
+    stick.addEventListener('pointerdown', (e) => { sId = e.pointerId; sx = e.clientX; sy = e.clientY; try { stick.setPointerCapture(e.pointerId); } catch { /* synthetic */ } e.preventDefault(); });
+    stick.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== sId) return;
+      let dx = e.clientX - sx, dy = e.clientY - sy; const d = Math.hypot(dx, dy);
+      if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      this.pad.lx = dx / R; this.pad.ly = dy / R;
+    });
+    const endStick = (e) => { if (e.pointerId !== sId) return; sId = null; knob.style.transform = ''; this.pad.lx = 0; this.pad.ly = 0; };
+    stick.addEventListener('pointerup', endStick); stick.addEventListener('pointercancel', endStick);
+    look.addEventListener('pointerdown', (e) => { lId = e.pointerId; lx = e.clientX; ly = e.clientY; lStart = performance.now(); lMoved = 0; try { look.setPointerCapture(e.pointerId); } catch { /* synthetic */ } e.preventDefault(); });
+    look.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== lId) return;
+      const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; lMoved += Math.abs(dx) + Math.abs(dy);
+      this.mdx += dx * 1.7; this.mdy += dy * 1.7;
+    });
+    const endLook = (e) => { if (e.pointerId !== lId) return; lId = null; if (lMoved < 12 && performance.now() - lStart < 300) this.pressedSet.add('pad:interact'); };
+    look.addEventListener('pointerup', endLook); look.addEventListener('pointercancel', endLook);
+    const btn = (sel, fn) => el.querySelector(sel).addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
+    btn('.t-use', () => this.pressedSet.add('pad:interact'));
+    btn('.t-run', () => { this.touchRun = !this.touchRun; el.querySelector('.t-run').classList.toggle('on', this.touchRun); });
+    btn('.t-pause', () => this.pressedSet.add('pad:pause'));
+    btn('.t-jour', () => this.pressedSet.add('pad:journal'));
+    window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch' && !this.touch) { this.touch = true; this.dragMode = true; document.body.classList.add('is-touch'); } }, true);
+  }
+  showTouch(on) { if (this.touchEl) this.touchEl.classList.toggle('hidden', !(on && this.touch)); }
 
   attach(canvas) {
     this.canvas = canvas;
@@ -74,7 +114,7 @@ class Input {
   pollPad() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const p = pads && [...pads].find((x) => x);
-    if (!p) { this.pad.buttons = []; return; }
+    if (!p) { this.pad.buttons = []; this.pad.run = false; return; }
     const dz = (v) => (Math.abs(v) < 0.18 ? 0 : v);
     this.pad.lx = dz(p.axes[0] || 0); this.pad.ly = dz(p.axes[1] || 0);
     this.pad.x = dz(p.axes[2] || 0); this.pad.y = dz(p.axes[3] || 0);
@@ -93,7 +133,7 @@ class Input {
   }
 
   down(action) {
-    if (action === 'run' && this.pad.run) return true;
+    if (action === 'run' && (this.pad.run || this.touchRun)) return true;
     return (BIND[action] || []).some((k) => this.keys.has(k));
   }
   pressed(action) {
