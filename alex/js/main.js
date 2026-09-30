@@ -88,7 +88,6 @@ function startRun(seed) {
   G.mode = 'run';
   G.hud.show(true);
   G.run.start();
-  const pal = FLOOR_PALETTE[1];
   setFloorLook(1);
   G.input.wantLock = true;
   if (!G.touch) G.input.requestLock();
@@ -151,6 +150,7 @@ function frame(now) {
   const dt = realDt * scale;
   G.dt = dt;
   G.input.update(realDt);
+  if (G.mode !== frame.lastMode) { frame.lastMode = G.mode; document.body.classList.toggle('playing', G.mode === 'run'); }
 
   if (G.mode === 'run') {
     if (G.input.pressed('pause')) { pause(); G.input.endFrame(); return; }

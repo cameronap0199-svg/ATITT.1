@@ -149,7 +149,7 @@ export class Room {
   // ---------------------------------------------------------------------------
   onEnemyDeath(e, info) {
     const moneyKind = e.money;
-    if (!info.split || true) this.dropFromEnemy(e, moneyKind);
+    this.dropFromEnemy(e, moneyKind);
     if (!e.noRevive && !e.boss) this.corpses.push({ type: e.type, x: e.pos.x, z: e.pos.z, used: false, noRevive: false });
     G.run.onKill(e, info);
   }

@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { G } from './state.js';
 import { CAMERA, TARGET } from './config.js';
-import { clamp, damp, dampAngle, DEG, lerp, wrapAngle } from './core/math.js';
+import { clamp, damp, dampAngle, DEG, wrapAngle } from './core/math.js';
 
 const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
 

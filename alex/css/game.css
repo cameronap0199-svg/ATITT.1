@@ -259,5 +259,53 @@ button { font-family: var(--ui); }
 .tb.sm { width: 52px; height: 52px; font-size: 10px; justify-self: center; }
 .tb.down { background: rgba(255,255,255,.35); }
 .pausebtn { position: absolute; left: 50%; top: 10px; width: 44px; height: 44px; margin-left: -22px; }
-.touch .phone.show { bottom: auto; top: 90px; right: 10px; transform: scale(.8); transform-origin: top right; }
-.touch .codec { bottom: 170px; }
+
+/* ---------------------------------------------------------------- responsive fixes */
+.codec { opacity: 0; pointer-events: none; }
+.codec.show { opacity: 1; pointer-events: auto; }
+#touch { display: none !important; }
+.touch.playing #touch { display: block !important; }
+/* on touch the phone becomes an incoming-call banner so it never covers the action buttons */
+.touch .phone { left: 50%; right: auto; top: 78px; bottom: auto; width: min(430px, calc(100vw - 300px)); height: auto; border-radius: 18px; border-width: 2px; opacity: 0; transform: translate(-50%, -24px); transition: opacity .2s, transform .25s cubic-bezier(.2,1.4,.4,1); pointer-events: none; }
+.touch .phone.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.touch .phone.ringing { animation: buzzbanner .09s linear infinite; }
+.touch.reduce-flash .phone.ringing { animation: buzzbanner .2s linear infinite; }
+@keyframes buzzbanner { 0%, 100% { transform: translate(-50%, 0); } 25% { transform: translate(calc(-50% - 2px), 1px); } 75% { transform: translate(calc(-50% + 2px), -1px); } }
+.touch .phone-notch { display: none; }
+.touch .phone-screen { position: relative; inset: auto; top: auto; display: grid; grid-template-columns: 48px 1fr auto; column-gap: 10px; row-gap: 2px; align-items: center; padding: 6px 8px; border-radius: 16px; background: linear-gradient(90deg, color-mix(in srgb, var(--caller) 55%, #140a26), #140a26 80%); }
+.touch .phone-portrait { grid-column: 1; grid-row: 1 / 4; width: 48px; height: 48px; border-width: 2px; }
+.touch .phone-label { grid-column: 2; grid-row: 1; font-size: 9px; justify-self: start; }
+.touch .phone-name { grid-column: 2; grid-row: 2; font-size: 11px; text-align: left; }
+.touch .phone-hearts { grid-column: 2; grid-row: 3; font-size: 10px; }
+.touch .phone-btns { grid-column: 3; grid-row: 1 / 4; flex-direction: row; width: auto; margin: 0; gap: 8px; }
+.touch .pbtn { padding: 10px 14px; font-size: 13px; }
+.touch .pbtn .key { display: none; }
+.touch .phone-timer { grid-column: 1 / 4; grid-row: 4; margin-top: 4px; }
+.touch .pausebtn { left: auto; right: 132px; top: 14px; margin-left: 0; }
+.touch .codec { left: 8px; bottom: 8px; transform: none; width: calc(100vw - 250px); grid-template-columns: 52px 1fr; gap: 8px; padding: 6px 8px; }
+.touch .codec:not(.show) { transform: translateY(160%); }
+.touch .codec-side.right, .touch .codec-side .codec-name, .touch .codec-freq { display: none; }
+.touch .codec-side canvas { width: 48px; height: 48px; }
+.touch .codec-hearts { font-size: 8px; text-align: center; }
+.touch .codec-main { gap: 4px; }
+.touch .codec-line { font-size: 13px; min-height: 0; }
+.touch .codec-verse { font-size: 13px; }
+.touch .codec-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+.touch .opt { flex-direction: column; align-items: flex-start; gap: 1px; font-size: 12px; padding: 6px 8px; min-height: 44px; line-height: 1.2; }
+.touch .opt .key { display: none; }
+.touch .opt .lab { min-width: 0; font-size: 9px; }
+.touch .texts { bottom: auto; top: 150px; right: 236px; }
+.touch .prompt { bottom: 12px; left: 45%; }
+.touch .hud-tl { transform: scale(.8); transform-origin: top left; }
+@media (max-height: 540px) {
+  .titlescreen { gap: 12px; }
+  .logo-a { font-size: clamp(22px, 9vh, 52px); }
+  .logo-b { font-size: clamp(11px, 3.2vh, 18px); margin-top: 4px; }
+  .logo-c, .foot { display: none; }
+  .menu { gap: 6px; }
+  .btn { padding: 7px 16px; font-size: 14px; }
+  .btn.big { font-size: 18px; padding: 10px 26px; }
+  .panel { padding: 16px 18px; }
+  .panel h2 { font-size: 22px; }
+  .boss { top: 34px; }
+}

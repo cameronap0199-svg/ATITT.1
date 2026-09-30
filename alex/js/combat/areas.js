@@ -13,7 +13,6 @@ function intensity() {
   return s === 'low' ? 0.65 : s === 'high' ? 1.45 : 1;
 }
 
-const matPool = {};
 function tmat(color, opacity) {
   return new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
 }

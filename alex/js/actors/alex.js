@@ -997,11 +997,8 @@ export class Alex {
       else if (this.spinKind === 'dodge') B.rotation.set(-Math.sin(Math.PI * k) * 0.9, 0, Math.sin(Math.PI * k) * 0.35);
       if (k >= 1) { this.spinT = 0; B.rotation.set(0, 0, 0); B.position.y = 0; }
     }
-    // lean into acceleration
-    const lean = st === 'move' && this.grounded ? clamp(sp / MOVE.runSpeed, 0, 1.2) * 0.12 : 0;
     M.root.position.copy(this.pos);
-    M.root.rotation.set(lean, this.yaw, 0, 'YXZ');
-    M.root.rotation.x = 0;
+    M.root.rotation.set(0, this.yaw, 0);
     // mercy blink
     M.setFlash(!(G.time < this.mercyUntil && Math.floor(G.time * 16) % 2 === 0));
     M.setXray(!!(G.room && G.room.combatLive()));
