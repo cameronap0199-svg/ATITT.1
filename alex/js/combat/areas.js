@@ -130,7 +130,7 @@ class CircleStrike extends Base {
   }
   fire() {
     const o = this.o;
-    this.checkHit(o.dmg);
+    if (o.dmg > 0) this.checkHit(o.dmg);   // dmg 0 = pure marker (e.g. Parasocial's hand shadow)
     hitEnemiesWhere(o, (e) => Math.hypot(e.pos.x - o.x, e.pos.z - o.z) < o.r + e.radius);
     if (G.room && o.propDmg !== 0) G.room.damageBlocksInRadius(o.x, o.z, o.r, o.propDmg ?? o.dmg);
     if (o.onFire) o.onFire(this);

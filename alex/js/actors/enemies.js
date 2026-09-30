@@ -19,8 +19,9 @@ const say = (e, text, color = '#ffffff', dur = 1.2) => G.hud.bubble(e, text, col
 class Lurker extends Enemy {
   constructor(o) { super({ hp: 30, speed: RUN * 0.9, radius: 0.45, height: 1.75, poise: 'low', ...o }); this.setModel(MODELS.lurker()); }
   think(dt) {
-    const d = this.seek(dt, this.distTo() < 5 ? this.speed * 0.55 : this.speed);
-    if (d < 2.6 && Math.abs(this.target().pos.y - this.pos.y) < 1.5) this.string();
+    // full speed until striking distance, then commit to the string
+    const d = this.seek(dt, this.distTo() < 3 ? this.speed * 0.7 : this.speed);
+    if (d < 2.8 && Math.abs(this.target().pos.y - this.pos.y) < 1.5) this.string();
   }
   swing(dmg) {
     const self = this;

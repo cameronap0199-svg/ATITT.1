@@ -5,7 +5,6 @@ import { G } from '../state.js';
 import { HEARTLINE, heartsFor } from '../config.js';
 import { CALLERS, SCRIPTS, catReaction, marioReaction, dkReaction, DK_STATS, DK_BOSS, drawPortrait, AGREE, PROVOKE, DEFLECT } from './callers.js';
 import { makeQuestion } from './verses.js';
-import { ITEMS } from '../items.js';
 
 const KEY = 'akdh2.heartline.v1';
 const KEYS = ['gf', 'ugly', 'cat', 'mario', 'demonKing', 'jesus'];
@@ -280,7 +279,10 @@ export class Heartline {
       c.script = { open: () => DK_BOSS.line, options: DK_BOSS.opts, pick: DK_BOSS.pick };
     } else {
       const pool = SCRIPTS[key].filter((s) => !s.when || s.when(ctx));
-      c.script = G.run.rng.weighted(pool.map((s) => [s, s.weight || 1]));
+      // the run's very first call is a gentle introduction to the phone
+      const intro = !G.run.introCallDone && key === 'gf' ? pool.find((s) => s.id === 'where') : null;
+      c.script = intro || G.run.rng.weighted(pool.map((s) => [s, s.weight || 1]));
+      G.run.introCallDone = true;
     }
     const open = c.script.open(ctx);
     const options = typeof c.script.options === 'function' ? c.script.options(ctx) : c.script.options;

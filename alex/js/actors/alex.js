@@ -800,6 +800,7 @@ export class Alex {
       return 'dodged';
     }
     if (now < this.mercyUntil) return 'immune';
+    if (!(dmg > 0)) return 'immune';
     const amount = Math.max(1, Math.round(dmg * (this.mods.dmgTakenMul || 1)));
     this.hp -= amount;
     G.run.stat('damageTaken', amount);
