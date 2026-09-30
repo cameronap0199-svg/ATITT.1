@@ -1,0 +1,361 @@
+// A run: three floors of rooms around the concert, money, items, weapons, statistics,
+// and the Heartline side-effects (cook-offs, nightmares, girlfriend requests).
+
+import * as THREE from 'three';
+import { G } from './state.js';
+import { makeRng } from './core/rng.js';
+import { generateFloor, OPP, DIRS, hasCombat } from './world/floorgen.js';
+import { ROOM_TYPES, SPECIAL } from './world/layouts.js';
+import { Room } from './world/room.js';
+import { combineMods, ITEMS, itemInfo, rollItems } from './items.js';
+import { MELEE, RANGED } from './combat/weapons.js';
+import { HEARTLINE, COOKOFF_CHANCE, NIGHTMARE_CHANCE, ECONOMY, FLOOR_NAMES, FLOOR_PLACES, PLAYER } from './config.js';
+import { DK_STATS, CALLERS } from './phone/callers.js';
+import { tickPhoneTimers } from './phone/heartline.js';
+import { CookOff } from './phone/cookoff.js';
+import { HorseMario } from './phone/platformer.js';
+import { NightmareHorse } from './phone/nightmare.js';
+import { addPedestals, addExit } from './shop.js';
+
+const PROFILE = 'akdh2.profile.v1';
+export function loadProfile() {
+  try { return { runs: 0, wins: 0, bestFloor: 0, deaths: 0, ...JSON.parse(localStorage.getItem(PROFILE) || '{}') }; } catch { return { runs: 0, wins: 0, bestFloor: 0, deaths: 0 }; }
+}
+export function saveProfile(p) { try { localStorage.setItem(PROFILE, JSON.stringify(p)); } catch { /* ignore */ } }
+
+export class Run {
+  constructor(seed = (Math.random() * 2 ** 31) | 0) {
+    this.seed = seed;
+    this.rng = makeRng(seed);
+    this.floor = 1;
+    this.money = 0;
+    this.items = [];
+    this.buffs = [];
+    this.weapons = { melee: 'hunterBlade', ranged: 'micBlaster' };
+    this.flags = {};
+    this.stats = {};
+    this.mods = combineMods([], []);
+    this.dkStat = this.rng.pick(Object.keys(DK_STATS));
+    this.gfIdx = 0;
+    this.hadCall = false;
+    this.combatRoomsEntered = 0;
+    this.nextRoomMod = null;
+    this.inputLocked = false;
+    this.godMode = false;
+    this.nightmare = { active: false, horse: null, floorUsed: 0 };
+    this.cookoffFloor = 0;
+    this.startTime = G.time;
+    this.floorStart = G.time;
+    this.heartline = G.phone;
+    this.transition = null;
+    this.ended = false;
+  }
+
+  roomRng(id) { return makeRng((this.seed ^ (this.floor * 100003) ^ (id * 7919)) | 0); }
+
+  start() {
+    const p = loadProfile();
+    p.runs++;
+    saveProfile(p);
+    G.alex.reset();
+    this.recomputeMods();
+    this.startFloor(1);
+  }
+
+  startFloor(n) {
+    this.floor = n;
+    this.floorStart = G.time;
+    this.flags.bathroomKey = 0;
+    this.flags.atlas = false;
+    this.buffs = this.buffs.filter((b) => !b.floor);
+    this.recomputeMods();
+    this.map = generateFloor(n, this.rng.fork());
+    this.enterRoom(this.map.startId, null);
+    G.audio.playMusic('floor' + n, { restart: true });
+    G.hud.roomTitle(`FLOOR ${n} — ${FLOOR_NAMES[n - 1]}`, FLOOR_PLACES[n - 1]);
+    const p = loadProfile();
+    p.bestFloor = Math.max(p.bestFloor, n);
+    saveProfile(p);
+  }
+
+  nextFloor() {
+    if (this.transition) return;
+    G.audio.sfx('door');
+    this.fade(() => this.startFloor(this.floor + 1));
+  }
+
+  // ---------------------------------------------------------------------------
+  enterRoom(id, fromSide) {
+    const prev = G.room;
+    if (prev) prev.dispose();
+    G.projectiles.clear();
+    G.areas.clear();
+    G.targeting.reset();
+    const def = this.map.rooms[id];
+    const firstVisit = !def.visited;
+    def.visited = true;
+    for (const nid of Object.values(def.doors)) this.map.rooms[nid].seen = true;
+    this.roomId = id;
+    // doors (the secret bathroom only exists once you own the key)
+    let doors = Object.entries(def.doors)
+      .filter(([, to]) => !this.map.rooms[to].hidden || this.flags.bathroomKey === this.floor)
+      .map(([side, to]) => ({ side, to, kind: this.map.rooms[to].kind }));
+    if (def.kind === 'boss') doors = doors.map((d) => ({ ...d, side: 'S', realSide: d.side }));
+    const room = new Room(def, this.floor, doors);
+    G.room = room;
+    // place Alex just inside the door he came through
+    let entrySide = fromSide ? OPP[fromSide] : null;
+    if (def.kind === 'boss') entrySide = 'S';
+    const L = room.L;
+    let x = 0, z = 0, yaw = Math.PI;
+    if (entrySide) {
+      const inset = 3.8;
+      if (entrySide === 'N') { z = -L.d / 2 + inset; yaw = 0; }
+      if (entrySide === 'S') { z = L.d / 2 - inset; yaw = Math.PI; }
+      if (entrySide === 'W') { x = -L.w / 2 + inset; yaw = Math.PI / 2; }
+      if (entrySide === 'E') { x = L.w / 2 - inset; yaw = -Math.PI / 2; }
+    } else if (def.kind === 'start') { z = 2.5; yaw = Math.PI; }
+    const y = room.world.groundAt(x, z, 20, 0.3).h;
+    G.alex.place(x, y, z, yaw);
+    G.cam.snapBehind(yaw, G.alex.pos);
+    G.alex.spawnSafe(PLAYER.spawnSafe);
+    G.input.clearBuffers();
+    if (firstVisit) {
+      for (const b of this.buffs) if (!b.floor) b.roomsLeft--;
+      const before = this.buffs.length;
+      this.buffs = this.buffs.filter((b) => b.floor || b.roomsLeft > 0);
+      if (this.buffs.length !== before) this.recomputeMods();
+    }
+    if (hasCombat(def) && !def.cleared) this.combatRoomsEntered++;
+    room.begin();
+    this.stat('roomsEntered', 1);
+    // music
+    if (def.kind !== 'gas' && def.kind !== 'boss' && G.audio.musicName() !== 'floor' + this.floor) G.audio.playMusic('floor' + this.floor);
+    // room title
+    const special = { start: 'ARRIVAL', gas: 'GAS & GO — Open 24/7 (Somehow)', treasure: 'LOST & FOUND', secret: 'A BATHROOM?', boss: '♥ THE STAGE ♥', preboss: 'THE LAST DOOR' };
+    if (def.kind !== 'start' || fromSide) {
+      const title = special[def.kind] && def.kind !== 'preboss' ? special[def.kind] : `${ROOM_TYPES[this.floor][def.type] || ''} — ${L.name}`;
+      if (def.kind !== 'boss') G.hud.roomTitle(title, def.cleared ? 'cleared' : hasCombat(def) ? '' : '');
+    }
+    // nightmare horse follows between rooms; new nightmares roll on entering fights
+    if (this.nightmare.active && this.nightmare.horse) {
+      const ex = entrySide === 'N' ? [0, -L.d / 2 + 1] : entrySide === 'S' ? [0, L.d / 2 - 1] : entrySide === 'W' ? [-L.w / 2 + 1, 0] : entrySide === 'E' ? [L.w / 2 - 1, 0] : [0, 0];
+      this.nightmare.horse.enterRoom(G.room.group, { x: ex[0], z: ex[1] });
+    } else if (hasCombat(def) && !def.cleared && this.nightmare.floorUsed !== this.floor && def.kind !== 'boss') {
+      const chance = NIGHTMARE_CHANCE[G.phone.hearts('mario')] || 0;
+      if (this.rng() < chance) this.pendingNightmare = G.time + 1.4;
+    }
+  }
+
+  goThroughDoor(door) {
+    if (this.transition) return;
+    const side = door.realSide || door.side;
+    G.audio.sfx('door');
+    this.fade(() => this.enterRoom(door.to, side));
+  }
+
+  fade(fn) {
+    const f = document.getElementById('fade');
+    this.transition = { t: 0, fn, done: false };
+    this.inputLocked = true;
+    f.classList.add('on');
+    setTimeout(() => {
+      fn();
+      this.inputLocked = false;
+      setTimeout(() => { f.classList.remove('on'); this.transition = null; }, 60);
+    }, 190);
+  }
+
+  teleportToPreboss() {
+    const pre = this.map.rooms.find((r) => r.kind === 'preboss');
+    if (!pre) return;
+    G.hud.popup('WRONG CONCERT. RIGHT DIRECTION.', '#ffd60a', 1.6);
+    this.fade(() => this.enterRoom(pre.id, null));
+  }
+
+  // ---------------------------------------------------------------------------
+  update(dt) {
+    if (this.transition) return;
+    const room = G.room;
+    this.stat('time', dt);
+    room.update(dt);
+    tickPhoneTimers();
+    if (this.pendingNightmare && G.time > this.pendingNightmare) { this.pendingNightmare = null; this.startNightmare(); }
+    if (this.nightmare.active && this.nightmare.horse && G.mode === 'run') {
+      if (this.nightmare.horse.update(dt)) this.caughtByHorse();
+    }
+    if (G.mode === 'run' && G.alex.alive) {
+      const d = room.doorCrossed();
+      if (d) this.goThroughDoor(d);
+    }
+    // cook-off queued after a room clear (never mid-fight)
+    if (this.pendingCookoff && G.time > this.pendingCookoff && !G.phone.busy()) { this.pendingCookoff = null; this.startCookoff(); }
+  }
+
+  onRoomCleared(room) {
+    if (this.mods.clearHeal) G.alex.heal(this.mods.clearHeal, true);
+    if (this.mods.clearMoney) this.addMoney(this.mods.clearMoney);
+    // Ugly Girlfriend: losing hearts raises the Cook-Off chance
+    if (this.cookoffFloor !== this.floor && room.def.kind !== 'boss') {
+      const chance = COOKOFF_CHANCE[G.phone.hearts('ugly')] || 0;
+      if (this.rng() < chance) { this.cookoffFloor = this.floor; this.pendingCookoff = G.time + 1.2; }
+    }
+  }
+
+  onKill(e) { /* stats handled in enemy.die; hook kept for Demon King lines */ }
+
+  onBossDefeated(room) {
+    const b = room.bossInfo;
+    G.hud.hideBoss();
+    this.stat('bossesDefeated', 1);
+    G.fx.confetti(0, 5, -4, 160);
+    G.audio.sfx('cheer');
+    room.dropMoney(0, -4, 70 + this.rng.int(40));
+    G.alex.heal(40);
+    if (this.floor < 3) {
+      G.hud.popup(this.floor === 1 ? 'THE OPENING ACT IS OVER' : 'THE HEADLINER GUARDIAN FALLS', '#ffd60a', 2.4);
+      addPedestals(room, 'boss', 1, {});
+      addExit(room);
+    } else {
+      G.hud.popup('THE K-POP DEMON KING IS DEFEATED', '#ffd60a', 3);
+      this.inputLocked = true;
+      setTimeout(() => G.screens.victory(), 3600);
+    }
+  }
+
+  onDeath() {
+    if (this.ended) return;
+    this.ended = true;
+    const p = loadProfile();
+    p.deaths++;
+    saveProfile(p);
+    setTimeout(() => G.screens.gameOver(), 2300);
+  }
+
+  // ---------------------------------------------------------------------------
+  addMoney(n, spend) {
+    this.money = Math.max(0, this.money + n);
+    if (n > 0 && !spend) this.stat('moneyCollected', n);
+    if (n < 0) this.stat('moneySpent', -n);
+  }
+
+  grant(id) {
+    const it = itemInfo(id);
+    if (!it) return;
+    if (it.weapon) {
+      this.weapons[it.slot] = it.weapon;
+      G.hud.popup('EQUIPPED: ' + it.name, '#4cc9f0', 1.6);
+      if (it.slot === 'melee') G.alex.model.setBladeColor(MELEE[it.weapon].color);
+      this.stat('weaponsFound', 1);
+      return;
+    }
+    if (it.heal) G.alex.heal(it.heal);
+    if (it.poisonChance && this.rng() < it.poisonChance) {
+      this.buffs.push({ id: 'sushi', roomsLeft: 2, mods: { moveMul: 0.85, dashRechargeMul: 0.8 } });
+      G.hud.popup('FOOD POISONING (2 rooms)', '#9ef01a', 1.6);
+    }
+    if (it.timed) this.buffs.push({ id, roomsLeft: it.timed.rooms || 0, floor: !!it.timed.floor, mods: it.timed.mods });
+    if (it.mods) this.items.push(id);
+    if (it.flag === 'bathroomKey') {
+      this.flags.bathroomKey = this.floor;
+      const sec = this.map.rooms.find((r) => r.kind === 'secret');
+      if (sec) sec.seen = true;
+      G.hud.popup('A DOOR APPEARS SOMEWHERE ON THIS FLOOR', '#b5838d', 1.8);
+      // reveal the door if we're standing in the room next to it
+      const cur = this.map.rooms[this.roomId];
+      if (sec && Object.values(cur.doors).includes(sec.id)) setTimeout(() => this.fade(() => this.enterRoom(this.roomId, null)), 800);
+    }
+    if (it.flag === 'atlas') { this.flags.atlas = true; G.hud.popup('MAP REVEALED', '#ffd60a', 1.4); }
+    if (it.flag === 'mints') { this.flags.mints = true; }
+    if (it.shirt) G.alex.model.setShirt(true);
+    this.recomputeMods();
+    if (!it.heal && !it.weapon) G.hud.popup('GOT: ' + (it.icon || '') + ' ' + it.name, '#ffd60a', 1.4, true);
+  }
+
+  recomputeMods() {
+    this.mods = combineMods(this.items, this.buffs);
+    const a = G.alex;
+    const newMax = PLAYER.maxHp + this.mods.maxHp;
+    if (newMax !== a.maxHp) { const gain = newMax - a.maxHp; a.maxHp = newMax; if (gain > 0) a.hp += gain; a.hp = Math.min(a.hp, a.maxHp); }
+  }
+
+  consumeRevive() {
+    const i = this.items.indexOf('warranty');
+    if (i < 0) return false;
+    this.items.splice(i, 1);
+    this.recomputeMods();
+    this.stat('revives', 1);
+    return true;
+  }
+
+  stat(name, n) { this.stats[name] = (this.stats[name] || 0) + n; }
+  statValue(name) {
+    const s = this.stats;
+    if (name === 'accuracy') return s.shotsFired ? Math.round(((s.shotsHit || 0) / s.shotsFired) * 100) : 0;
+    if (name === 'moneyHeld') return this.money;
+    if (name === 'floorTime') return Math.round(G.time - this.floorStart);
+    return Math.round(s[name] || 0);
+  }
+
+  gfRequest() { const r = HEARTLINE.gfRequests; return { idx: Math.min(this.gfIdx, r.length - 1), amount: r[Math.min(this.gfIdx, r.length - 1)] }; }
+  advanceGfRequest(n = 1) { this.gfIdx += n; }
+  girlfriendGift() {
+    const pool = rollItems(this.rng() < 0.5 ? 'counter' : 'snack', 1, this.rng, this).filter((k) => k !== 'bathroomKey');
+    if (pool[0]) { this.grant(pool[0]); G.hud.popup('GIRLFRIEND SENT: ' + (ITEMS[pool[0]]?.name || ''), '#ff4fa3', 1.8); } else G.alex.heal(25);
+  }
+
+  // ---------------------------------------------------------------------------
+  startCookoff() {
+    if (G.mode !== 'run') return;
+    G.hud.popup('UGLY KITCHEN COOK-OFF', '#2ec4b6', 1.2);
+    G.mode = 'minigame';
+    G.input.releaseLock();
+    const done = () => {
+      G.minigame = null;
+      document.getElementById('mini').classList.remove('on');
+      G.mode = 'run';
+      G.audio.playMusic('floor' + this.floor, { restart: true });
+      G.alex.spawnSafe(1.5);
+      G.input.clearBuffers();
+    };
+    G.minigame = new CookOff(done);
+    document.getElementById('mini').classList.add('on');
+    this.stat('cookoffs', 1);
+  }
+
+  startNightmare() {
+    if (G.mode !== 'run' || this.nightmare.active) return;
+    this.nightmare.active = true;
+    this.nightmare.floorUsed = this.floor;
+    G.audio.stopMusic();
+    G.audio.sfx('static');
+    G.pixelateUntil = G.realTime + 1.4;
+    const horse = new NightmareHorse();
+    this.nightmare.horse = horse;
+    setTimeout(() => { if (this.nightmare.horse === horse) { horse.spawnBehind(G.room.group); G.audio.sfx('neigh'); G.hud.popup('...', '#e63946', 1.4); } }, 1400);
+    this.stat('nightmares', 1);
+  }
+
+  caughtByHorse() {
+    const horse = this.nightmare.horse;
+    G.mode = 'minigame';
+    G.input.releaseLock();
+    G.audio.sfx('neigh');
+    G.pixelateUntil = G.realTime + 0.8;
+    document.getElementById('mini').classList.add('on');
+    G.minigame = new HorseMario(() => {
+      horse.remove();
+      this.nightmare.active = false;
+      this.nightmare.horse = null;
+      G.minigame = null;
+      document.getElementById('mini').classList.remove('on');
+      G.mode = 'run';
+      G.audio.playMusic('floor' + this.floor, { restart: true });
+      G.alex.spawnSafe(2);
+      G.input.clearBuffers();
+      const d = G.phone.change('mario', 2);
+      G.phone.toast('mario', 'thank you horse', d);
+      this.stat('nightmaresSurvived', 1);
+    });
+  }
+}

@@ -1,5 +1,7 @@
 # 🌳 KNOTWOOD — Tactical Card Battle
 
+> **Also in this repo:** [**Alex K-Pop Demon Hunter 2: Fates Uncertain Hearts Rewired Recircumcised Edition**](alex/README.md), a 3D comedy roguelike bullet hell. Run `npm start` and open `http://localhost:8080/alex/`.
+
 An anime-flavoured, early-2000s-JRPG-styled **tactical trading card game** built from the *Phase 1 – Core Game Rules* and *Phase 2 – Card Framework* design documents (Set 1: **Knotwood Forest**).
 
 * **Battle AI bots** — a 10-stage Adventure ladder of rivals with scaling difficulty, plus Free Battle at any difficulty (1–10) in **1v1, 2v2 (with a bot ally) or Free-for-All for 3–4 players**.
