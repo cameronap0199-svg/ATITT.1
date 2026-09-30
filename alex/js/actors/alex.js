@@ -176,7 +176,10 @@ export class Alex {
     }
     if (meleePressed && this.chargeT < 0.2) {
       G.input.consume('melee');
+      // melee while pulling back (toward the camera) = Rising Encore launcher
+      const pullBack = G.input.move.y < -0.6 && Math.abs(G.input.move.x) < 0.5;
       if (now < this.perfectBonusUntil) this._startAttack('counter');
+      else if (this.grounded && pullBack) this._startAttack('charged');
       else this._startAttack(this.grounded ? 'combo' : 'air');
       return;
     }
@@ -773,15 +776,18 @@ export class Alex {
   // -------------------------------------------------------------------------
   // Damage
   testProjectile(p) {
+    // a projectile Alex already dodged through never hits him afterwards
+    if (p.dodged) return 'pass';
     const y0 = this.pos.y + 0.35, y1 = this.pos.y + this.height - 0.3;
     const py = clamp(p.y, y0, y1);
     const d = Math.hypot(p.x - this.pos.x, p.y - py, p.z - this.pos.z);
     const hitR = p.r * 0.9 + 0.3;
     if (d < hitR) {
       const res = this.hurt(p.dmg, { source: p.owner, kind: 'proj', dir: [p.vx, p.vz], knock: p.knock });
+      if (res === 'dodged') p.dodged = true;
       return res === 'hit' ? 'hit' : 'pass';
     }
-    if (!p.grazed && this.state === 'dash' && G.time < this.perfectUntil && d < hitR + DASH.perfectGraze) { p.grazed = true; this._perfect(); }
+    if (!p.grazed && this.state === 'dash' && G.time < this.perfectUntil && d < hitR + DASH.perfectGraze) { p.grazed = true; p.dodged = true; this._perfect(); }
     return 'pass';
   }
 

@@ -34,7 +34,7 @@ export const DEFAULTS = {
   autoRecenter: true, recenterDelay: 1.5, combatCamAssist: 'normal', aimAssist: 'normal',
   autoTarget: true, autoSwitch: true, lockMode: 'toggle',
   projectileContrast: 'normal', indicatorIntensity: 'normal', perfectAssist: 'off',
-  autoSprint: false, vibration: 0.7, rapidFire: true, ledgeProtect: true,
+  autoSprint: false, vibration: 0.7, rapidFire: false, ledgeProtect: true,
   reduceFlashing: false, flashIntensity: 0.8, damageNumbers: true, renderScale: 1,
   showFps: false, seenWarning: false,
   keys: DEFAULT_KEYS, pad: DEFAULT_PAD,

@@ -21,7 +21,7 @@ You can also serve the repo from any static host (for example GitHub Pages) and 
 | Run / camera | WASD / mouse (click to capture) | Left stick / right stick |
 | Jump (tap = hop), vault, wall kick | Space | A |
 | Dash (2 charges, perfect dodge) | Shift | B / RB |
-| Melee (hold = launcher) | LMB / J | X |
+| Melee (hold, or pull back + melee = launcher) | LMB / J | X |
 | Shoot (hold) | RMB / K | RT |
 | Hard focus (lock-on) / switch target | F or MMB / Q, C, mouse flick | LT / right-stick flick |
 | Interact / buy | E | Y |

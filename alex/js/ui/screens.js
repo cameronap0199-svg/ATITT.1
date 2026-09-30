@@ -229,7 +229,7 @@ export class Screens {
         <p>${k('dash')} <b>dash</b>: 2 charges, i-frames, cancels almost anything. One air dash per jump. Dash <i>through</i> an attack at the last moment for a <b>PERFECT DODGE</b> — slow-mo and a stronger counterattack.</p>
         <p>Falls: small = keep running, medium = crouch (any input cancels), huge = superhero landing (shockwave!).</p>
         <h3>Combat</h3>
-        <p>${k('melee')} melee combo (3 hits) · dash → melee = dash slash · hold ${k('melee')} = <b>launcher</b>, then jump to follow · melee in the air for aerials.</p>
+        <p>${k('melee')} melee combo (3 hits) · dash → melee = dash slash · hold ${k('melee')} (or pull back + ${k('melee')}) = <b>launcher</b>, then jump to follow · melee in the air for aerials.</p>
         <p>${k('ranged')} shoot (hold). Aim with the camera; aim assist bends shots toward what you're pointing at.</p>
         <p><b>Combat Focus</b>: look at an enemy and attack — Alex keeps them in mind. ${k('lock')} hard focus, ${k('targetPrev')}/${k('targetNext')} or a stick/mouse flick switches.</p>
       </div>

@@ -305,8 +305,8 @@ export class HUD {
     const I = G.input;
     const k = (a) => `<b class="key">${I.glyph(a)}</b>`;
     const lines = I.device === 'pad'
-      ? ['Left stick: run · Right stick: camera', `${k('jump')} jump (tap = hop) · jump into walls to wall-kick · jump + forward near cover to vault`, `${k('dash')} dash (2 charges) — dash through attacks for a PERFECT DODGE`, `${k('melee')} melee (hold for launcher) · ${k('ranged')} shoot · ${k('lock')} hard focus`, `Phone: D-pad answers calls. ${k('map')} map`]
-      : [`WASD run · mouse camera · ${k('jump')} jump (tap = hop) · jump near walls to wall-kick · jump + forward near cover to vault`, `${k('dash')} dash (2 charges) — dash through attacks for a PERFECT DODGE`, `${k('melee')} melee (hold for launcher) · ${k('ranged')} shoot · ${k('lock')} hard focus · ${k('targetPrev')}/${k('targetNext')} switch`, `Phone: ${k('phone1')} ${k('phone2')} ${k('phone3')} answer while fighting · ${k('interact')} interact · hold ${k('map')} map`];
+      ? ['Left stick: run · Right stick: camera', `${k('jump')} jump (tap = hop) · jump into walls to wall-kick · jump + forward near cover to vault`, `${k('dash')} dash (2 charges) — dash through attacks for a PERFECT DODGE`, `${k('melee')} melee (hold, or pull back + melee = launcher) · ${k('ranged')} shoot · ${k('lock')} hard focus`, `Phone: D-pad answers calls. ${k('map')} map`]
+      : [`WASD run · mouse camera · ${k('jump')} jump (tap = hop) · jump near walls to wall-kick · jump + forward near cover to vault`, `${k('dash')} dash (2 charges) — dash through attacks for a PERFECT DODGE`, `${k('melee')} melee (hold, or S + melee = launcher) · ${k('ranged')} shoot · ${k('lock')} hard focus · ${k('targetPrev')}/${k('targetNext')} switch`, `Phone: ${k('phone1')} ${k('phone2')} ${k('phone3')} answer while fighting · ${k('interact')} interact · hold ${k('map')} map`];
     const e = this.e.tutorial;
     e.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
     e.classList.add('on');
