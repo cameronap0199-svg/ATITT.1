@@ -35,7 +35,7 @@ export const DEFAULTS = {
   autoTarget: true, autoSwitch: true, lockMode: 'toggle',
   projectileContrast: 'normal', indicatorIntensity: 'normal', perfectAssist: 'off',
   autoSprint: false, vibration: 0.7, rapidFire: false, ledgeProtect: true,
-  reduceFlashing: false, flashIntensity: 0.8, damageNumbers: true, renderScale: 1,
+  reduceFlashing: false, flashIntensity: 0.8, damageNumbers: true, enemyBars: true, renderScale: 1,
   showFps: false, seenWarning: false,
   keys: DEFAULT_KEYS, pad: DEFAULT_PAD,
 };
@@ -93,6 +93,7 @@ export const SETTINGS_SPEC = [
     ['autoSprint', 'Auto sprint', 'toggle'],
     ['ledgeProtect', 'Ledge protection', 'toggle'],
     ['damageNumbers', 'Damage numbers', 'toggle'],
+    ['enemyBars', 'Enemy health bars & names', 'toggle'],
   ]],
   ['Readability & comfort', [
     ['projectileContrast', 'Projectile contrast', 'select', { options: [['normal', 'Normal'], ['high', 'High'], ['max', 'Maximum']] }],

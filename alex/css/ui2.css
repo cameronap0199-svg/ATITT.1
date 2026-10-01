@@ -1,0 +1,74 @@
+/* Alex K-Pop Demon Hunter 2 — second UI layer: nameplates, scratch-offs, phone v2,
+   rift banners, vehicles and the global animation pass. Loaded after game.css. */
+
+/* ---------------------------------------------------------------- enemy nameplates */
+.plates { position: absolute; inset: 0; pointer-events: none; }
+.eplate { position: absolute; left: 0; top: 0; width: 132px; opacity: 0; transform-origin: 50% 100%; will-change: transform, opacity; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.eplate.on .ep-title { animation: epTitle .45s cubic-bezier(.2,1.6,.4,1); }
+.ep-title { font-family: var(--display); font-size: 11px; letter-spacing: .04em; color: #fff; white-space: nowrap; text-shadow: 0 1px 0 #000, 0 0 6px rgba(0,0,0,.9); display: flex; gap: 4px; align-items: center; }
+.ep-affix { text-shadow: 0 1px 0 #000, 0 0 8px currentColor; }
+.ep-tag { font-family: var(--ui); font-weight: 800; font-size: 8.5px; padding: 1px 5px; border-radius: 4px; background: var(--rift, #444); color: #fff; letter-spacing: .08em; }
+.ep-bar { position: relative; width: 100%; height: 9px; border-radius: 5px; background: rgba(10, 2, 20, .82); border: 1.5px solid rgba(255,255,255,.55); overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.ep-bar i { position: absolute; inset: 0; transform-origin: 0 50%; }
+.ep-ghost { background: #fff3b0; }
+.ep-fill { background: linear-gradient(180deg, #ff7cb6, #e5005e); transition: transform .08s; }
+.ep-fill.low { background: linear-gradient(180deg, #ffb703, #ff2e4d); animation: epLow .5s ease-in-out infinite alternate; }
+.ep-shield { background: linear-gradient(180deg, rgba(120,220,255,.95), rgba(40,140,255,.85)); height: 40%; top: auto !important; transform: scaleX(0); }
+.ep-poise { width: 86%; height: 3px; border-radius: 2px; background: rgba(0,0,0,.55); overflow: hidden; }
+.ep-poise i { display: block; height: 100%; background: #ffd60a; transform-origin: 0 50%; transform: scaleX(0); transition: transform .1s; }
+.eplate.elite .ep-bar { border-color: #ffd60a; }
+.eplate.shiny .ep-bar { border-color: #ffd60a; box-shadow: 0 0 10px rgba(255,214,10,.8); }
+.eplate.shiny .ep-name { background: linear-gradient(90deg, #fff6a8, #ffd60a, #fff, #ffd60a); -webkit-background-clip: text; background-clip: text; color: transparent; background-size: 200% 100%; animation: shine 1.4s linear infinite; }
+.eplate.hit .ep-bar { animation: epHit .25s ease-out; }
+.eplate[data-franchise="halo"] { --rift: #3a86ff; }
+.eplate[data-franchise="minecraft"] { --rift: #4caf50; }
+.eplate[data-franchise="onepiece"] { --rift: #e63946; }
+.eplate[data-franchise="pokemon"] { --rift: #f4a100; }
+.eplate[data-franchise="bible"] { --rift: #b08d57; }
+@keyframes epTitle { from { transform: translateY(8px) scale(.6); opacity: 0; } }
+@keyframes epHit { 0% { transform: translateX(-3px); filter: brightness(2.2); } 40% { transform: translateX(3px); } 100% { transform: none; filter: none; } }
+@keyframes epLow { to { filter: brightness(1.45); } }
+@keyframes shine { to { background-position: -200% 0; } }
+
+/* ---------------------------------------------------------------- scratch-off tickets */
+.scratchoff { position: fixed; inset: 0; z-index: 45; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 14px; background: radial-gradient(ellipse at center, rgba(40,8,70,.55), rgba(6,1,14,.9)); pointer-events: auto; }
+.scratchoff.on { display: flex; }
+.scratchoff.enter { animation: soBg .35s ease-out; }
+.scratchoff.enter .so-card { animation: soIn .7s cubic-bezier(.18,1.35,.4,1); }
+.so-card { position: relative; width: min(94vw, 1020px, calc((100vh - 140px) * 1.6)); aspect-ratio: 1.6; border-radius: 3.6%; box-shadow: 0 30px 90px rgba(0,0,0,.7), 0 0 0 3px rgba(255,255,255,.12), 0 0 60px color-mix(in srgb, var(--c1) 45%, transparent); transform-style: preserve-3d; }
+.so-card canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 3.6%; }
+.so-foil { cursor: none; touch-action: none; }
+.so-fx { pointer-events: none; }
+.so-coin { position: absolute; left: 50%; top: 50%; width: 7%; aspect-ratio: 1; margin: -3.5% 0 0 -3.5%; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .15s;
+  background: radial-gradient(circle at 35% 30%, #fff8c4, #ffd60a 40%, #b8860b 75%, #6b4a00); box-shadow: 0 6px 14px rgba(0,0,0,.45), inset 0 0 0 3px rgba(255,255,255,.35); transform: rotate(-20deg); }
+.so-coin::after { content: '♥'; position: absolute; inset: 0; display: grid; place-items: center; color: #8a5a00; font-size: 140%; font-family: var(--display); }
+.so-card:active .so-coin { transform: rotate(-20deg) scale(.88); }
+.so-stamp { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) rotate(-14deg) scale(3); opacity: 0; font-family: var(--display); font-size: clamp(34px, 7vw, 86px); color: #e5383b; border: 8px solid #e5383b; border-radius: 18px; padding: 4px 26px; letter-spacing: .06em; pointer-events: none; mix-blend-mode: multiply; }
+.so-stamp.on { animation: soStamp .45s cubic-bezier(.2,1.5,.4,1) forwards; }
+.so-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.so-hint { color: rgba(255,255,255,.8); font-size: 14px; }
+.so-btn { appearance: none; border: 0; border-radius: 999px; padding: 10px 20px; font-weight: 800; font-size: 15px; color: #1a0630; background: linear-gradient(180deg, #fff6a8, #ffd60a); box-shadow: 0 4px 0 #b8860b; cursor: pointer; transition: transform .08s; }
+.so-btn:hover { transform: translateY(-2px); }
+.so-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b8860b; }
+.so-done { display: none; background: linear-gradient(180deg, #8dffc0, #3cff8f); box-shadow: 0 4px 0 #1b9e5a; }
+.scratchoff.judged .so-done { display: inline-block; animation: popIn .4s cubic-bezier(.2,1.6,.4,1); }
+.scratchoff.judged .so-all { display: none; }
+.so-result { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; opacity: 0; padding: 10px 34px 14px; border-radius: 24px; background: rgba(20,4,40,.86); border: 3px solid rgba(255,214,10,.8); box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 50px rgba(255,214,10,.35); max-width: min(90vw, 900px); }
+.so-result.lose { border-color: rgba(255,120,140,.7); box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+.so-result.on { animation: soRes .7s cubic-bezier(.2,1.5,.4,1) forwards, soResDock .55s cubic-bezier(.5,0,.3,1) 1.9s forwards; }
+.so-r1 { font-family: var(--display); font-size: clamp(30px, 6vw, 72px); letter-spacing: .04em; color: #fff; -webkit-text-stroke: 3px #1a0630; text-shadow: 0 6px 0 #1a0630, 0 0 40px rgba(255,214,10,.9); }
+.so-result.win .so-r1 { color: #ffd60a; animation: soWobble 1.2s ease-in-out infinite .7s; }
+.so-result.lose .so-r1 { color: #ff8fa3; font-size: clamp(24px, 4vw, 48px); }
+.so-r2 { margin-top: 4px; font-family: var(--display); font-size: clamp(16px, 2.4vw, 28px); color: #fff; text-shadow: 0 3px 0 #1a0630; }
+.so-result.lose .so-r2 { font-family: var(--ui); font-weight: 800; font-size: 16px; }
+.so-rain { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.so-rain i { position: absolute; top: -8%; font-style: normal; font-size: clamp(18px, 3vw, 34px); animation: soRain linear forwards; }
+@keyframes soBg { from { opacity: 0; } }
+@keyframes soIn { 0% { transform: translateY(70vh) rotate(18deg) scale(.6); } 60% { transform: translateY(-2%) rotate(-3deg) scale(1.03); } 100% { transform: none; } }
+@keyframes soStamp { to { transform: translate(-50%, -50%) rotate(-14deg) scale(1); opacity: .9; } }
+@keyframes soRes { from { opacity: 0; transform: translate(-50%, -50%) scale(.3); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes soResDock { from { opacity: 1; top: 50%; transform: translate(-50%, -50%) scale(1); } to { opacity: 1; top: calc(50% + min(47vw, 510px, (100vh - 140px) * .8) / 1.6 - 6px); transform: translate(-50%, -50%) scale(.62); } }
+@keyframes soWobble { 0%, 100% { transform: rotate(-2deg) scale(1); } 50% { transform: rotate(2deg) scale(1.06); } }
+@keyframes soRain { to { transform: translateY(118vh) rotate(var(--r)); } }
+@keyframes popIn { from { transform: scale(.3); opacity: 0; } }
+.touch .so-card { width: min(94vw, calc((100vh - 90px) * 1.6)); }

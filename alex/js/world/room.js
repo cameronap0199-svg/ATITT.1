@@ -14,6 +14,7 @@ import { spawnBoss, tickTimers, clearTimers } from '../actors/bosses.js';
 import { ECONOMY, PLAYER } from '../config.js';
 import { GEO, glow, mat, textTexture } from './props.js';
 import { stockGasStation, addPedestals, addScalper, addExit } from '../shop.js';
+import { rollAffix } from '../actors/affixes.js';
 
 const coinGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.05, 14);
 const billGeo = new THREE.BoxGeometry(0.42, 0.02, 0.2);
@@ -108,6 +109,7 @@ export class Room {
       }
       if (!p) p = { x: (this.rng() - 0.5) * this.L.w * 0.6, z: (this.rng() - 0.5) * this.L.d * 0.6 };
       const e = this.spawnEnemy(type, p.x, p.z, { readyDelay: 1.3 + delay, ...extra });
+      if (e && !e.boss && !extra.disguised) { const af = rollAffix(this.rng, this.floor, type); if (af) e.applyAffix(af); }
       delay += 0.08;
       if (e) avoid.push({ x: p.x, z: p.z, r: 1.6 });
     }

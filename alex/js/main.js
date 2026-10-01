@@ -142,6 +142,11 @@ function frame(now) {
   requestAnimationFrame(frame);
   const realDt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  simulate(realDt);
+  if (G.mode !== 'minigame') renderer.render(scene, camera);
+  G.input.endFrame();
+}
+function simulate(realDt) {
   G.realTime += realDt;
   let scale = 1;
   if (G.realTime < G.slowUntil) scale = G.slowScale;
@@ -153,7 +158,7 @@ function frame(now) {
   if (G.mode !== frame.lastMode) { frame.lastMode = G.mode; document.body.classList.toggle('playing', G.mode === 'run'); }
 
   if (G.mode === 'run') {
-    if (G.input.pressed('pause')) { pause(); G.input.endFrame(); return; }
+    if (G.input.pressed('pause')) { pause(); return; }
     G.time += dt;
     if (G.run.floor !== G._lookFloor) { G._lookFloor = G.run.floor; setFloorLook(G.run.floor); }
     G.targeting.update(dt);
@@ -185,8 +190,11 @@ function frame(now) {
     renderer.setSize(innerWidth, innerHeight, false);
     canvas.classList.toggle('pixel', px);
   }
-  if (G.mode !== 'minigame') renderer.render(scene, camera);
-  G.input.endFrame();
+}
+// Fast-forward for automated tests: simulate `seconds` of game time without rendering.
+function advance(seconds, step = 1 / 60) {
+  for (let t = 0; t < seconds; t += step) { simulate(step); G.input.endFrame(); }
+  renderer.render(scene, camera);
 }
 
 // Debug helpers (?debug) ----------------------------------------------------------
@@ -206,7 +214,7 @@ window.addEventListener('pointerdown', () => audio.initAudio(), { once: false })
 window.addEventListener('keydown', () => audio.initAudio());
 
 // Test hook for automated smoke tests.
-window.__game = { G, startRun, pause, resume, quitToTitle, THREE };
+window.__game = { G, startRun, pause, resume, quitToTitle, THREE, advance };
 
 // Boot ---------------------------------------------------------------------------
 applySettings();

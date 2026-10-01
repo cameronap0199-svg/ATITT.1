@@ -114,23 +114,45 @@ test('Bible Check questions are well-formed at every level', () => {
   }
 });
 
-test('lottery odds follow the design document', async () => {
-  // shop.js imports three for its displays; the pure roll lives beside it, so test via a copy of the odds
-  const { rollTicket } = await import('../alex/js/lottery.js');
+test('lottery: generous odds, bounded stock and cards that show the rolled outcome', async () => {
+  const { rollTicket, layoutTicket, rollStock, TICKETS } = await import('../alex/js/lottery.js');
   const rng = makeRng(5);
-  const N = 60000;
-  const c = { nothing: 0, money: 0, m10: 0, item: 0, unusual: 0 };
-  for (let i = 0; i < N; i++) {
-    const r = rollTicket(2, rng);
-    if (r.type === 'money' && r.amount === 10) c.m10++;
-    else c[r.type]++;
+  const N = 40000;
+  for (const price of [2, 5, 10]) {
+    let money = 0, losses = 0, items = 0, jackpots = 0;
+    for (let i = 0; i < N; i++) {
+      const r = rollTicket(price, rng);
+      if (r.type === 'nothing') losses++;
+      if (r.amount) money += r.amount;
+      if (r.item) items++;
+      if (r.type === 'jackpot') jackpots++;
+    }
+    const ev = money / N;
+    assert.ok(ev > price * 1.2, `$${price} pays back more than it costs on average (EV ${ev.toFixed(2)})`);
+    assert.ok(ev < price * 3, `$${price} is generous but not absurd (EV ${ev.toFixed(2)})`);
+    assert.ok(losses / N > 0.35 && losses / N < 0.5, `$${price} still loses sometimes (${losses / N})`);
+    assert.ok(items > 0, `$${price} can win items`);
+    if (price === 10) assert.ok(jackpots > 0 && jackpots / N < 0.03, 'jackpot is rare');
   }
-  const near = (a, b, tol = 0.012) => assert.ok(Math.abs(a / N - b) < tol, `${a / N} vs ${b}`);
-  near(c.nothing, 0.45); near(c.money, 0.30); near(c.m10, 0.15); near(c.item, 0.08, 0.008); near(c.unusual, 0.02, 0.005);
-  let jackpots = 0, losses = 0;
-  for (let i = 0; i < N; i++) { const r = rollTicket(10, rng); if (r.type === 'jackpot') jackpots++; if (r.type === 'nothing') losses++; }
-  assert.ok(losses / N > 0.75, '$10 usually loses');
-  assert.ok(jackpots > 0 && jackpots / N < 0.02, 'jackpot is very rare');
+  // printed cards are consistent with the outcome
+  const count = (arr, v) => arr.filter((x) => x === v).length;
+  for (let i = 0; i < 3000; i++) {
+    const price = [2, 5, 10][i % 3];
+    const r = rollTicket(price, rng);
+    const L = layoutTicket(r, rng);
+    const win = r.type !== 'nothing';
+    if (L.kind === 'lucky' || L.kind === 'mega') {
+      const triples = [...new Set(L.cells)].filter((s) => count(L.cells, s) >= 3);
+      assert.equal(triples.length, win ? 1 : 0, JSON.stringify([r, L]));
+      if (win && triples.length) assert.equal(triples[0], L.win);
+      assert.equal(L.cells.length, L.kind === 'lucky' ? 6 : 9);
+    } else {
+      const hits = L.mine.filter((m) => L.winning.includes(m.n));
+      assert.equal(hits.length, win ? 1 : 0, JSON.stringify([r, L]));
+    }
+  }
+  const st = rollStock(rng);
+  for (const p of [2, 5, 10]) assert.ok(st[p] >= 1 && st[p] <= 5 && TICKETS[p].name);
 });
 
 test('items: categories, prices and stacking modifiers', () => {

@@ -179,15 +179,6 @@ button { font-family: var(--ui); }
 .rt-a { font-family: var(--display); font-size: clamp(16px, 2.4vw, 26px); letter-spacing: .06em; text-shadow: 0 3px 0 #3a0ca3; white-space: nowrap; }
 .rt-b { font-size: 14px; color: rgba(255,255,255,.7); font-weight: 700; }
 @keyframes rt { 0% { opacity: 0; transform: translate(-50%, -8px); } 15% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; } }
-.scratch { position: absolute; right: 24px; top: 190px; width: 300px; background: linear-gradient(160deg, #ffd60a, #ff9f1c); color: #240046; border-radius: 16px; padding: 12px 14px; transform: translateX(360px); transition: transform .25s; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
-.scratch.on { transform: none; }
-.sc-name { font-family: var(--display); font-size: 14px; }
-.sc-cells { display: flex; gap: 8px; margin: 10px 0; }
-.sc-cells span { position: relative; flex: 1; height: 58px; border-radius: 10px; background: #fff6d6; display: flex; align-items: center; justify-content: center; font-size: 30px; overflow: hidden; }
-.sc-cells span i { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, #b8b8c8, #b8b8c8 6px, #d8d8e6 6px, #d8d8e6 12px); transition: transform .3s; }
-.sc-cells span.open i { transform: translateY(-110%); }
-.sc-res { font-weight: 800; opacity: 0; transition: opacity .2s; }
-.sc-res.on { opacity: 1; }
 .tutorial { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); width: min(820px, 94vw); background: rgba(10,4,24,.72); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; font-size: 14px; line-height: 1.6; opacity: 0; transition: opacity .6s; }
 .tutorial.on { opacity: 1; }
 

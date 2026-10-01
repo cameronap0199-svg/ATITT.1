@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { G } from '../state.js';
 import { clamp, damp, dampAngle, wrapAngle } from '../core/math.js';
 import { collapseRig } from '../world/props.js';
+import { AFFIXES } from './affixes.js';
 
 const tmp = new THREE.Vector3();
 const POISE = { low: 8, med: 22, high: 45, boss: 400 };
@@ -52,6 +53,9 @@ export class Enemy {
     this.drift = (Math.random() < 0.5 ? -1 : 1) * (0.25 + Math.random() * 0.35);
     this.spawnPortal = null;
     this.bubbleText = null;
+    this.affix = null;
+    this.lastHurt = -99;
+    this.plateK = 0;
     G.room.group.add(this.group);
     this.group.position.copy(this.pos);
   }
@@ -85,6 +89,34 @@ export class Enemy {
     }
   }
 
+  // Elite affix: title, aura, stat twist. Called once right after construction.
+  applyAffix(key) {
+    const a = AFFIXES[key];
+    if (!a || this.affix) return;
+    this.affix = key;
+    this.affixInfo = a;
+    this.elite = true;
+    this.money = a.money === 'mini' ? 'mini' : this.money === 'normal' ? 'elite' : this.money;
+    for (const m of this.mats) { m.userData.baseEmissive.set(a.color); m.userData.baseEI = key === 'shiny' ? 0.55 : 0.22; }
+    this.setEmissive('#000', 0);
+    if (key === 'giant') {
+      const k = 1.32;
+      this.group.scale.setScalar(k);
+      this.radius *= k; this.height *= k;
+      this.maxHp = Math.round(this.maxHp * 1.6); this.hp = this.maxHp;
+      this.heavy = true;
+      this.poiseMax *= 1.6;
+    }
+    if (key === 'armored') this.poiseMax *= 1.4;
+    if (key === 'shiny') { this.maxHp = Math.round(this.maxHp * 1.25); this.hp = this.maxHp; }
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 28), new THREE.MeshBasicMaterial({ color: a.color, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.04;
+    ring.scale.setScalar(this.radius * 1.5 / this.group.scale.x);
+    this.group.add(ring);
+    this.auraRing = ring;
+  }
+
   // Queries --------------------------------------------------------------------
   targetable() { return this.alive && this.spawnT > 0.4 && !this.disguised; }
   threatening() { return this.threatT > 0 && this.threatTarget; }
@@ -114,8 +146,8 @@ export class Enemy {
   distTo(t = this.target()) { return Math.hypot(t.pos.x - this.pos.x, t.pos.z - this.pos.z); }
   yawTo(t = this.target()) { return Math.atan2(t.pos.x - this.pos.x, t.pos.z - this.pos.z); }
   los(t = this.target()) { return G.room.world.losClear(this.pos.x, this.pos.y + 1.2, this.pos.z, t.pos.x, t.pos.y + 1, t.pos.z); }
-  atkK() { let k = 1; if (this.buff && G.time < this.buff.until) k *= 1.15; if (this.revived) k *= 1.15; return k * (G.room.enemyAtkK || 1); }
-  moveK() { let k = 1; if (this.buff && G.time < this.buff.until) k *= 1.15; if (this.revived) k *= 1.15; return k; }
+  atkK() { let k = 1; if (this.buff && G.time < this.buff.until) k *= 1.15; if (this.revived) k *= 1.15; if (this.affix === 'swift') k *= 1.12; if (this.frenzy) k *= 1.2; return k * (G.room.enemyAtkK || 1); }
+  moveK() { let k = 1; if (this.buff && G.time < this.buff.until) k *= 1.15; if (this.revived) k *= 1.15; if (this.affix === 'swift') k *= 1.35; if (this.frenzy) k *= 1.25; return k * (this.slowK || 1); }
   telK() { return G.room.telegraphK || 1; }
 
   // Movement -----------------------------------------------------------------
@@ -265,9 +297,12 @@ export class Enemy {
     const routed = this.routeDamage ? this.routeDamage(dmg, info) : { dmg, result: 'hit' };
     if (!routed) return null;
     dmg = routed.dmg * (this.dmgTakenK ? this.dmgTakenK(info) : 1);
+    if (this.affix === 'armored' && !info.pierceArmor) dmg *= 0.65;
     if (dmg > 0) {
       this.hp -= dmg;
       this.flashT = 0.1;
+      this.lastHurt = G.time;
+      this.hurtFlash = G.time;
       if (G.settings.damageNumbers) G.hud.damageNumber(this.pos.x, this.pos.y + this.height + 0.3, this.pos.z, Math.round(dmg), info.perfect ? 'crit' : info.friendly ? 'friendly' : routed.result === 'armor' ? 'armor' : 'enemy');
     }
     if (info.source === G.alex) G.run.stat('damageDealt', dmg);
@@ -287,6 +322,7 @@ export class Enemy {
       this.poise = 0;
       this.stagger(info.launch ? 0.9 : 0.35 + (info.stagger || 1) * 0.08);
     }
+    if (this.affix === 'frenzied' && !this.frenzy && this.hp < this.maxHp * 0.5) { this.frenzy = true; G.hud.bubble(this, 'FRENZY!', '#ff4fa3', 1.2); G.audio.sfx('roar', { v: 0.4, pan: G.cam.panOf(this.pos.x, this.pos.z) }); }
     this.onHurt?.(dmg, info);
     return routed.result;
   }
@@ -313,6 +349,11 @@ export class Enemy {
     if (info.source !== G.alex) G.run.stat('assistedKills', 1);
     room.onEnemyDeath(this, info);
     this.onDeath?.(info);
+    if (this.affix === 'volatile') {
+      G.hud.bubble({ pos: this.pos.clone(), height: this.height, alive: true }, 'VOLATILE!', '#ff2e4d', 0.9);
+      G.areas.circle({ x: this.pos.x, z: this.pos.z, r: 2.6 + this.radius, delay: 0.9, dmg: 14, ff: true, enemyDmg: 25, owner: 'hazard', style: 'fire', sound: 'boom', shake: 0.3, propDmg: 20 });
+    }
+    if (this.affix === 'shiny') { G.fx.confetti(c.x, c.y + 0.5, c.z, 60); G.audio.sfx('win', { v: 0.6 }); G.hud.popup('✦ SHINY DEFEATED ✦', '#ffd60a', 1.2, true); }
     this.group.parent?.remove(this.group);
     for (const m of this.mats) m.dispose();
   }
@@ -335,6 +376,7 @@ export class Enemy {
       this.burnTick = (this.burnTick || 0) + dt;
       if (this.burnTick > 0.5) { this.burnTick = 0; this.hurt(this.burn.dps * 0.5, { source: G.alex, knock: 0, stagger: 0 }); if (!this.alive) return; G.fx.burst(this.pos.x, this.pos.y + 1, this.pos.z, { n: 3, color: ['#ff7b00', '#ffd60a'], speed: 1.5, up: 2, life: 0.4, grav: -2 }); }
     }
+    if (this.affix) this._affixTick(dt);
     const stunned = G.time < this.stunUntil || this.airborne;
     if (stunned) {
       this.stop(dt, this.airborne ? 0.5 : 6);
@@ -351,6 +393,16 @@ export class Enemy {
     this._physics(dt);
     this._sync(dt, stunned);
   }
+  _affixTick(dt) {
+    const a = this.affix;
+    if (a === 'regen' && G.time - this.lastHurt > 2.5 && this.hp < this.maxHp) {
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.05 * dt);
+      if (Math.random() < dt * 4) G.fx.burst(this.pos.x, this.pos.y + this.height * 0.8, this.pos.z, { n: 1, color: '#3cff8f', speed: 0.5, up: 2, life: 0.6, size: 0.14, grav: -2 });
+    }
+    if (a === 'shiny' && Math.random() < dt * 6) G.fx.burst(this.pos.x + (Math.random() - 0.5) * this.radius * 2, this.pos.y + Math.random() * this.height, this.pos.z + (Math.random() - 0.5) * this.radius * 2, { n: 1, color: ['#ffd60a', '#ffffff'], speed: 0.4, up: 1, life: 0.5, size: 0.12, grav: -1 });
+    if (this.auraRing) { this.auraRing.rotation.z += dt * 1.5; this.auraRing.material.opacity = 0.4 + Math.sin(G.time * 4) * 0.15; }
+  }
+
   _sync(dt, stunned) {
     this._dt = dt;
     this.group.position.copy(this.pos);

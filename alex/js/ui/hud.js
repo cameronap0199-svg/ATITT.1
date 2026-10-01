@@ -7,8 +7,9 @@ import { G } from '../state.js';
 import { fmtMoney, clamp } from '../core/math.js';
 import { itemInfo, ITEMS } from '../items.js';
 import { MELEE, RANGED } from '../combat/weapons.js';
-import { UNUSUAL_TEXT } from '../shop.js';
 import { FLOOR_NAMES } from '../config.js';
+import { Nameplates } from './nameplates.js';
+import { ScratchOff } from './scratchoff.js';
 
 const v = new THREE.Vector3();
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
@@ -31,6 +32,7 @@ export class HUD {
       <canvas class="bigmap" width="560" height="560"></canvas>
       <div class="reticle"><i></i></div>
       <div class="dashpips"></div>
+      <div class="plates"></div>
       <div class="threats"></div>
       <div class="nums"></div>
       <div class="bubbles"></div>
@@ -38,7 +40,6 @@ export class HUD {
       <div class="prompt"></div>
       <div class="intro"><div class="intro-t"></div><div class="intro-s"></div></div>
       <div class="roomtitle"><div class="rt-a"></div><div class="rt-b"></div></div>
-      <div class="scratch"></div>
       <div class="tutorial"></div>
       <div class="fps"></div>
       <div class="lockhint"></div>`;
@@ -48,7 +49,7 @@ export class HUD {
       where: q('.where'), boss: q('.boss'), bossName: q('.boss-name'), bossFill: q('.boss-bar i'), bossGhost: q('.boss-bar b'), beat: q('.beatbar'),
       mini: q('.minimap'), big: q('.bigmap'), reticle: q('.reticle'), pips: q('.dashpips'), threats: q('.threats'), nums: q('.nums'), bubbles: q('.bubbles'),
       popups: q('.popups'), prompt: q('.prompt'), intro: q('.intro'), introT: q('.intro-t'), introS: q('.intro-s'), rt: q('.roomtitle'), rtA: q('.rt-a'), rtB: q('.rt-b'),
-      scratch: q('.scratch'), tutorial: q('.tutorial'), fps: q('.fps'), lockhint: q('.lockhint'),
+      tutorial: q('.tutorial'), fps: q('.fps'), lockhint: q('.lockhint'),
     };
     this.bubbleList = [];
     this.threatEls = [];
@@ -60,6 +61,8 @@ export class HUD {
     this.fpsT = 0; this.frames = 0;
     this.visible = false;
     this.pipsFullT = 0;
+    this.plates = new Nameplates(root.querySelector('.plates'));
+    this.scratch = new ScratchOff(document.body);
   }
 
   show(on) { this.visible = on; this.root.classList.toggle('on', on); }
@@ -95,6 +98,8 @@ export class HUD {
     this._pips(realDt);
     this._threats(realDt);
     this._bubbles(realDt);
+    this.plates.update(dt);
+    this.scratch.update(realDt);
     // boss
     if (G.room && G.room.bossInfo && G.room.bossInfo.list.some((x) => x.alive)) {
       const b = G.room.bossInfo.bar();
@@ -116,7 +121,7 @@ export class HUD {
     this.frames++; this.fpsT += realDt;
     if (this.fpsT > 0.5) { e.fps.textContent = Math.round(this.frames / this.fpsT) + ' fps'; this.frames = 0; this.fpsT = 0; }
     e.fps.style.display = G.settings.showFps ? 'block' : 'none';
-    e.lockhint.style.display = !G.input.pointerLocked && G.input.device === 'kbm' && G.mode === 'run' && !G.touch ? 'block' : 'none';
+    e.lockhint.style.display = !G.input.pointerLocked && G.input.device === 'kbm' && G.mode === 'run' && !G.touch && !this.scratching ? 'block' : 'none';
     e.lockhint.textContent = 'Click the game to capture the mouse';
   }
 
@@ -284,22 +289,8 @@ export class HUD {
     e.querySelector('.beat-center').style.transform = `scale(${1 + Math.max(0, 1 - frac * 5) * 0.5})`;
   }
 
-  scratchCard(name, res, done) {
-    const e = this.e.scratch;
-    this.scratching = true;
-    const txt = res.type === 'nothing' ? 'NOT A WINNER. (Thank you for playing.)'
-      : res.type === 'money' ? 'WINNER: ' + fmtMoney(res.amount) + '!'
-        : res.type === 'item' ? 'WINNER: ' + (itemInfo(res.item).icon || '') + ' ' + itemInfo(res.item).name
-          : res.type === 'jackpot' ? '★ JACKPOT ★ $150 + ' + itemInfo(res.item).name + ' + IDOL CONTRACT'
-            : UNUSUAL_TEXT[res.unusual];
-    const syms = res.type === 'nothing' ? ['💀', '🍋', '🐴'] : res.type === 'jackpot' ? ['💎', '💎', '💎'] : res.type === 'unusual' ? ['❓', '🐈', '❓'] : ['⭐', '⭐', '⭐'];
-    e.innerHTML = `<div class="sc-name">${esc(name)}</div><div class="sc-cells">${syms.map((s) => `<span><em>${s}</em><i></i></span>`).join('')}</div><div class="sc-res">${esc(txt)}</div>`;
-    e.classList.add('on');
-    const cells = [...e.querySelectorAll('.sc-cells span')];
-    cells.forEach((c, i) => setTimeout(() => { c.classList.add('open'); G.audio.sfx('scratch'); }, 350 + i * 380));
-    setTimeout(() => { e.querySelector('.sc-res').classList.add('on'); done(); }, 1600);
-    setTimeout(() => { e.classList.remove('on'); this.scratching = false; }, 3600);
-  }
+  get scratching() { return this.scratch.isOpen; }
+  scratchCard(res, done) { this.scratch.open(res, done); }
 
   tutorial() {
     const I = G.input;

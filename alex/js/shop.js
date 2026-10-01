@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { G } from './state.js';
 import { itemInfo, rollItems, ITEMS, poolFor } from './items.js';
 import { mat, glow, textTexture, GEO } from './world/props.js';
-import { rollTicket, UNUSUAL_TEXT } from './lottery.js';
+import { rollTicket, rollStock, TICKETS, TICKET_PRICES, UNUSUAL_TEXT } from './lottery.js';
 export { UNUSUAL_TEXT };
 
 const CASHIER_BUY = ['k.', 'cool.', 'we don\'t do refunds.', 'sure.', '(doesn\'t look up)', 'that it?', 'receipt? no? ok.', 'mm.'];
@@ -97,22 +97,26 @@ export function stockGasStation(room) {
     });
   }
   // lottery tickets
-  const tickets = [['$2 SCRATCHER', 2, 5.6], ['$5 SCRATCHER', 5, 7.0], ['$10 K-POP MEGA MILLIONS', 10, 8.4]];
-  for (const [name, price, x] of tickets) {
-    const mesh = display({ icon: price === 10 ? '🎰' : '🎟️' }, price, x, 1.95, -7.9, { size: 0.5, color: '#ff006e' });
+  if (!def.lotteryStock) def.lotteryStock = rollStock(room.rng);
+  const stock = def.lotteryStock;
+  TICKET_PRICES.forEach((price, i) => {
+    const t = TICKETS[price], x = 5.6 + i * 1.4;
+    const mesh = display({ icon: price === 10 ? '🎰' : price === 5 ? '🎱' : '🎟️' }, price, x, 1.95, -7.9, { size: 0.5, color: '#ff006e' });
     room.addInteractable({
       x, z: -7.2, r: 0.75, mesh,
-      prompt: () => ({ title: name, text: price === 10 ? 'Usually loses. Very rarely changes everything.' : price === 5 ? 'Lower chance of winning, much larger prizes.' : 'Cheap thrills. Mostly nothing.', price, action: 'Scratch' }),
+      prompt: () => ({ title: `$${price} ${t.name}`, text: stock[price] > 0 ? `${t.blurb} (${stock[price]} left)` : 'SOLD OUT. Come back next floor.', price: stock[price] > 0 ? price : undefined, action: stock[price] > 0 ? 'Scratch' : '—' }),
       use: () => {
         if (G.hud.scratching) return;
+        if (stock[price] <= 0) { G.audio.sfx('deny'); cashierSay(room, ['sold out.', 'we\'re out of those.', 'no more. there\'s a limit. for your health.']); return; }
         if (run.money < price) { G.audio.sfx('deny'); cashierSay(room, CASHIER_BROKE); return; }
         run.addMoney(-price, true);
         run.stat('lotteryTickets', 1);
+        stock[price]--;
         const res = rollTicket(price, run.rng);
-        G.hud.scratchCard(name, res, () => applyTicket(res, room));
+        G.hud.scratchCard(res, () => applyTicket(res, room));
       },
     });
-  }
+  });
   room.animators.push((t) => { for (const o of room.interactables) if (o.mesh) { o.mesh.position.y = (o.mesh.userData.baseY || 1.5) + Math.sin(t * 2 + o.x) * 0.06; } });
 }
 
