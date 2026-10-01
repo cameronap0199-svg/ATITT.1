@@ -10,6 +10,31 @@ import { CALLER_KEYS } from '../phone/heartline.js';
 import { loadProfile, saveProfile } from '../run.js';
 import { fmtMoney } from '../core/math.js';
 import { ITEMS } from '../items.js';
+import { compendiumPanel } from './compendium.js';
+
+// Give list-like children a sibling index so CSS can stagger their entrance.
+const STAGGER = '.menu > .btn, .row > .btn, .set, .inv-i, .stats > div, .hl-card, .comp-card, .tabs > .tab, .cols > div > *, .crawl p, .hl-end > span, .meta, .foot';
+function stagger(root) {
+  root.querySelectorAll(STAGGER).forEach((e) => e.style.setProperty('--i', Math.min(24, [...e.parentElement.children].indexOf(e))));
+}
+// Count numbers up from zero (game over / victory stats).
+function countUp(root) {
+  root.querySelectorAll('.stats b').forEach((b, i) => {
+    const m = b.textContent.match(/^(\$?)([\d,]+)(.*)$/);
+    if (!m) return;
+    const target = +m[2].replace(/,/g, '');
+    if (!target) return;
+    const t0 = performance.now() + 250 + i * 70, dur = 700;
+    const tick = (now) => {
+      const k = Math.max(0, Math.min(1, (now - t0) / dur));
+      b.textContent = m[1] + Math.round(target * (1 - (1 - k) ** 3)).toLocaleString('en-US') + m[3];
+      if (k < 1) requestAnimationFrame(tick); else b.classList.add('done');
+    };
+    b.textContent = m[1] + '0' + m[3];
+    requestAnimationFrame(tick);
+  });
+}
+function letters(text) { return [...text].map((c, i) => c === ' ' ? ' ' : `<span style="--i:${i}">${c.replace(/[&<>]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[x]))}</span>`).join(''); }
 
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -27,6 +52,8 @@ export class Screens {
     this.root.innerHTML = '';
     this.root.appendChild(node);
     this.root.classList.add('on');
+    node.classList.add('enter');
+    stagger(node);
     const first = node.querySelector('button');
     if (first) first.focus({ preventScroll: true });
   }
@@ -55,7 +82,7 @@ export class Screens {
     const n = el('div', 'titlescreen');
     n.innerHTML = `
       <div class="logo">
-        <div class="logo-a">${esc(TITLE)}</div>
+        <div class="logo-a">${letters(TITLE)}</div>
         <div class="logo-b">${esc(SUBTITLE)}</div>
         <div class="logo-c">A 3D comedy roguelike bullet hell · Parking lot → Venue → Stage</div>
       </div>
@@ -65,6 +92,7 @@ export class Screens {
     const m = n.querySelector('.menu');
     m.appendChild(this.button('▶ START RUN', () => this.hooks.startRun(), 'primary big'));
     m.appendChild(this.button('♥ HEARTLINE', () => this.heartline(() => this.title())));
+    m.appendChild(this.button('📖 COMPENDIUM', () => this.compendium(() => this.title())));
     m.appendChild(this.button('⚙ SETTINGS', () => this.settings(() => this.title())));
     m.appendChild(this.button('? HOW TO PLAY', () => this.howTo(() => this.title())));
     this.open(n);
@@ -78,6 +106,7 @@ export class Screens {
     m.appendChild(this.button('Resume', () => this.hooks.resume(), 'primary'));
     m.appendChild(this.button('Settings', () => this.settings(() => this.pause())));
     m.appendChild(this.button('Heartline', () => this.heartline(() => this.pause())));
+    m.appendChild(this.button('Compendium', () => this.compendium(() => this.pause())));
     m.appendChild(this.button('How to play', () => this.howTo(() => this.pause())));
     m.appendChild(this.button('Abandon run', () => this.hooks.quitToTitle(), 'danger'));
     n.appendChild(m);
@@ -106,6 +135,8 @@ export class Screens {
     const show = (gname) => {
       [...tabs.children].forEach((t) => t.classList.toggle('on', t.textContent === gname));
       body.innerHTML = '';
+      body.classList.remove('tabin'); void body.offsetWidth; body.classList.add('tabin');
+      requestAnimationFrame(() => stagger(body));
       if (gname === 'Keyboard' || gname === 'Controller') { body.appendChild(this.remap(gname === 'Keyboard')); return; }
       const [, items] = SETTINGS_SPEC.find(([g]) => g === gname);
       for (const [key, label, type, o] of items) {
@@ -215,6 +246,8 @@ export class Screens {
     this.open(n);
   }
 
+  compendium(back) { this.open(compendiumPanel(back, (t, fn, cls) => this.button(t, fn, cls))); }
+
   howTo(back) {
     const I = G.input;
     const k = (a) => `<b class="key">${I.glyph(a)}</b>`;
@@ -241,8 +274,12 @@ export class Screens {
         <h3>♥ Heartline</h3>
         <p>Your phone rings mid-fight. Nothing pauses. ${k('phone1')} accept · ${k('phone2')} decline. Then ${k('phone1')} AGREE · ${k('phone2')} PROVOKE · ${k('phone3')} DEFLECT.</p>
         <p>Six callers, six personalities. Relationships persist between runs and have consequences. Mostly.</p>
+        <h3>Rifts, gadgets &amp; rides</h3>
+        <p>Some fights tear open a <b>rift</b> to Halo, Minecraft, One Piece, Pokémon or the Bible. Close it for loot: weapons, items, and a <b>gadget</b> — ${k('gadget')} throws grenades, drops TNT, pearls you across the room, parts the sea, or <b>catches a weakened demon</b> as a companion.</p>
+        <p>${k('ride')} or ${k('interact')} hops into a <b>vehicle</b>: steer with the stick, ${k('dash')} boost, ${k('ranged')} vehicle weapon, ${k('jump')} horn / hop. Rides follow you through doors.</p>
+        <p>Minecraft mobs drop ◼ blocks for the crafting table. Elite demons wear titles (Swift, Armored, Shiny…) and pay better. Gas Station scratchers are real: drag to scratch.</p>
         <h3>Tips</h3>
-        <p>Hold ${k('map')} for the full map. ${k('interact')} buys / takes / uses. Photosensitivity, camera assist, aim assist, projectile contrast and more are in Settings.</p>
+        <p>Hold ${k('map')} for the full map. ${k('interact')} buys / takes / uses. Photosensitivity, reduced UI motion, camera assist, aim assist, projectile contrast and more are in Settings. The Compendium tracks every creature you meet.</p>
       </div></div>`;
     const row = el('div', 'row');
     row.appendChild(this.button('Back', back, 'primary'));
@@ -259,6 +296,7 @@ export class Screens {
       ['Money collected', fmtMoney(s.moneyCollected || 0)], ['Sent to Girlfriend', fmtMoney(s.moneyToGirlfriend || 0)], ['Perfect dodges', s.perfectDodges || 0],
       ['Rooms cleared', s.roomsCleared || 0], ['Calls answered / declined', `${s.callsAnswered || 0} / ${s.callsDeclined || 0}`], ['Accuracy', r.statValue('accuracy') + '%'],
       ['Items purchased', s.itemsPurchased || 0], ['Lottery tickets', s.lotteryTickets || 0], ['Props destroyed', s.propsDestroyed || 0],
+      ['Rifts closed', s.riftsOpened || 0], ['Demons caught', s.caught || 0], ['Vehicles ridden', s.vehiclesRidden || 0], ['Blocks mined', s.blocksMined || 0],
     ];
     return '<div class="stats">' + rows.map(([a, b]) => `<div><span>${esc(a)}</span><b>${esc(String(b))}</b></div>`).join('') + '</div>';
   }
@@ -278,6 +316,7 @@ export class Screens {
     row.appendChild(this.button('Title', () => this.hooks.quitToTitle()));
     n.appendChild(row);
     this.open(n);
+    countUp(n);
   }
 
   victory() {
@@ -305,5 +344,6 @@ export class Screens {
     row.appendChild(this.button('Title', () => this.hooks.quitToTitle()));
     n.appendChild(row);
     this.open(n);
+    countUp(n);
   }
 }

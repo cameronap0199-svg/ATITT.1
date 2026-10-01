@@ -84,6 +84,11 @@ export class HUD {
     e.hpFill.style.width = f * 100 + '%';
     e.hpGhost.style.width = this.ghostHp * 100 + '%';
     e.hpTxt.textContent = Math.ceil(a.hp) + ' / ' + a.maxHp;
+    if (this.lastHp != null && Math.abs(a.hp - this.lastHp) > 0.5) {
+      const bar = e.hpFill.parentElement, cls = a.hp < this.lastHp ? 'hit' : 'heal';
+      bar.classList.remove('hit', 'heal'); void bar.offsetWidth; bar.classList.add(cls);
+    }
+    this.lastHp = a.hp;
     e.hpFill.classList.toggle('low', f < 0.3);
     this._money(realDt);
     const mw = MELEE[run.weapons.melee], rw = RANGED[run.weapons.ranged];
@@ -126,8 +131,10 @@ export class HUD {
       this.lastItems = itemsKey;
       const counts = {};
       for (const id of run.items) counts[id] = (counts[id] || 0) + 1;
-      e.items.innerHTML = Object.entries(counts).map(([id, n]) => `<span class="it" title="${esc(ITEMS[id]?.name || id)}: ${esc(ITEMS[id]?.desc || '')}">${ITEMS[id]?.icon || '?'}${n > 1 ? '<sub>' + n + '</sub>' : ''}</span>`).join('')
+      const seen = this.seenItems || (this.seenItems = new Set());
+      e.items.innerHTML = Object.entries(counts).map(([id, n]) => `<span class="it${seen.has(id + n) ? '' : ' new'}" title="${esc(ITEMS[id]?.name || id)}: ${esc(ITEMS[id]?.desc || '')}">${ITEMS[id]?.icon || '?'}${n > 1 ? '<sub>' + n + '</sub>' : ''}</span>`).join('')
         + run.buffs.map((b) => `<span class="it buff" title="${esc(ITEMS[b.id]?.name || b.id)}">${ITEMS[b.id]?.icon || '✦'}<sub>${b.floor ? 'F' : b.roomsLeft}</sub></span>`).join('');
+      for (const [id, n] of Object.entries(counts)) seen.add(id + n);
     }
     // reticle + dash pips
     const combat = G.room && G.room.combatLive();
@@ -183,10 +190,12 @@ export class HUD {
     while (this.pipEls.length < max) { const p = el('i'); this.e.pips.appendChild(p); this.pipEls.push(p); }
     while (this.pipEls.length > max) this.pipEls.pop().remove();
     const full = a.charges >= max;
+    if (this.lastCharges != null && a.charges > this.lastCharges) { const p = this.pipEls[a.charges - 1]; if (p) { p.classList.remove('ready'); void p.offsetWidth; p.classList.add('ready'); } }
+    this.lastCharges = a.charges;
     this.pipsFullT = full ? this.pipsFullT + dt : 0;
     const rechargeK = a.rechargeT > 0 ? 1 - a.rechargeT / 1.5 : 0;
     this.pipEls.forEach((p, i) => {
-      p.className = i < a.charges ? 'full' : i === a.charges ? 'fill' : '';
+      p.classList.toggle('full', i < a.charges); p.classList.toggle('fill', i === a.charges);
       p.style.setProperty('--k', i === a.charges ? rechargeK.toFixed(2) : 0);
     });
     // anchored under Alex; settles down once both are available
@@ -249,7 +258,7 @@ export class HUD {
   // Damage numbers ------------------------------------------------------------
   damageNumber(x, y, z, value, kind) {
     if (!G.settings.damageNumbers && kind !== 'alex' && kind !== 'heal') return;
-    const d = el('div', 'num ' + kind, String(value));
+    const d = el('div', 'num ' + kind, `<span>${esc(String(value))}</span>`);
     d.style.setProperty('--dx', (Math.random() - 0.5) * 40 + 'px');
     this.e.nums.appendChild(d);
     const item = { d, x, y, z, t: 0 };
@@ -282,14 +291,14 @@ export class HUD {
   bubble(ent, text, color = '#ffffff', dur = 1.2) {
     const old = this.bubbleList.find((b) => b.ent === ent);
     if (old) { old.d.remove(); this.bubbleList.splice(this.bubbleList.indexOf(old), 1); }
-    const d = el('div', 'bubble', esc(text));
+    const d = el('div', 'bubble-pos', `<div class="bubble">${esc(text)}</div>`);
     d.style.setProperty('--c', color);
     this.e.bubbles.appendChild(d);
     this.bubbleList.push({ ent, d, t: dur, keep: !ent.type });
     if (this.bubbleList.length > 14) { const o = this.bubbleList.shift(); o.d.remove(); }
   }
   popup(text, color = '#ffffff', dur = 1.2, small = false) {
-    const d = el('div', 'pop' + (small ? ' small' : ''), esc(text));
+    const d = el('div', 'pop' + (small ? ' small' : ''), small || text.length > 28 ? esc(text) : [...text].map((c, i) => c === ' ' ? ' ' : `<span style="--i:${i}">${esc(c)}</span>`).join(''));
     d.style.setProperty('--c', color);
     d.style.animationDuration = dur + 0.4 + 's';
     this.e.popups.appendChild(d);
@@ -398,7 +407,7 @@ export class HUD {
       ? ['Left stick: run · Right stick: camera', `${k('jump')} jump (tap = hop) · jump into walls to wall-kick · jump + forward near cover to vault`, `${k('dash')} dash (2 charges) — dash through attacks for a PERFECT DODGE`, `${k('melee')} melee (hold, or pull back + melee = launcher) · ${k('ranged')} shoot · ${k('lock')} hard focus`, `Phone: D-pad answers calls. ${k('map')} map`]
       : [`WASD run · mouse camera · ${k('jump')} jump (tap = hop) · jump near walls to wall-kick · jump + forward near cover to vault`, `${k('dash')} dash (2 charges) — dash through attacks for a PERFECT DODGE`, `${k('melee')} melee (hold, or S + melee = launcher) · ${k('ranged')} shoot · ${k('lock')} hard focus · ${k('targetPrev')}/${k('targetNext')} switch`, `Phone: ${k('phone1')} ${k('phone2')} ${k('phone3')} answer while fighting · ${k('interact')} interact · hold ${k('map')} map`];
     const e = this.e.tutorial;
-    e.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
+    e.innerHTML = lines.map((l, i) => `<div style="--i:${i}">${l}</div>`).join('');
     e.classList.add('on');
     clearTimeout(this._tutT);
     this._tutT = setTimeout(() => e.classList.remove('on'), 14000);

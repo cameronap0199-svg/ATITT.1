@@ -157,6 +157,7 @@ export class Room {
   spawnEnemy(type, x, z, opts = {}) {
     const e = createEnemy(type, x, z, opts);
     if (!e) return null;
+    G.codex?.see(type);
     this.enemies.push(e);
     return e;
   }

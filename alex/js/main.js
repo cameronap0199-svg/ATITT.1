@@ -18,6 +18,7 @@ import { Run } from './run.js';
 import { FLOOR_PALETTE } from './world/builder.js';
 import { setupTouch } from './ui/touch.js';
 import { loadPortraitOverrides } from './phone/portraits.js';
+import { codex } from './ui/compendium.js';
 
 const canvas = document.getElementById('view');
 const mini = document.getElementById('mini');
@@ -59,6 +60,7 @@ G.cam = new CameraRig(camera);
 G.hud = new HUD(document.getElementById('hud'));
 G.phone = new Heartline(document.getElementById('phoneui'));
 loadPortraitOverrides();
+G.codex = codex;
 G.alex = new Alex(scene);
 G.alex.model.setVisible(false);
 G.touch = setupTouch(document.getElementById('touch'));
@@ -67,6 +69,7 @@ function applySettings() {
   audio.setVolumes(G.settings);
   resize();
   document.body.classList.toggle('reduce-flash', !!G.settings.reduceFlashing);
+  document.body.classList.toggle('calm', !!G.settings.calmUI || matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 
 const screens = new Screens(document.getElementById('ui'), {

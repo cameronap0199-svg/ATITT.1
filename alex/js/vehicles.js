@@ -30,7 +30,7 @@ export const VEHICLE_IDS = Object.keys(VEHICLES);
 function wheel(r, w, color = '#1f2937') { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 14), mat(color)); m.rotation.z = Math.PI / 2; return m; }
 function bx(w, h, d, color, x = 0, y = 0, z = 0, m) { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m || mat(color)); b.position.set(x, y, z); return b; }
 
-const BUILD = {
+export const BUILD = {
   warthog() {
     const g = new THREE.Group(), wheels = [];
     g.add(bx(2.0, 0.55, 3.4, '#5b6b2f', 0, 0.75, 0));

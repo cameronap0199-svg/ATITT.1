@@ -224,6 +224,7 @@ export class Run {
   }
 
   onRoomCleared(room) {
+    G.codex?.save();
     if (this.mods.clearHeal) G.alex.heal(this.mods.clearHeal, true);
     if (this.gadget && !GADGETS[this.gadget.id].cooldown && this.gadget.charges < this.gadget.max) { this.gadget.charges++; G.hud.popup(`${GADGETS[this.gadget.id].icon} +1 ${GADGETS[this.gadget.id].name}`, '#7dd3fc', 1, true); }
     if (this.mods.clearMoney) this.addMoney(this.mods.clearMoney);
@@ -257,6 +258,7 @@ export class Run {
 
   onDeath() {
     if (this.ended) return;
+    G.codex?.save();
     this.ended = true;
     const p = loadProfile();
     p.deaths++;

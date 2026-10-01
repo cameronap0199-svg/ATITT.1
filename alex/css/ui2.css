@@ -236,3 +236,103 @@
 .vp-hint { font-size: 11px; color: rgba(255,255,255,.75); }
 @keyframes vpIn { from { transform: translateY(40px) scale(.8); opacity: 0; } }
 .touch .vehpanel { bottom: auto; top: 140px; left: 8px; min-width: 180px; }
+
+/* ================================================================ animation pass */
+/* menus: panels rise in, list items stagger, buttons shimmer and squish */
+#ui .enter { animation: uiIn .55s cubic-bezier(.2,1.3,.4,1) backwards; }
+@keyframes uiIn { from { opacity: 0; transform: translateY(26px) scale(.94); } }
+.enter .menu > .btn, .enter .row > .btn, .set, .inv-i, .stats > div, .hl-card, .comp-card, .tabs > .tab, .cols > div > *, .hl-end > span, .enter .meta, .enter .foot {
+  animation: itemIn .45s cubic-bezier(.2,1.4,.4,1) backwards; animation-delay: calc(120ms + var(--i, 0) * 45ms); }
+@keyframes itemIn { from { opacity: 0; transform: translateX(-18px); } }
+.crawl p { animation: crawlIn .9s ease-out backwards; animation-delay: calc(300ms + var(--i, 0) * 650ms); }
+@keyframes crawlIn { from { opacity: 0; transform: translateY(12px); filter: blur(3px); } }
+.tabbody.tabin { animation: tabIn .3s ease-out; }
+@keyframes tabIn { from { opacity: 0; transform: translateX(14px); } }
+.btn { position: relative; overflow: hidden; }
+.btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.35) 50%, transparent 65%); background-size: 260% 100%; background-position: 130% 0; transition: background-position .6s; pointer-events: none; }
+.btn:hover::after, .btn:focus-visible::after { background-position: -40% 0; }
+.btn:active { transform: scale(.95) !important; }
+.btn.primary { animation-name: itemIn, glowPulse; animation-duration: .45s, 2.4s; animation-iteration-count: 1, infinite; animation-timing-function: cubic-bezier(.2,1.4,.4,1), ease-in-out; }
+@keyframes glowPulse { 50% { box-shadow: 0 6px 34px rgba(255,0,110,.6), 0 0 0 2px rgba(255,255,255,.15); } }
+.tab { transition: transform .12s, background .15s; } .tab:hover { transform: translateY(-2px); }
+.set { transition: background .2s; } .set:hover { background: rgba(255,255,255,.04); }
+.stats b.done { animation: statPop .4s cubic-bezier(.2,1.8,.4,1); display: inline-block; }
+@keyframes statPop { 50% { transform: scale(1.25); color: #fff; } }
+/* title: letters drop in one by one, then the logo floats */
+.logo-a span { display: inline-block; background: inherit; background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: letterIn .7s cubic-bezier(.2,1.8,.4,1) backwards, shine 6s linear infinite; animation-delay: calc(var(--i) * 32ms), 0s; }
+@keyframes letterIn { 0% { opacity: 0; transform: translateY(-60px) rotate(-25deg) scale(.4); } }
+.logo { animation: floaty 4s ease-in-out infinite 1.2s; }
+@keyframes floaty { 50% { transform: translateY(-6px) rotate(-.4deg); } }
+.logo-b { animation: subIn .8s ease-out .7s backwards; }
+@keyframes subIn { from { opacity: 0; letter-spacing: .5em; } }
+.hl-card canvas { transition: transform .25s cubic-bezier(.2,1.6,.4,1); }
+.hl-card:hover canvas { transform: scale(1.08) rotate(-3deg); }
+
+/* HUD entrance + reactions */
+#hud.on .hud-tl { animation: hudInL .6s cubic-bezier(.2,1.3,.4,1); }
+#hud.on .minimap { animation: hudInR .6s cubic-bezier(.2,1.3,.4,1); }
+#hud.on .hud-top { animation: subIn .8s ease-out; }
+@keyframes hudInL { from { opacity: 0; transform: translateX(-60px); } }
+@keyframes hudInR { from { opacity: 0; transform: translateX(60px); } }
+.hp.hit { animation: hpHit .35s ease-out; }
+.hp.heal { animation: hpHeal .6s ease-out; }
+@keyframes hpHit { 0% { transform: translateX(-5px); box-shadow: 0 0 0 3px rgba(255,46,77,.8); } 30% { transform: translateX(5px); } 60% { transform: translateX(-2px); } 100% { transform: none; } }
+@keyframes hpHeal { 30% { box-shadow: 0 0 14px 3px rgba(60,255,143,.8); border-color: #3cff8f; } }
+.items .it.new { animation: itemPop .6s cubic-bezier(.2,1.8,.4,1); }
+@keyframes itemPop { 0% { transform: scale(0) rotate(-40deg); } 60% { transform: scale(1.4) rotate(8deg); } 100% { transform: none; } }
+.dashpips i.ready { animation: pipReady .4s ease-out; }
+@keyframes pipReady { 40% { transform: scaleY(1.8); box-shadow: 0 0 14px #67f3ff; } }
+.num > span { display: inline-block; animation: numPop .45s cubic-bezier(.2,2,.4,1); }
+.num.crit > span { animation: numCrit .5s cubic-bezier(.2,2,.4,1); }
+.num.alex > span { animation: numAlex .4s ease-out; }
+@keyframes numPop { 0% { transform: scale(.2); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes numCrit { 0% { transform: scale(.2) rotate(-20deg); } 50% { transform: scale(1.6) rotate(6deg); } 100% { transform: scale(1.15); } }
+@keyframes numAlex { 0% { transform: scale(1.8); filter: brightness(2); } 100% { transform: scale(1); } }
+.bubble-pos { position: absolute; left: 0; top: 0; }
+.bubble { animation: bubbleIn .32s cubic-bezier(.2,1.8,.4,1); }
+@keyframes bubbleIn { from { transform: scale(.2) translateY(12px); opacity: 0; } }
+.pop span { display: inline-block; animation: popLetter .5s cubic-bezier(.2,1.8,.4,1) backwards; animation-delay: calc(var(--i) * 22ms); }
+@keyframes popLetter { from { transform: translateY(18px) scale(.3); opacity: 0; } }
+.roomtitle.on .rt-a { animation: rtWipe .7s cubic-bezier(.2,1,.4,1); }
+@keyframes rtWipe { from { clip-path: inset(0 100% 0 0); letter-spacing: .3em; } to { clip-path: inset(0 0 0 0); } }
+.roomtitle.on .rt-b { animation: subIn .9s ease-out .25s backwards; }
+.prompt.on { animation: promptIn .35s cubic-bezier(.2,1.6,.4,1); }
+@keyframes promptIn { from { transform: translateX(-50%) translateY(24px) scale(.9); } }
+.prompt .key, .codec .key { animation: keyPulse 1.6s ease-in-out infinite; }
+@keyframes keyPulse { 50% { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 10px rgba(255,214,10,.5); } }
+.reticle.hot i { animation: retHot 1.2s linear infinite; }
+@keyframes retHot { 50% { transform: scale(.72) rotate(45deg); } }
+.boss.on { animation: bossIn .6s cubic-bezier(.2,1.4,.4,1); }
+@keyframes bossIn { from { transform: translateX(-50%) translateY(-30px); opacity: 0; } }
+.threat.on b { animation: threatPulse .6s ease-in-out infinite; }
+.threat.now b { animation: tflash .12s steps(2) infinite; }
+@keyframes threatPulse { 50% { transform: scale(1.12); } }
+.tutorial.on div { animation: itemIn .5s ease-out backwards; animation-delay: calc(var(--i) * 140ms); }
+.intro.on .intro-t { animation: introT 3.2s cubic-bezier(.2,1.2,.4,1); }
+@keyframes introT { 0% { letter-spacing: .5em; filter: blur(8px); } 14% { letter-spacing: .04em; filter: none; } }
+.minimap { transition: transform .2s; }
+.money { transition: color .3s; }
+
+/* "Reduce UI motion" (setting or OS preference): decorative motion off, information stays */
+.calm .enter, .calm .enter *, .calm .logo, .calm .logo-a span, .calm .num > span, .calm .bubble, .calm .pop span, .calm .items .it.new, .calm .hp.hit, .calm .hp.heal,
+.calm .btn.primary, .calm .crawl p, .calm .phone-wall::before, .calm .phone-wall::after, .calm .rb-title, .calm .so-rain i, .calm .eplate .ep-title, .calm .reticle.hot i, .calm .threat.on b, .calm #hud.on .hud-tl, .calm #hud.on .minimap { animation: none !important; }
+.calm .riftbanner.on { animation-duration: 3.6s; }
+
+/* ---------------------------------------------------------------- compendium */
+.panel.compendium { width: min(1180px, 100%); }
+.comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 12px; margin-top: 6px; }
+.comp-card { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 16px; background: linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); border: 1px solid var(--line); transition: transform .2s cubic-bezier(.2,1.6,.4,1), border-color .2s, box-shadow .2s; }
+.comp-card:hover { transform: translateY(-4px) rotate(-.6deg); border-color: var(--pink); box-shadow: 0 12px 30px rgba(0,0,0,.4); }
+.cc-art { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--cc, #ff4fa3) 55%, #2a1d4a), #120726 75%); }
+.cc-art img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0,0,0,.5)); transition: transform .3s; }
+.comp-card:hover .cc-art img { transform: scale(1.07); }
+.comp-card.locked .cc-art img { filter: brightness(0) drop-shadow(0 0 6px rgba(255,255,255,.3)); }
+.comp-card.locked b { color: rgba(255,255,255,.5); }
+.cc-icon { font-size: 64px; filter: drop-shadow(0 6px 8px rgba(0,0,0,.5)); transition: transform .3s cubic-bezier(.2,1.8,.4,1); }
+.comp-card:hover .cc-icon { transform: scale(1.18) rotate(-8deg); }
+.cc-tag { position: absolute; top: 6px; right: 6px; font-size: 9px; font-weight: 800; letter-spacing: .1em; padding: 2px 6px; border-radius: 5px; background: var(--cc, #444); color: #fff; }
+.comp-card b { font-size: 14px; } .comp-card small { font-size: 11.5px; color: rgba(255,255,255,.72); line-height: 1.35; } .comp-card i { font-size: 11px; color: var(--gold); font-style: normal; margin-top: auto; }
+.comp-card[data-franchise="halo"] { --cc: #3a86ff; } .comp-card[data-franchise="minecraft"] { --cc: #4caf50; } .comp-card[data-franchise="onepiece"] { --cc: #e63946; } .comp-card[data-franchise="pokemon"] { --cc: #f4a100; } .comp-card[data-franchise="bible"] { --cc: #b08d57; }
+.comp-card.item[data-cat="counter"] { --cc: #2ec4b6; } .comp-card.item[data-cat="snack"] { --cc: #ff9f1c; } .comp-card.item[data-cat="backwall"] { --cc: #ff4fa3; } .comp-card.item[data-cat="locked"] { --cc: #4cc9f0; } .comp-card.item[data-cat="special"] { --cc: #ffd60a; }
+.comp-grid .comp-card { animation: itemIn .4s cubic-bezier(.2,1.4,.4,1) backwards; animation-delay: calc(var(--i, 0) * 30ms); }

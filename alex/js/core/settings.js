@@ -39,7 +39,7 @@ export const DEFAULTS = {
   projectileContrast: 'normal', indicatorIntensity: 'normal', perfectAssist: 'off',
   autoSprint: false, vibration: 0.7, rapidFire: false, ledgeProtect: true,
   reduceFlashing: false, flashIntensity: 0.8, damageNumbers: true, enemyBars: true, renderScale: 1,
-  showFps: false, seenWarning: false,
+  showFps: false, seenWarning: false, calmUI: false,
   keys: DEFAULT_KEYS, pad: DEFAULT_PAD,
 };
 
@@ -102,6 +102,7 @@ export const SETTINGS_SPEC = [
     ['projectileContrast', 'Projectile contrast', 'select', { options: [['normal', 'Normal'], ['high', 'High'], ['max', 'Maximum']] }],
     ['indicatorIntensity', 'Enemy attack indicator intensity', 'select', { options: [['low', 'Low'], ['normal', 'Normal'], ['high', 'High']] }],
     ['reduceFlashing', 'Photosensitivity: reduce flashing', 'toggle'],
+    ['calmUI', 'Reduce UI motion (menus, HUD, text animations)', 'toggle'],
     ['flashIntensity', 'Flash & strobe intensity', 'range', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }],
     ['vibration', 'Vibration strength', 'range', { min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }],
     ['renderScale', 'Render resolution', 'range', { min: 0.5, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%' }],

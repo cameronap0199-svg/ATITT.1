@@ -347,6 +347,7 @@ export class Enemy {
     G.fx.burst(c.x, c.y, c.z, { n: 10, kind: 'smoke', color: '#6a4c93', speed: 2, up: 0.4, life: 0.8, size: 0.7, grav: -0.5 });
     G.audio.sfx('die', { pan: G.cam.panOf(this.pos.x, this.pos.z), p: 0.9 + Math.random() * 0.3 });
     G.run.stat('kills', 1);
+    if (!this.boss) G.codex?.kill(this.type);
     if (info.source !== G.alex) G.run.stat('assistedKills', 1);
     room.onEnemyDeath(this, info);
     this.onDeath?.(info);
