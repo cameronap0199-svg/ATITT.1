@@ -25,10 +25,12 @@ You can also serve the repo from any static host (for example GitHub Pages) and 
 | Shoot (hold) | RMB / K | RT |
 | Hard focus (lock-on) / switch target | F or MMB / Q, C, mouse flick | LT / right-stick flick |
 | Interact / buy | E | Y |
+| Gadget (grenade, TNT, pearl, capture ball, staff) | G / R | LB |
+| Hop on / off a vehicle | V (or E) | RS (or Y) |
 | Phone: accept · decline / agree · provoke · deflect | 1 2 3 (4) | D-pad |
 | Map (hold) / pause | Tab / Esc | Back / Start |
 
-Every binding can be changed in **Settings → Keyboard / Controller**. Touch devices get an on-screen stick and buttons.
+Every binding can be changed in **Settings → Keyboard / Controller**. Touch devices get an on-screen stick and buttons (including GADGET and RIDE).
 
 ## What's in it
 
@@ -46,7 +48,7 @@ Every binding can be changed in **Settings → Keyboard / Controller**. Touch de
 
 **Economy.** Demons drop coins and bills, which fly to Alex when he's close. The Gas Station has counter, snack aisle, locked weapon case, back wall and lottery kiosk sections, with $2, $5 and $10 K-POP MEGA MILLIONS tickets. There are six extra weapons and about thirty items.
 
-**♥ HEARTLINE.** Six callers ring mid-combat, and nothing pauses. Each caller has a persistent relationship from −5 to +5 and their own consequences:
+**♥ HEARTLINE.** Six callers ring mid-combat (and sometimes while you explore), and nothing pauses. Every call rolls its own ringtone, caller mood (good mood, grumpy, chaotic, sleepy), signal quality (garbled lines, dropped calls that ring back), hold music and option order, and people text you between calls. Each caller has a persistent relationship from −5 to +5 and their own consequences:
 - **Girlfriend:** asks for escalating amounts of money, and sends gifts when your hearts are high.
 - **Ugly Girlfriend:** raises the chance of the UGLY KITCHEN COOK-OFF, a five-stage timing minigame that ends in "Pay me." if you lose.
 - **Cameron's Cat:** fully functional hearts, no consequences.
@@ -54,7 +56,26 @@ Every binding can be changed in **Settings → Keyboard / Controller**. Touch de
 - **The K-Pop Demon King:** obsesses over one of your stats each run and reshapes the next room and his boss fight.
 - **Jesus Christ:** played straight. A low relationship brings a Bible Check (KJV) that escalates from one blank, to two blanks, to typing the word yourself while you're being shot at.
 
-**Accessibility.** Settings cover aim assist, combat camera assist, sensitivity (per axis and per device), inversion, FOV, camera distance, shake 0–100%, motion blur, recentering and its delay, lock hold or toggle, auto-targeting and auto-switch, projectile contrast, attack indicator intensity, perfect-dodge assistance, rapid fire, auto sprint, ledge protection, vibration, photosensitivity (reduce flashing plus a flash intensity slider), render scale and full remapping.
+**Elite variants and health bars.** Demons can roll an affix — Swift, Armored, Giant, Regenerating, Volatile, Frenzied or the rare Shiny — shown as a title over a health bar. Bars appear when a demon takes damage, stay while it's in your focus (focus target, soft target or near the reticle) and fade when you look away. They also show the stagger meter and shields.
+
+**Scratch-off tickets.** The Gas Station kiosk sells three real scratchers (Lucky Lightstick, Bias Bingo, K-Pop Mega Millions) drawn on a big card: drag the mouse or a finger over the silver, or hold Interact to let the coin do it. Every ticket pays back more than it costs on average, and stock is limited per visit.
+
+**Crossover rifts.** About a quarter to a third of fights tear open a rift to another universe and part of the fight pours out of it. Every creature is an original low-poly parody built for this game:
+- **Halo:** Grunt (panics, plasma-grenade kamikaze), Jackal (front shield), Elite (recharging shield, sword lunge), Hunter (armoured, soft back, fuel rod).
+- **Minecraft:** Zombie (and babies, and reinforcements), Skeleton, Creeper (fuse — run and it defuses), Enderman (don't stare at it). Blocks appear in the room.
+- **One Piece:** Marine (rifle lanes), Fish-Man Karate Master (water shots hurt Devil Fruit users double), Pacifista (lasers), Sea King (burrows and surfaces under you).
+- **Pokémon:** Pikachew (lightning), Gastlee (phases), Magikrap (useless — until it evolves into Gyara-DOS), Snorelax (sleeps, body slams, Rests). A wild-encounter text box announces them.
+- **The Bible:** Plague Frogs, Locust Swarm, Pharaoh's Charioteer, Golden Calf (idol that buffs everyone), Goliath (a sling stone fells him). Rifts bring a plague: frogs, locusts, hail or darkness.
+
+Closing a rift drops a choose-one loot pedestal: new weapons (Energy Sword, Needler, Diamond Sword, Bow, Jawbone of a Donkey, David's Sling), gadgets (Plasma Grenade, TNT, Ender Pearl, Capture Ball, Staff of Moses) and items (Overshield, Devil Fruits, Haki, Rare Candy, Armor of God…). The Capture Ball catches a weakened demon as a companion that follows you between rooms and fights. Minecraft mobs drop blocks for the crafting table.
+
+**Vehicles.** Warthog, Minecart, Mini-Merry (Land Edition), Acro Bike and the Chariot of Fire. Steer with the stick, ram demons, smash props; each has its own boost and weapon, soaks half your damage and follows you through doors.
+
+**Random events.** Parked vehicles, a travelling merchant with crossover goods, a crafting table, a burning bush that blesses you, and bigger clear rewards — all rolled generously per room.
+
+**Compendium.** Every creature and vehicle as a rendered 3D portrait, plus item cards. Things you haven't met stay silhouettes.
+
+**Accessibility.** Settings cover aim assist, combat camera assist, sensitivity (per axis and per device), inversion, FOV, camera distance, shake 0–100%, motion blur, recentering and its delay, lock hold or toggle, auto-targeting and auto-switch, projectile contrast, attack indicator intensity, perfect-dodge assistance, rapid fire, auto sprint, ledge protection, vibration, photosensitivity (reduce flashing plus a flash intensity slider), render scale reduced UI motion, enemy health bars and full remapping.
 
 ## Code map
 
@@ -68,11 +89,23 @@ js/world/                     collision + nav flow field, 75 layouts, floor gene
 js/actors/                    Alex (controller + model), enemy base, 15 enemies, 3 bosses, models
 js/combat/                    projectiles, telegraphed area attacks, targeting, weapons
 js/phone/                     Heartline runtime, callers, KJV verses, Cook-Off, nightmare horse, Horse Mario
-js/ui/                        HUD, menus, touch controls
+js/ui/                        HUD, nameplates, scratch-offs, compendium, menus, touch controls
+js/actors/crossover*.js       the 22 rift creatures and their models; affixes.js = elite variants
+js/world/rifts.js, riftRoom.js, events.js   rift data + composition, portal/plagues, room events
+js/vehicles.js, gadgets.js, companions.js   rides, the gadget slot, captured companions
+js/phone/portraits.js         painted caller portraits
 js/items.js, shop.js, lottery.js, run.js, fx.js, cameraRig.js
 ```
 
 Headless tests live in `../tests/alex.test.js` and run with `npm test`.
+
+### Your own art
+
+All art is generated in code, but `img/manifest.json` lets you swap in your own portrait and item images (hand-drawn, photos, or AI-generated images you have the rights to). See `img/README.md`.
+
+### About the crossover content
+
+The Halo, Minecraft, One Piece, Pokémon and Bible content is an affectionate fan parody: every model, sound and line is original and generated in code. The Pokémon creatures have parody names; terms from the other franchises are used as references. If you plan to publish the game, check those names first. This project isn't affiliated with or endorsed by any of those rights holders.
 
 Add `?debug` to the URL for these keys:
 

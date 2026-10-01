@@ -64,7 +64,7 @@ export function setupTouch(root) {
   window.addEventListener('touchcancel', onEnd);
   for (const b of root.querySelectorAll('button[data-a]')) {
     const a = b.dataset.a;
-    const on = (e) => { e.preventDefault(); G.input.virtual[a] = true; b.classList.add('down'); G.audio.initAudio(); };
+    const on = (e) => { e.preventDefault(); G.input.virtual[a] = true; G.input.virtual['_tap_' + a] = true; b.classList.add('down'); G.audio.initAudio(); };
     const off = (e) => { e.preventDefault(); G.input.virtual[a] = false; b.classList.remove('down'); };
     b.addEventListener('touchstart', on, { passive: false });
     b.addEventListener('touchend', off);

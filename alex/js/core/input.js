@@ -111,6 +111,7 @@ export class Input {
       for (const c of keys[a] || []) { if (this.down.has(c)) h = true; if (this.tapped.has(c)) tap = true; }
       for (const b of padMap[a] || []) if (pb[b]) { h = true; if (!this.padPrev[b]) tap = true; }
       if (this.virtual[a]) { h = true; if (!this.virtual['_prev_' + a]) tap = true; }
+      if (this.virtual['_tap_' + a]) { tap = true; this.virtual['_tap_' + a] = false; }  // taps shorter than a frame still count
       this.virtual['_prev_' + a] = !!this.virtual[a];
       const was = this.held[a];
       this.pressedNow[a] = tap || (h && !was);

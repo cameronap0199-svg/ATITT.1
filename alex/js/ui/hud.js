@@ -354,6 +354,13 @@ export class HUD {
     e.querySelector('.beat-center').style.transform = `scale(${1 + Math.max(0, 1 - frac * 5) * 0.5})`;
   }
 
+  // per-room transient UI (rift banner, wild-encounter box)
+  clearRoomUI() {
+    clearInterval(this._wbI); clearTimeout(this._rbT);
+    this.root.querySelector('.wildbox').classList.remove('on');
+    this.root.querySelector('.riftbanner').classList.remove('on');
+  }
+
   vehicle(v) {
     const p = this.root.querySelector('.vehpanel');
     this._veh = v;

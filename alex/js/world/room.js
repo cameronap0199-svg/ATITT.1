@@ -99,13 +99,13 @@ export class Room {
     if (this.extra) this.waves[0].push(...this.extra);
     if (rift) {
       // part of the fight comes through the rift, in two pushes
-      openRift(this);
       const list = composeRift(rift.id, this.floor, Math.max(2.5, budget * 0.75), this.rng).map((k) => 'rift:' + k);
       if (rift.plague === 'frogs') list.push('rift:frog', 'rift:frog', 'rift:frog');
       if (rift.plague === 'locusts') list.push('rift:locust', 'rift:locust');
       const half = Math.ceil(list.length / 2);
       this.waves[0].push(...list.slice(0, half));
       if (list.length > half) this.waves.push(list.slice(half));
+      openRift(this);
     }
     this.waveIdx = 0;
     this.spawnWave();

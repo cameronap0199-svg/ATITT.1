@@ -303,6 +303,7 @@ export class Screens {
 
   gameOver() {
     G.mode = 'gameover';
+    G.phone.reset();
     G.input.releaseLock();
     G.audio.playMusic('gameover');
     const r = G.run;
@@ -321,6 +322,7 @@ export class Screens {
 
   victory() {
     G.mode = 'victory';
+    G.phone.reset();
     G.input.releaseLock();
     G.audio.playMusic('victory', { restart: true });
     const p = loadProfile();

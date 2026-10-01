@@ -336,3 +336,6 @@
 .comp-card[data-franchise="halo"] { --cc: #3a86ff; } .comp-card[data-franchise="minecraft"] { --cc: #4caf50; } .comp-card[data-franchise="onepiece"] { --cc: #e63946; } .comp-card[data-franchise="pokemon"] { --cc: #f4a100; } .comp-card[data-franchise="bible"] { --cc: #b08d57; }
 .comp-card.item[data-cat="counter"] { --cc: #2ec4b6; } .comp-card.item[data-cat="snack"] { --cc: #ff9f1c; } .comp-card.item[data-cat="backwall"] { --cc: #ff4fa3; } .comp-card.item[data-cat="locked"] { --cc: #4cc9f0; } .comp-card.item[data-cat="special"] { --cc: #ffd60a; }
 .comp-grid .comp-card { animation: itemIn .4s cubic-bezier(.2,1.4,.4,1) backwards; animation-delay: calc(var(--i, 0) * 30ms); }
+.touch .phone, .touch .phone.show { bottom: auto; }
+.touch .riftbanner { top: 168px; min-width: 0; width: min(520px, 70vw); padding: 6px 20px 8px; }
+.touch .wildbox { bottom: 110px; width: min(520px, 60vw); left: 40%; }

@@ -102,6 +102,7 @@ export class Run {
     G.areas.clear();
     G.targeting.reset();
     G.hud.plates.clear();
+    G.hud.clearRoomUI();
     const def = this.map.rooms[id];
     const firstVisit = !def.visited;
     def.visited = true;
