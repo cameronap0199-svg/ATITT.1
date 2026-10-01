@@ -104,12 +104,12 @@ export const ECONOMY = {
 };
 
 export const HEARTLINE = {
-  ringTime: 5,
-  choiceTime: 12,
+  ringTime: 5.5,           // ± random per call
+  choiceTime: 12,          // ± random per call
   declineTextDelay: 2,
-  cooldown: 22,
-  chancePerSecond: 0.028,
-  minRoomTime: 3.5,
+  cooldown: 11,
+  chancePerSecond: 0.06,   // in fights; ~half that while exploring
+  minRoomTime: 2,
   scoreMin: -5,
   scoreMax: 5,
   gfRequests: [20, 75, 240, 500, 999],

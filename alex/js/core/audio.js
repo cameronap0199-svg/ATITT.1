@@ -188,18 +188,41 @@ export function sfx(name, o = {}) {
 // Ringtone (original melody) + vibration buzz
 // ---------------------------------------------------------------------------
 let ringTimer = null;
-const RING = [76, 79, 84, 83, 79, 76, 81, 79];
-export function startRing() {
+// Ringtones: [notes (midi, null = rest), step seconds, voice]. Callers have a favourite
+// and calls sometimes pick another one at random.
+export const RINGTONES = {
+  classic: [[76, 79, 84, 83, 79, 76, 81, 79, null, null, null, null], 0.15, 'square'],
+  kpop: [[81, 81, 84, 81, 88, null, 86, 84, 81, null, 79, 81], 0.13, 'saw'],
+  marimba: [[72, 76, 79, 84, 79, 76, 72, null, 74, 77, 81, null], 0.14, 'mallet'],
+  chip: [[84, 88, 91, 96, 91, 88, 84, 88, null, null, 79, null], 0.1, 'square'],
+  hymn: [[67, 71, 74, 79, null, 76, 74, 71, 72, null, null, null], 0.24, 'organ'],
+  meow: [[88, null, 86, null, 91, null, null, null, 84, null, null, null], 0.16, 'meow'],
+  royal: [[60, 60, 67, 67, 68, 67, 65, null, 63, 62, 60, null], 0.18, 'brass'],
+  baby: [[84, 81, 84, 81, 86, 84, 81, null, 79, 79, 81, null], 0.17, 'mallet'],
+  snail: [[83, 83, 83, null, 83, 83, 83, null, null, null, null, null], 0.11, 'puru'],
+};
+export function startRing(name = 'classic') {
   if (!ctx || ringTimer) return;
+  const [notes, step, voice] = RINGTONES[name] || RINGTONES.classic;
   let i = 0;
-  const step = () => {
+  const play = () => {
     const t = ctx.currentTime;
-    if (i % 12 < 8) tone(mtof(RING[i % 12] + 12), 0.14, { type: 'square', v: 0.06, lp: 5000, bus: phoneBus, t });
-    if (i % 6 === 0) { tone(58, 0.35, { type: 'sawtooth', v: 0.12, lp: 180, bus: phoneBus, t }); }
+    const n = notes[i % notes.length];
+    if (n != null) {
+      const f = mtof(n + 12);
+      if (voice === 'square') tone(f, step * 0.9, { type: 'square', v: 0.06, lp: 5000, bus: phoneBus, t });
+      else if (voice === 'saw') { tone(f, step * 0.9, { type: 'sawtooth', v: 0.05, lp: 3500, bus: phoneBus, t }); tone(f * 2, step * 0.5, { type: 'square', v: 0.02, bus: phoneBus, t }); }
+      else if (voice === 'mallet') tone(f, step * 1.4, { type: 'sine', v: 0.11, release: step, bus: phoneBus, t });
+      else if (voice === 'organ') { tone(f / 2, step, { type: 'triangle', v: 0.08, bus: phoneBus, t }); tone(f, step, { type: 'sine', v: 0.06, bus: phoneBus, t }); }
+      else if (voice === 'meow') tone(f, step * 1.6, { type: 'sawtooth', slide: f * 0.7, v: 0.06, lp: 2400, bus: phoneBus, t });
+      else if (voice === 'brass') tone(f / 2, step * 0.95, { type: 'sawtooth', v: 0.07, lp: 1600, bus: phoneBus, t });
+      else if (voice === 'puru') tone(f, step * 0.7, { type: 'square', slide: f * 1.3, v: 0.05, lp: 3000, bus: phoneBus, t });
+    }
+    if (i % 6 === 0) tone(58, 0.35, { type: 'sawtooth', v: 0.1, lp: 180, bus: phoneBus, t });
     i++;
   };
-  step();
-  ringTimer = setInterval(step, 150);
+  play();
+  ringTimer = setInterval(play, step * 1000);
 }
 export function stopRing() { if (ringTimer) { clearInterval(ringTimer); ringTimer = null; } }
 

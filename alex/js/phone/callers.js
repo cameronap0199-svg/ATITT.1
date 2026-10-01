@@ -8,28 +8,28 @@ const fmt$ = (n) => '$' + Math.floor(n).toLocaleString('en-US');
 
 export const CALLERS = {
   gf: {
-    name: 'GIRLFRIEND', color: '#ff4fa3', weight: 3,
+    name: 'GIRLFRIEND', color: '#ff4fa3', weight: 3, ring: 'kpop', sub: ['mobile', 'iPhone', 'FaceTime Audio', '♥ bae ♥'],
     decline: ['oh. okay.', 'ok.', 'seen.', 'you\'re at the concert again aren\'t you', 'call me when you remember I exist', '😐'],
     missed: ['missed call from you: none. missed calls from me: 4.'],
   },
   ugly: {
-    name: 'UGLY GIRLFRIEND', color: '#2ec4b6', weight: 2.5,
+    name: 'UGLY GIRLFRIEND', color: '#2ec4b6', weight: 2.5, ring: 'marimba', sub: ['mobile', 'home', 'kitchen landline'],
     decline: ['wow. declined. bold.', 'I\'ll just eat both dinners then.', 'you\'re lucky I think you\'re funny', 'the green soup is getting cold', 'noted. (I am keeping a list.)'],
   },
   cat: {
-    name: 'CAMERON\'S CAT', color: '#adb5bd', weight: 2,
+    name: 'CAMERON\'S CAT', color: '#adb5bd', weight: 2, ring: 'meow', sub: ['paw-dialed', 'Cameron\'s iPad', 'unknown'],
     decline: ['mrrp.', '.', '*sent a photo of a knocked-over glass*', 'Mrrrow.', 'hhhhsss'],
   },
   mario: {
-    name: 'BABY MARIO', color: '#e63946', weight: 2,
+    name: 'BABY MARIO', color: '#e63946', weight: 2, ring: 'baby', sub: ['toy phone', 'Mushroom Kingdom', 'collect call'],
     decline: ['baby mario will remember this', 'BABY.', 'waaaaah', 'baby mario is disappointed but not surprised', 'wahoo? (sad)'],
   },
   demonKing: {
-    name: 'THE K-POP DEMON KING', color: '#b5179e', weight: 2,
+    name: 'THE K-POP DEMON KING', color: '#b5179e', weight: 2, ring: 'royal', sub: ['No Caller ID', 'THE STAGE', 'Fan Club Hotline'],
     decline: ['You dare decline ME?', '...I will be adding this to the statistic.', 'Rude. My followers saw that.', 'I had a whole speech prepared.'],
   },
   jesus: {
-    name: 'JESUS CHRIST', color: '#ffd166', weight: 1.5,
+    name: 'JESUS CHRIST', color: '#ffd166', weight: 1.7, ring: 'hymn', sub: ['heaven', 'mobile', 'always available'],
     decline: ['I had hoped you would answer.', 'I\'ll try again later, Alex.', 'I\'m still here.', 'Okay.'],
   },
 };
@@ -206,98 +206,91 @@ export function dkReaction(ch, rng) {
   return { reply: rng.pick(['Do NOT pretend you don\'t know me.', 'I will send a welcome party.', 'New phone? I sent a welcome party.']), delta: -1, room: { extra: ['lurker'], text: 'THE DEMON KING SENT A WELCOME PARTY' } };
 }
 
-// ---------------------------------------------------------------------------
-// Portraits (drawn on a 2D canvas)
-// ---------------------------------------------------------------------------
-export function drawPortrait(key, g, s, t = 0) {
-  g.save();
-  g.clearRect(0, 0, s, s);
-  const k = s / 100;
-  g.scale(k, k);
-  const circle = (x, y, r, col) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); };
-  const ell = (x, y, rx, ry, col) => { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
-  const bg = (a, b) => { const gr = g.createLinearGradient(0, 0, 0, 100); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, 100, 100); };
-  const blink = Math.sin(t * 1.3) > 0.97;
-  const eyes = (y, sep, col = '#222', r = 4) => { if (blink) { g.fillStyle = col; g.fillRect(50 - sep - r, y, r * 2, 1.5); g.fillRect(50 + sep - r, y, r * 2, 1.5); } else { circle(50 - sep, y, r, col); circle(50 + sep, y, r, col); circle(50 - sep + 1.2, y - 1.2, r * 0.35, '#fff'); circle(50 + sep + 1.2, y - 1.2, r * 0.35, '#fff'); } };
-  switch (key) {
-    case 'gf':
-      bg('#ffafcc', '#ff4fa3');
-      ell(50, 58, 34, 40, '#5e3023');
-      circle(50, 52, 24, '#f3cfae');
-      g.fillStyle = '#5e3023'; g.beginPath(); g.arc(50, 42, 26, Math.PI, 0); g.fill();
-      eyes(52, 9);
-      g.strokeStyle = '#c9184a'; g.lineWidth = 2.5; g.beginPath(); g.arc(50, 62, 6, 0.3, Math.PI - 0.3); g.stroke();
-      circle(27, 62, 3, '#ff006e'); circle(73, 62, 3, '#ff006e');
-      ell(40, 60, 4, 2, 'rgba(255,100,150,.4)'); ell(60, 60, 4, 2, 'rgba(255,100,150,.4)');
-      break;
-    case 'ugly':
-      bg('#90e0ef', '#2ec4b6');
-      circle(50, 25, 12, '#6f1d1b');
-      circle(50, 55, 27, '#e0ac69');
-      g.fillStyle = '#6f1d1b'; g.beginPath(); g.arc(50, 45, 28, Math.PI, 0); g.fill();
-      g.strokeStyle = '#222'; g.lineWidth = 3;
-      g.strokeRect(33, 47, 13, 10); g.strokeRect(54, 47, 13, 10); g.beginPath(); g.moveTo(46, 51); g.lineTo(54, 51); g.stroke();
-      eyes(52, 10, '#222', 3);
-      g.fillStyle = '#222'; g.fillRect(31, 41, 16, 3); g.fillRect(53, 41, 16, 3);
-      g.fillStyle = '#fff'; g.beginPath(); g.arc(50, 64, 10, 0, Math.PI); g.fill();
-      g.strokeStyle = '#6f1d1b'; g.lineWidth = 2; g.stroke();
-      for (const [x, y] of [[38, 60], [41, 62], [62, 60], [59, 62]]) circle(x, y, 1, '#a0522d');
-      break;
-    case 'cat':
-      bg('#495057', '#212529');
-      g.fillStyle = '#8d8d8d';
-      g.beginPath(); g.moveTo(22, 40); g.lineTo(30, 12); g.lineTo(42, 32); g.fill();
-      g.beginPath(); g.moveTo(78, 40); g.lineTo(70, 12); g.lineTo(58, 32); g.fill();
-      ell(50, 55, 32, 30, '#9e9e9e');
-      g.fillStyle = '#6c6c6c'; for (let i = 0; i < 3; i++) g.fillRect(44 + i * 5, 28, 2, 14);
-      ell(37, 50, 8, blink ? 1 : 9, '#c9f29b'); ell(63, 50, 8, blink ? 1 : 9, '#c9f29b');
-      if (!blink) { ell(37, 50, 2, 8, '#111'); ell(63, 50, 2, 8, '#111'); }
-      g.fillStyle = '#ffafcc'; g.beginPath(); g.moveTo(46, 62); g.lineTo(54, 62); g.lineTo(50, 66); g.fill();
-      g.strokeStyle = '#ddd'; g.lineWidth = 1; for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(50 + s * 8, 66 + i * 2); g.lineTo(50 + s * 34, 60 + i * 5); g.stroke(); }
-      break;
-    case 'mario':
-      bg('#caf0f8', '#48cae4');
-      circle(50, 58, 28, '#f7c59f');
-      g.fillStyle = '#e63946'; g.beginPath(); g.arc(50, 45, 29, Math.PI, 0); g.fill();
-      g.fillRect(40, 40, 36, 7);
-      circle(50, 30, 8, '#fff'); g.fillStyle = '#e63946'; g.font = 'bold 11px sans-serif'; g.textAlign = 'center'; g.fillText('B', 50, 34);
-      eyes(58, 9, '#1d3557', 5);
-      ell(50, 76, 9, 6, '#4cc9f0'); circle(50, 76, 3, '#fff');
-      ell(35, 66, 5, 3, 'rgba(255,90,90,.4)'); ell(65, 66, 5, 3, 'rgba(255,90,90,.4)');
-      break;
-    case 'demonKing':
-      bg('#3c096c', '#10002b');
-      g.fillStyle = '#240046';
-      g.beginPath(); g.moveTo(26, 38); g.lineTo(18, 8); g.lineTo(36, 30); g.fill();
-      g.beginPath(); g.moveTo(74, 38); g.lineTo(82, 8); g.lineTo(64, 30); g.fill();
-      circle(50, 55, 27, '#e0aaff');
-      g.fillStyle = '#10002b'; g.beginPath(); g.arc(50, 48, 28, Math.PI, 0); g.fill();
-      g.fillStyle = '#ffd60a'; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(30 + i * 10, 24); g.lineTo(35 + i * 10, 12); g.lineTo(40 + i * 10, 24); g.fill(); }
-      circle(40, 55, 4.5, '#ff006e'); circle(60, 55, 4.5, '#ff006e');
-      g.fillStyle = '#370617'; g.fillRect(40, 67, 20, 3);
-      break;
-    case 'jesus':
-      bg('#fff3b0', '#ffd166');
-      g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 3; g.beginPath(); g.ellipse(50, 22, 22, 6, 0, 0, Math.PI * 2); g.stroke();
-      ell(50, 58, 30, 38, '#6f4518');
-      circle(50, 50, 22, '#e0ac69');
-      g.fillStyle = '#6f4518'; g.beginPath(); g.arc(50, 42, 23, Math.PI, 0); g.fill();
-      g.beginPath(); g.moveTo(30, 56); g.quadraticCurveTo(50, 92, 70, 56); g.quadraticCurveTo(50, 70, 30, 56); g.fill();
-      eyes(50, 8, '#3d2b1f', 3);
-      g.strokeStyle = '#3d2b1f'; g.lineWidth = 1.5; g.beginPath(); g.arc(50, 60, 4, 0.2, Math.PI - 0.2); g.stroke();
-      break;
-    case 'alex':
-      bg('#3a0ca3', '#10002b');
-      circle(50, 56, 24, '#f3cfae');
-      g.fillStyle = '#17121f';
-      for (let i = 0; i < 7; i++) { g.beginPath(); const x = 24 + i * 9; g.moveTo(x, 50); g.lineTo(x + 4 + (i % 2) * 2, 18 + (i % 3) * 5); g.lineTo(x + 10, 46); g.fill(); }
-      g.beginPath(); g.arc(50, 46, 25, Math.PI, 0); g.fill();
-      g.fillStyle = '#ff4fa3'; g.beginPath(); g.moveTo(52, 44); g.lineTo(58, 16); g.lineTo(62, 42); g.fill();
-      eyes(57, 9, '#20132e', 4);
-      g.strokeStyle = '#6a040f'; g.lineWidth = 2; g.beginPath(); g.moveTo(44, 70); g.lineTo(56, 69); g.stroke();
-      g.fillStyle = '#e5383b'; g.fillRect(28, 80, 44, 10);
-      break;
-  }
-  g.restore();
-}
+export { drawPortrait } from './portraits.js';
 export { A as AGREE, P as PROVOKE, D as DEFLECT };
+
+// ---------------------------------------------------------------------------
+// Extra scripts in a compact data form: `react[choice] = [[reply, delta], ...]`
+// (one is picked at random), `open` / option texts may be arrays of variants, and
+// `rift` scripts only appear while a crossover rift is open in the current room.
+const R = (...xs) => xs;
+const RIFT_LINES = {
+  gf: { halo: 'Why are there ALIENS yelling "WORT WORT WORT" in the background?', minecraft: 'Why is there a green thing HISSING at you??', onepiece: 'Why does it smell like the ocean? You hate the ocean.', pokemon: 'Did you just throw a BALL at something?', bible: 'Alex why are there FROGS everywhere.' },
+  ugly: { halo: 'Is that a jeep? Can it pick up groceries?', minecraft: 'I\'m building us a house. It\'s made of dirt. Thoughts?', onepiece: 'There\'s a sea monster in the kitchen. Unrelated: dinner is ready.', pokemon: 'I caught a fish. It\'s useless. It just flops. I love him.', bible: 'The locusts ate the green soup. Honestly, good for them.' },
+  mario: { halo: 'BABY MARIO WANT RIDE BIG JEEP', minecraft: 'baby mario punch tree', onepiece: 'baby mario stretchy?', pokemon: 'baby mario catch it?', bible: 'FROG. BABY MARIO SAW FROG.' },
+  demonKing: { halo: 'Who let the SPARTANS into my venue? This is a K-pop event.', minecraft: 'Why is part of my arena made of BLOCKS now?', onepiece: 'Pirates. In MY venue. Ticketless.', pokemon: 'Stop catching my followers. They are not collectibles.', bible: 'There are PLAGUES in the VIP section. Was this you?' },
+  jesus: { halo: 'Alex. Those are not angels. Be careful.', minecraft: 'You know, I was a carpenter. I respect the crafting.', onepiece: 'I walked on water once. You do not have to fight on it.', pokemon: 'Be kind to the creatures, Alex.', bible: 'Alex. That is a plague. I want you to know I did not send it.' },
+};
+export const MORE_SCRIPTS = {
+  gf: [
+    { id: 'selfie', open: R('Send me a selfie. Right now.', 'Why haven\'t you posted me in three weeks?', 'Rate my new nails 1–10. Be honest. Don\'t be honest.'),
+      options: { [A]: R('Sending it.', 'Posting you right now.', '11/10.'), [P]: R('I\'m in a FIGHT.', 'You post ME first.', '6.'), [D]: R('My camera only does demons now.', 'Front camera\'s broken.', 'What nails?') },
+      react: { [A]: [['cute. ♥', 1], ['you look stressed. still cute.', 1]], [P]: [['WOW.', -1], ['blocked. unblocked. still mad.', -1]], [D]: [['...sure.', 0], ['you said that about the back camera.', -1]] } },
+    { id: 'anniversary', open: R('Do you know what today is?', 'What day is it, Alex?'),
+      options: { [A]: R('Our anniversary. Obviously.', 'The best day. Because of you.'), [P]: R('Tuesday?', 'Concert day.'), [D]: R('National Demon Day?', 'Ask me after this boss.') },
+      react: { [A]: [['It\'s NOT. But aww.', 1], ['It IS. You remembered??', 2]], [P]: [['Unbelievable.', -2]], [D]: [['...', -1], ['There is no boss. There is only me.', -1]] } },
+    { id: 'rift', when: (c) => c.rift, open: (c) => RIFT_LINES.gf[c.rift],
+      options: { [A]: 'It\'s a crossover event, babe.', [P]: 'Don\'t worry about it.', [D]: 'What background?' },
+      react: { [A]: [['A WHAT event?', 0], ['okay that\'s actually kind of hot', 1]], [P]: [['I WILL worry about it.', -1]], [D]: [['The background with the MONSTERS, Alex.', -1]] } },
+  ],
+  ugly: [
+    { id: 'recipe', open: R('I\'m making the green soup again. Want the recipe?', 'Guess what\'s for dinner. (It\'s green.)'),
+      options: { [A]: R('Yes please. I love the green soup.', 'Make a double batch.'), [P]: R('Is it still green?', 'Can it be ANY other color?'), [D]: R('I\'m allergic to green.', 'I already ate. (I did not eat.)') },
+      react: { [A]: [['You\'re a liar and I adore you.', 1]], [P]: [['It\'s greener now. Out of spite.', -1]], [D]: [['You are allergic to EFFORT.', -1], ['I\'m putting you down for two bowls.', 0]] } },
+    { id: 'gym', open: R('Spot me at the gym later?', 'I deadlifted a vending machine today.'),
+      options: { [A]: R('Always.', 'You\'re so strong.'), [P]: R('Spot ME. I\'m fighting a demon army.', 'I could lift two.'), [D]: R('Gym? Like... Pokémon?', 'I\'ll be busy being cardio.') },
+      react: { [A]: [['Bring chalk. And snacks.', 1]], [P]: [['Prove it. Tonight.', 1], ['Ok tough guy.', 0]], [D]: [['No, Alex.', -1]] } },
+    { id: 'rift', when: (c) => c.rift, open: (c) => RIFT_LINES.ugly[c.rift],
+      options: { [A]: 'That\'s amazing.', [P]: 'That\'s concerning.', [D]: 'I can\'t hear you over the monsters.' },
+      react: { [A]: [['I KNOW.', 1]], [P]: [['Everything is concerning with you.', 0]], [D]: [['Rude. Also same.', 0]] } },
+  ],
+  cat: [
+    { id: 'zoomies', open: R('*3 AM zoomies noises*', '*thunderous paws*') , options: { [A]: 'Go off.', [P]: 'Some of us are fighting.', [D]: 'Wrong number, little guy.' } },
+    { id: 'gift', open: R('*left a dead lightstick on your pillow*', '*sent a photo of a single bean*'), options: { [A]: 'Thank you. I\'m honored.', [P]: 'Gross.', [D]: 'Is that... mine?' } },
+  ],
+  mario: [
+    { id: 'horse', open: R('baby mario saw horse', 'horse is in the walls'), options: { [A]: 'Stay away from the horse.', [P]: 'Ride the horse.', [D]: 'There is no horse.' } },
+    { id: 'rift', when: (c) => c.rift, open: (c) => RIFT_LINES.mario[c.rift], options: { [A]: 'Yes, baby.', [P]: 'No, baby.', [D]: 'Ask your brother.' } },
+  ],
+  demonKing: [
+    { id: 'review', open: R('Rate my venue. Out of ten. Choose wisely.', 'Be honest: is my lighting rig the best you have ever seen?'), options: { [A]: R('Ten.', 'The best.'), [P]: R('Four. The bathrooms are haunted.', 'Mid.'), [D]: R('I haven\'t seen the bathrooms yet.', 'Next question.') } },
+    { id: 'rift', when: (c) => c.rift, open: (c) => RIFT_LINES.demonKing[c.rift], options: { [A]: 'I\'ll handle them for you.', [P]: 'They have better merch than you.', [D]: 'Not my crossover.' } },
+  ],
+  jesus: [
+    { id: 'loaves', open: R('Did you share your snacks today?', 'Remember to drink water, Alex.'),
+      options: { [A]: R('I gave a demon half my hot dog.', 'I will.'), [P]: R('They\'re MY snacks.', 'Water doesn\'t drop from demons.'), [D]: R('Snacks? In this economy?', 'Can water be energy drinks?') },
+      react: { [A]: [['That is kind.', 1]], [P]: [['Alex.', -1]], [D]: [['No.', 0], ['It cannot.', 0]] } },
+    { id: 'forgive', open: R('Have you forgiven your girlfriend for the money requests?', 'Have you apologised to Baby Mario?'),
+      options: { [A]: R('I\'m working on it.', 'I\'ll call them.'), [P]: R('No.', 'Why should I?'), [D]: R('Which one?', 'Define "apologise."') },
+      react: { [A]: [['Good.', 1]], [P]: [['Seventy times seven, Alex.', -1]], [D]: [['You know which one.', 0]] } },
+    { id: 'rift', when: (c) => c.rift, open: (c) => RIFT_LINES.jesus[c.rift],
+      options: { [A]: 'Thank you for telling me.', [P]: 'Then who did?', [D]: 'Can you make it stop?' },
+      react: { [A]: [['Be well.', 1]], [P]: [['Read Exodus.', 0]], [D]: [['You are doing fine.', 1], ['That is not how this works, Alex.', 0]] } },
+  ],
+};
+
+// Caller moods, rolled per call and shown on the phone. They bend the outcome a little.
+export const MOODS = {
+  normal: { w: 5, emoji: '', label: '' },
+  happy: { w: 2, emoji: '😊', label: 'good mood' },
+  grumpy: { w: 2, emoji: '😤', label: 'grumpy' },
+  chaotic: { w: 1, emoji: '🌀', label: 'chaotic' },
+  sleepy: { w: 1, emoji: '😴', label: 'sleepy' },
+};
+export function moodDelta(mood, delta, rng) {
+  if (mood === 'happy') return delta > 0 ? delta + 1 : delta < 0 && rng() < 0.5 ? 0 : delta;
+  if (mood === 'grumpy') return delta < 0 ? delta - 1 : delta > 0 && rng() < 0.4 ? 0 : delta;
+  if (mood === 'chaotic') return rng() < 0.35 ? -delta || (rng() < 0.5 ? 1 : -1) : delta;
+  if (mood === 'sleepy') return Math.trunc(delta / 2) || (delta && rng() < 0.5 ? Math.sign(delta) : 0);
+  return delta;
+}
+
+// Spontaneous texts between calls: [text, effect?]. Effects are small and generous.
+export const TEXTS = {
+  gf: [['where r u', null], ['ur not answering ur phone', null], ['sent u $5 for snacks. don\'t say I never do anything', 'money5'], ['🥺', null], ['k', null], ['did u see my story', null]],
+  ugly: [['made extra. it\'s in a container labeled ALEX DO NOT SHARE', 'heal10'], ['the soup is thriving', null], ['call me when ur done being a hero', null], ['📸 [a photo of green soup]', null]],
+  cat: [['📸 [photo of a knocked-over glass]', null], ['mrrp', null], ['.', null], ['📸 [the cat, on your keyboard: "jjjjjjjjjjjjjjj"]', null]],
+  mario: [['coin', 'money1'], ['BABY', null], ['horse?', null], ['wahoo', null]],
+  demonKing: [['My followers are watching you. Smile.', null], ['Your posture during combat is atrocious.', null], ['Ticket sales are up. Thank you for the publicity.', null]],
+  jesus: [['"Be strong and of a good courage." Joshua 1:9', 'heal5'], ['I\'m proud of you.', null], ['Drink some water.', 'heal5']],
+};

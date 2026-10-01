@@ -17,6 +17,7 @@ import { Heartline } from './phone/heartline.js';
 import { Run } from './run.js';
 import { FLOOR_PALETTE } from './world/builder.js';
 import { setupTouch } from './ui/touch.js';
+import { loadPortraitOverrides } from './phone/portraits.js';
 
 const canvas = document.getElementById('view');
 const mini = document.getElementById('mini');
@@ -57,6 +58,7 @@ G.targeting = new Targeting(scene);
 G.cam = new CameraRig(camera);
 G.hud = new HUD(document.getElementById('hud'));
 G.phone = new Heartline(document.getElementById('phoneui'));
+loadPortraitOverrides();
 G.alex = new Alex(scene);
 G.alex.model.setVisible(false);
 G.touch = setupTouch(document.getElementById('touch'));
@@ -192,9 +194,9 @@ function simulate(realDt) {
   }
 }
 // Fast-forward for automated tests: simulate `seconds` of game time without rendering.
-function advance(seconds, step = 1 / 60) {
-  for (let t = 0; t < seconds; t += step) { simulate(step); G.input.endFrame(); }
-  renderer.render(scene, camera);
+function advance(seconds, step = 1 / 60, render = true) {
+  for (let t = 0; t < seconds - 1e-9; t += step) { simulate(step); G.input.endFrame(); }
+  if (render) renderer.render(scene, camera);
 }
 
 // Debug helpers (?debug) ----------------------------------------------------------
