@@ -150,6 +150,12 @@ export class Run {
     G.alex.absorb = 0;
     room.begin();
     if (this.pal) spawnPal();
+    // your ride comes through the door with you
+    if (this.vehicle) {
+      const sv = this.vehicle;
+      const v = room.spawnVehicle(sv.type, G.alex.pos.x, G.alex.pos.z, yaw, { hp: sv.hp, life: sv.life });
+      v.mount();
+    }
     this.stat('roomsEntered', 1);
     // music
     if (def.kind !== 'gas' && def.kind !== 'boss' && G.audio.musicName() !== 'floor' + this.floor) G.audio.playMusic('floor' + this.floor);

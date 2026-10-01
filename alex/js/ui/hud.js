@@ -44,6 +44,7 @@ export class HUD {
       <div class="roomtitle"><div class="rt-a"></div><div class="rt-b"></div></div>
       <div class="riftbanner"><div class="rb-glitch"></div><div class="rb-tag"></div><div class="rb-title"></div><div class="rb-sub"></div></div>
       <div class="wildbox"><span></span><i>▼</i></div>
+      <div class="vehpanel"><div class="vp-name"></div><div class="vp-bar"><i></i></div><div class="vp-hint"></div></div>
       <div class="tutorial"></div>
       <div class="fps"></div>
       <div class="lockhint"></div>`;
@@ -136,6 +137,7 @@ export class HUD {
     this._threats(realDt);
     this._bubbles(realDt);
     this.plates.update(dt);
+    this._vehUpdate();
     this.scratch.update(realDt);
     // boss
     if (G.room && G.room.bossInfo && G.room.bossInfo.list.some((x) => x.alive)) {
@@ -299,8 +301,11 @@ export class HUD {
     const e = this.e.prompt;
     if (!p) { if (this._promptObj) { e.classList.remove('on'); this._promptObj = null; } return; }
     const key = obj.id || obj;
-    if (this._promptObj !== key || this._promptPrice !== p.price || this._promptMoney !== G.run.money) {
-      this._promptObj = key; this._promptPrice = p.price; this._promptMoney = G.run.money;
+    const sig = p.title + '|' + p.action + '|' + p.text;
+    if (this._promptObj !== key || this._promptPrice !== p.price || this._promptMoney !== G.run.money || this._promptSig !== sig) {
+      const fresh = this._promptObj !== key;
+      this._promptObj = key; this._promptPrice = p.price; this._promptMoney = G.run.money; this._promptSig = sig;
+      if (fresh) { e.classList.remove('on'); void e.offsetWidth; }
       const afford = p.price == null || p.price === 0 || G.run.money >= p.price;
       e.innerHTML = `<div class="pt">${esc(p.title)}</div><div class="px">${esc(p.text || '')}</div><div class="pa"><b class="key">${G.input.glyph('interact')}</b> ${esc(p.action || 'Use')}${p.price ? ` <span class="price ${afford ? '' : 'no'}">${fmtMoney(p.price)}</span>` : p.price === 0 ? ' <span class="price free">FREE</span>' : ''}</div>`;
       e.classList.add('on');
@@ -338,6 +343,25 @@ export class HUD {
       m.classList.toggle('bar', (Math.floor(b) + i) % 4 === 0);
     });
     e.querySelector('.beat-center').style.transform = `scale(${1 + Math.max(0, 1 - frac * 5) * 0.5})`;
+  }
+
+  vehicle(v) {
+    const p = this.root.querySelector('.vehpanel');
+    this._veh = v;
+    p.classList.toggle('on', !!v);
+    if (!v) return;
+    p.querySelector('.vp-name').textContent = `${v.def.icon} ${v.def.name}`;
+    p.querySelector('.vp-hint').innerHTML = `${esc(v.def.hint)} · <b class="key">${G.input.glyph('ride')}</b> hop out`;
+    p.classList.remove('pop'); void p.offsetWidth; p.classList.add('pop');
+  }
+  _vehUpdate() {
+    const v = this._veh;
+    if (!v) return;
+    if (!v.alive || !v.driver) { this.vehicle(null); return; }
+    const bar = this.root.querySelector('.vp-bar i');
+    const k = v.def.hp >= 999 ? Math.max(0, v.life / v.def.life) : Math.max(0, v.hp / v.def.hp);
+    bar.style.transform = `scaleX(${k})`;
+    bar.classList.toggle('low', k < 0.3);
   }
 
   riftBanner(r) {

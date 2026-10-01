@@ -73,6 +73,7 @@ export class Alex {
     this.grabber = null;
     this.comboBuild = 0; this.comboBuildAt = 0;
     this.shield = 0; this.absorb = 0; this.lastHitAt = -99; this.fireTrail = []; this.fireDropT = 0;
+    this.vehicle = null;
     this.vel.set(0, 0, 0);
     this.model.setVisible(true);
     this.model.body.rotation.set(0, 0, 0);
@@ -106,6 +107,11 @@ export class Alex {
   // -------------------------------------------------------------------------
   update(dt) {
     if (this.state === 'dead') { this._deadUpdate(dt); return; }
+    if (this.vehicle) { this._driveUpdate(dt); return; }
+    if (!G.run.inputLocked && G.input.pressed('ride')) {
+      const v = (G.room.vehicles || []).find((x) => x.alive && !x.driver && Math.hypot(x.pos.x - this.pos.x, x.pos.z - this.pos.z) < x.def.radius + 2.2);
+      if (v) { v.mount(); return; }
+    }
     const inp = G.input, S = G.settings, m = this.mods, now = G.time;
     const world = G.room.world;
 
@@ -159,6 +165,36 @@ export class Alex {
     this._fireTrail(dt);
     if (!locked && G.input.pressed('gadget') && this.state !== 'grabbed' && !this.vehicle) useGadget();
     this._animate(dt);
+  }
+
+  // Riding a vehicle: the vehicle moves Alex; he keeps his shield, dash charges and
+  // (on the bike) his gun.
+  _driveUpdate(dt) {
+    const v = this.vehicle;
+    const maxC = this.maxCharges();
+    if (this.charges < maxC) { this.rechargeT -= dt * (this.mods.dashRechargeMul || 1); if (this.rechargeT <= 0) { this.charges++; this.rechargeT = this.charges < maxC ? DASH.recharge : 0; } }
+    this.inDir = [0, 0, 0];
+    v.update(dt);
+    if (!this.vehicle) { this._animate(dt); return; }
+    if (v.def.gun) this._ranged(dt);
+    this._shieldTick(dt);
+    const M = this.model;
+    const bike = v.type === 'bike', stand = v.def.stand;
+    const ph = G.time * Math.min(16, Math.abs(v.speed) * 0.9);
+    const P = stand
+      ? { rate: 14, hipY: -0.05, torsoX: 0.12, headX: 0, shLX: -1.1, shRX: -1.1, elL: -0.4, elR: -0.4, legLX: -0.2, legRX: 0.2, knL: 0.25, knR: 0.25, ftL: 0, ftR: 0, hipX: 0, hipYaw: 0, hipZ: 0, torsoY: 0, torsoZ: 0, headY: 0, shLY: 0, shRY: 0, shLZ: 0.2, shRZ: -0.2, legLZ: 0, legRZ: 0 }
+      : { rate: 16, hipY: -0.42, torsoX: bike ? 0.4 : 0.05, headX: bike ? -0.25 : 0, shLX: -1.2, shRX: -1.2, elL: -0.5, elR: -0.5,
+        legLX: bike ? -1.25 + Math.sin(ph) * 0.45 : -1.45, legRX: bike ? -1.25 - Math.sin(ph) * 0.45 : -1.45, knL: bike ? 1.25 - Math.sin(ph) * 0.35 : 1.55, knR: bike ? 1.25 + Math.sin(ph) * 0.35 : 1.55,
+        ftL: 0, ftR: 0, hipX: 0, hipYaw: 0, hipZ: 0, torsoY: 0, torsoZ: 0, headY: 0, shLY: 0, shRY: 0, shLZ: 0.15, shRZ: -0.15, legLZ: 0.08, legRZ: -0.08 };
+    if (G.input.isHeld('ranged') && (v.def.gun || v.def.weapon)) { P.shRX = -1.5; P.elR = -0.1; P.torsoY = wrapAngle(this.aimYaw - this.yaw) * 0.5; }
+    M.apply(P, dt);
+    M.root.position.copy(this.pos);
+    M.root.rotation.set(0, this.yaw, 0);
+    M.body.rotation.set(0, 0, 0);
+    M.setFlash(!(G.time < this.mercyUntil && Math.floor(G.time * 16) % 2 === 0));
+    M.setXray(!!(G.room && G.room.combatLive()));
+    M.secondary(dt, this.vel);
+    this._shadow();
   }
 
   // Overshield-style recharging shield (Halo items) + Golden Apple absorption.
@@ -798,7 +834,7 @@ export class Alex {
     if (!this.grabber || !this.grabber.alive) this.release();
   }
   grab(by) {
-    if (this.state === 'dead' || this.isInvulnerable()) return false;
+    if (this.state === 'dead' || this.isInvulnerable() || this.vehicle) return false;
     this.state = 'grabbed';
     this.grabber = by;
     this.atk = this.dash = this.vault = this.land = null;
@@ -856,6 +892,7 @@ export class Alex {
     }
     if (info.water && this.mods.devilFruit) { dmg *= 2; G.hud.bubble(this, 'CAN\'T SWIM!', '#7dd3fc', 0.7); }
     let amount = Math.max(1, Math.round(dmg * (this.mods.dmgTakenMul || 1)));
+    if (this.vehicle) { this.vehicle.damage(amount * 0.6); amount = Math.max(1, Math.ceil(amount * 0.5)); }
     this.lastHitAt = now;
     const soak = (pool) => { const s = Math.min(this[pool], amount); this[pool] -= s; amount -= s; return s; };
     const soaked = soak('absorb') + soak('shield');
@@ -872,7 +909,7 @@ export class Alex {
     const [kx, kz] = info.dir || [0, 0];
     const kl = Math.hypot(kx, kz) || 1;
     const knock = info.knock ?? 3;
-    if (this.state !== 'grabbed') {
+    if (this.state !== 'grabbed' && !this.vehicle) {
       this.vel.x = (kx / kl) * knock; this.vel.z = (kz / kl) * knock;
       if (knock > 4 && this.grounded) { this.vel.y = 3; this.grounded = false; }
       if (!(this.atk && this.atk.step.commit)) { this.atk = null; this.vault = null; this.land = null; this.dash = null; this.state = 'hurt'; this.hurtT = 0.22; }
@@ -926,6 +963,7 @@ export class Alex {
   }
 
   _die() {
+    if (this.vehicle) this.vehicle.dismount(true);
     this.hp = 0;
     this.state = 'dead';
     this.alive = false;

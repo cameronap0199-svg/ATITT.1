@@ -18,6 +18,7 @@ import { rollAffix } from '../actors/affixes.js';
 import { RIFTS, composeRift, CROSS_INFO, EVENT_CHANCE } from './rifts.js';
 import { openRift, updateRift, closeRift, disposeRift } from './riftRoom.js';
 import { addCraftingTable, addMerchant, addBurningBush } from './events.js';
+import { Vehicle, VEHICLE_IDS } from '../vehicles.js';
 
 const threatOfType = (k) => (ENEMY_INFO[k] || CROSS_INFO[k.replace('rift:', '')])?.threat || 1;
 
@@ -54,6 +55,7 @@ export class Room {
     this.bossInfo = null;
     this.telegraphK = 1;
     this.enemyAtkK = 1;
+    this.vehicles = [];
     this.world.buildNav();
     this.flowT = 0;
     if (this.L.concert) G.audio.setCrowd(this.L.concert);
@@ -73,6 +75,13 @@ export class Room {
     if (def.kind === 'secret') { addPedestals(this, 'secret', 1, {}); if (!def.looted) { this.dropMoney(0, -2, 15); } }
     if (def.kind === 'boss' && def.cleared && this.floor < 3) { addPedestals(this, 'boss', 1, {}); addExit(this); }
     if (def.kind === 'start' && this.floor === 1 && !def.visited) G.hud.tutorial();
+    // parked vehicles stay where you left them; some fights come with a free ride
+    if (def.parked) { for (const p of def.parked) this.spawnVehicle(p.type, p.x, p.z, p.yaw, p); def.parked = null; }
+    if (def.ev?.vehicle && !def.vehicleSpawned) {
+      def.vehicleSpawned = true;
+      const p = this.world.openPoint(this.rng, [{ x: G.alex.pos.x, z: G.alex.pos.z, r: 4 }], 4, 0.3, 3.5);
+      if (p) { const type = this.rng.pick(VEHICLE_IDS); this.spawnVehicle(type, p.x, p.z, this.rng() * Math.PI * 2); G.hud.popup('A RIDE IS PARKED HERE — ' + G.input.glyph('ride') + ' / ' + G.input.glyph('interact') + ' to hop in', '#67f3ff', 2, true); }
+    }
     // restore uncollected pickups
     if (def.savedPickups) { for (const p of def.savedPickups) this.addPickup(p.kind, p.x, p.z, p.value, true); def.savedPickups = null; }
   }
@@ -264,6 +273,7 @@ export class Room {
     for (const h of this.hazards) h.update(dt, live);
     for (const fn of this.animators) fn(G.time, dt);
     updateRift(this, dt);
+    for (const v of this.vehicles) if (!v.driver) v.update(dt);
     // waves
     if (!this.cleared && this.fightStarted) {
       if (this.waveIdx < this.waves.length) {
@@ -365,18 +375,29 @@ export class Room {
   // Door crossing → run handles the transition
   doorCrossed() {
     const a = G.alex;
+    const m = a.vehicle ? a.vehicle.def.radius + 0.7 : 0.25;
     for (const d of this.doors) {
       if (d.locked) continue;
       const half = 1.6;
-      if (d.side === 'N' && a.pos.z < -this.L.d / 2 + 0.25 && Math.abs(a.pos.x) < half) return d;
-      if (d.side === 'S' && a.pos.z > this.L.d / 2 - 0.25 && Math.abs(a.pos.x) < half) return d;
-      if (d.side === 'W' && a.pos.x < -this.L.w / 2 + 0.25 && Math.abs(a.pos.z) < half) return d;
-      if (d.side === 'E' && a.pos.x > this.L.w / 2 - 0.25 && Math.abs(a.pos.z) < half) return d;
+      if (d.side === 'N' && a.pos.z < -this.L.d / 2 + m && Math.abs(a.pos.x) < half) return d;
+      if (d.side === 'S' && a.pos.z > this.L.d / 2 - m && Math.abs(a.pos.x) < half) return d;
+      if (d.side === 'W' && a.pos.x < -this.L.w / 2 + m && Math.abs(a.pos.z) < half) return d;
+      if (d.side === 'E' && a.pos.x > this.L.w / 2 - m && Math.abs(a.pos.z) < half) return d;
     }
     return null;
   }
 
+  spawnVehicle(type, x, z, yaw = 0, o = {}) {
+    const v = new Vehicle(this, type, x, z, yaw, o);
+    this.vehicles.push(v);
+    G.fx.burst(x, 1, z, { n: 20, color: ['#67f3ff', '#ffffff'], speed: 5, life: 0.5 });
+    return v;
+  }
+
   dispose() {
+    const parked = this.vehicles.filter((v) => v.alive && !v.driver).map((v) => ({ type: v.type, x: v.pos.x, z: v.pos.z, yaw: v.yaw, hp: v.hp, life: v.life }));
+    this.def.parked = parked.length ? parked : null;
+    if (G.alex.vehicle) G.alex.vehicle = null;
     // keep uncollected money for revisits
     const keep = this.pickups.filter((p) => p.kind !== 'heart' || true).map((p) => ({ kind: p.kind, x: p.x, z: p.z, value: p.value }));
     this.def.savedPickups = keep.length ? keep : null;

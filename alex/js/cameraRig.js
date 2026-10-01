@@ -94,6 +94,11 @@ export class CameraRig {
     let wantDist = st.dist * S.camDistance;
     let wantPitchAdd = st.pitch;
     let wantFov = st.fov + S.fov;
+    if (alex.vehicle) {
+      wantDist = Math.max(wantDist, 8.4 * S.camDistance); wantFov += 5; wantPitchAdd += 3;
+      // follow the vehicle's heading when the player isn't steering the camera
+      if (G.realTime - (this.lastManual || 0) > 0.6 && (this.vehicleSpeed = alex.vehicle.speed) > 4) this.yaw = dampAngle(this.yaw, alex.vehicle.yaw, 2.2, realDt);
+    }
 
     // --- combat focus assistance
     const tg = G.targeting;
