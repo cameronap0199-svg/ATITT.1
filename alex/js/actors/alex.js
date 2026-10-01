@@ -10,6 +10,7 @@ import { MOVE, JUMP, DASH, WALLKICK, VAULT, LAND, PLAYER, TARGET } from '../conf
 import { clamp, damp, dampAngle, wrapAngle, easeOutCubic, lerp } from '../core/math.js';
 import { AlexModel } from './alexModel.js';
 import { MELEE, RANGED } from '../combat/weapons.js';
+import { useGadget } from '../gadgets.js';
 
 const tmpV = new THREE.Vector3();
 const aimV = new THREE.Vector3();
@@ -71,6 +72,7 @@ export class Alex {
     this.deadT = 0;
     this.grabber = null;
     this.comboBuild = 0; this.comboBuildAt = 0;
+    this.shield = 0; this.absorb = 0; this.lastHitAt = -99; this.fireTrail = []; this.fireDropT = 0;
     this.vel.set(0, 0, 0);
     this.model.setVisible(true);
     this.model.body.rotation.set(0, 0, 0);
@@ -153,7 +155,37 @@ export class Alex {
     }
     this._ranged(dt);
     this._zones(dt);
+    this._shieldTick(dt);
+    this._fireTrail(dt);
+    if (!locked && G.input.pressed('gadget') && this.state !== 'grabbed' && !this.vehicle) useGadget();
     this._animate(dt);
+  }
+
+  // Overshield-style recharging shield (Halo items) + Golden Apple absorption.
+  _shieldTick(dt) {
+    const max = this.mods.shield || 0;
+    if (this.shield > max) this.shield = max;
+    if (max > 0 && this.shield < max && G.time - this.lastHitAt > 4) {
+      if (this.shield === 0 && !this._recharging) { this._recharging = true; G.audio.sfx('heartUp', { v: 0.4 }); }
+      this.shield = Math.min(max, this.shield + 28 * dt);
+    } else this._recharging = false;
+  }
+  // Flame-Flame Fruit: dashing leaves fire that burns demons.
+  _fireTrail(dt) {
+    if (this.mods.fireDash && this.state === 'dash') {
+      this.fireDropT -= dt;
+      if (this.fireDropT <= 0) { this.fireDropT = 0.045; this.fireTrail.push({ x: this.pos.x, z: this.pos.z, t: 1.8 }); }
+    }
+    if (!this.fireTrail.length) return;
+    for (const f of this.fireTrail) {
+      f.t -= dt;
+      if (Math.random() < dt * 10) G.fx.burst(f.x, 0.2, f.z, { n: 1, color: ['#ff7b00', '#ffd60a', '#ff2e00'], speed: 0.6, up: 2.2, life: 0.45, size: 0.3, grav: -2, kind: 'spark' });
+      for (const e of G.room.enemies) {
+        if (!e.alive || e.intangible || e.flying) continue;
+        if (Math.hypot(e.pos.x - f.x, e.pos.z - f.z) < e.radius + 0.7 && !(e.burn && G.time < e.burn.until - 1.6)) { e.burn = { until: G.time + 2.2, dps: 8 * (this.mods.dmgMul || 1) }; e.hurt(2, { source: this, knock: 0, stagger: 0, fire: true }); }
+      }
+    }
+    this.fireTrail = this.fireTrail.filter((f) => f.t > 0);
   }
 
   // -------------------------------------------------------------------------
@@ -564,13 +596,14 @@ export class Alex {
       if (fp) { dx = fp.x - this.pos.x; dz = fp.z - this.pos.z; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; } else [dx, dz] = G.cam.forward();
     }
     const cone = TARGET.meleeCone[step.cone] || 55;
-    const lungeMax = Math.min(step.lunge ?? 1, kind === 'dash' ? 2.4 : TARGET.lungeMax);
-    const tgt = G.targeting.meleeTarget(dx, dz, cone, step.range + lungeMax + 0.5);
+    const reach = this.mods.meleeRange || 0;
+    const lungeMax = Math.min(step.lunge ?? 1, kind === 'dash' ? 2.4 : (w.lungeMax || TARGET.lungeMax)) + reach * 0.6;
+    const tgt = G.targeting.meleeTarget(dx, dz, cone, step.range + reach + lungeMax + 0.5);
     let lunge = 0.3;
     if (tgt) {
       const tx = tgt.p.x - this.pos.x, tz = tgt.p.z - this.pos.z, l = Math.hypot(tx, tz) || 1;
       dx = tx / l; dz = tz / l;
-      lunge = clamp(l - (step.range * 0.55 + tgt.enemy.radius * 0.5), 0, lungeMax);
+      lunge = clamp(l - ((step.range + reach) * 0.55 + tgt.enemy.radius * 0.5), 0, lungeMax);
     }
     this.yaw = Math.atan2(dx, dz);
     this.aimYaw = this.yaw;
@@ -606,7 +639,8 @@ export class Alex {
       a.phase = 'active';
       G.audio.sfx(s.sfx || 'slash', { p: 0.9 + Math.random() * 0.2 });
       const col = (MELEE[G.run.weapons.melee] || MELEE.hunterBlade).color;
-      const r = s.range + 0.2;
+      const r = s.range + 0.2 + (m.meleeRange || 0);
+      if (m.meleeRange && s.finisher && Math.random() < 0.5) G.hud.bubble(this, 'GUM-GUM… PISTOL!', '#fca5a5', 0.8);
       if (s.arc >= 360) G.fx.slash(this.pos.x, this.pos.y + 0.9, this.pos.z, this.yaw, { r, arc: Math.PI * 2, color: col, life: 0.22 });
       else G.fx.slash(this.pos.x, this.pos.y + (s.pose === 'launcher' ? 1.3 : 0.95), this.pos.z, this.yaw, { r, arc: (s.arc * Math.PI) / 180, color: col, tilt: s.pose === 'slash2' ? 0.3 : s.pose === 'launcher' ? 1.3 : -0.25, roll: s.pose === 'slash2' ? Math.PI : 0 });
     }
@@ -652,7 +686,7 @@ export class Alex {
     const halfArc = (s.arc * Math.PI) / 360;
     for (const e of G.room.enemies) {
       if (!e.alive || e.intangible || a.hits.has(e)) continue;
-      const part = e.meleeTest(this.pos, this.yaw, s.range, halfArc, s.arc >= 360);
+      const part = e.meleeTest(this.pos, this.yaw, s.range + (m.meleeRange || 0), halfArc, s.arc >= 360);
       if (!part) continue;
       a.hits.add(e);
       a.hitAny = true;
@@ -665,8 +699,9 @@ export class Alex {
         build = 1 + this.comboBuild * w.comboBuild;
       }
       const perfectK = a.perfect ? 1.5 : 1;
-      const dmg = s.dmg * (m.dmgMul || 1) * (m.meleeMul || 1) * perfectK * build;
-      const dealt = e.hurt(dmg, { source: this, dir: [e.pos.x - this.pos.x, e.pos.z - this.pos.z], knock: s.knock, stagger: s.stagger + (a.perfect ? 3 : 0), launch: s.launch, melee: true, part, perfect: a.perfect, finisher: s.finisher });
+      const crowd = w.crowdBonus ? 1 + w.crowdBonus * (a.hits.size - 1) : 1;
+      const dmg = s.dmg * (m.dmgMul || 1) * (m.meleeMul || 1) * perfectK * build * crowd;
+      const dealt = e.hurt(dmg, { source: this, dir: [e.pos.x - this.pos.x, e.pos.z - this.pos.z], knock: s.knock, stagger: s.stagger + (a.perfect ? 3 : 0), launch: s.launch, melee: true, part, perfect: a.perfect, finisher: s.finisher, pierceArmor: !!m.pierceArmor });
       if (s.launch && e.alive && !e.heavy) { this.launchTarget = e; this.launchUntil = G.time + 0.8; }
       if (m.stunChance && Math.random() < m.stunChance) e.stun?.(1);
       if (m.lifesteal && s.finisher) this.heal(m.lifesteal, true);
@@ -679,7 +714,7 @@ export class Alex {
       G.input.rumble(s.finisher ? 0.5 : 0.25, 50);
       if (dealt === 'armor') G.audio.sfx('armor');
     }
-    if (G.room.damageBlocksInArc) G.room.damageBlocksInArc(this.pos.x, this.pos.z, this.yaw, s.range, halfArc, s.dmg * 0.8, a.hits);
+    if (G.room.damageBlocksInArc) G.room.damageBlocksInArc(this.pos.x, this.pos.z, this.yaw, s.range + (m.meleeRange || 0), halfArc, s.dmg * 0.8, a.hits);
   }
 
   // -------------------------------------------------------------------------
@@ -713,8 +748,8 @@ export class Alex {
       G.projectiles.spawn({
         hostile: false, kind: w.kind, x: mx, y: my, z: mz, vx: vx * w.speed, vy: vy * w.speed, vz: vz * w.speed,
         r: w.r, dmg: w.dmg * dmgK, knock: w.knock, stagger: (w.stagger || 0) + (perfect ? 3 : 0), pierce: w.pierce || 0,
-        grav: w.grav || 0, life: w.life ?? 1.5, weapon: G.run.weapons.ranged, perfect,
-        onHit: (w.splash || w.burn) ? (p, e) => this._rangedEffect(w, p, e) : null,
+        grav: w.grav || 0, life: w.life ?? 1.5, weapon: G.run.weapons.ranged, perfect, homing: w.homing || 0,
+        onHit: (w.splash || w.burn || w.supercombine) ? (p, e) => this._rangedEffect(w, p, e) : null,
       });
     }
     G.audio.sfx(w.sfx, { v: 0.7, gap: 0.02 });
@@ -732,6 +767,17 @@ export class Alex {
       }
     }
     if (w.burn && e && e.alive) e.burn = { until: G.time + 2, dps: w.burn };
+    if (w.supercombine && e && e.alive) {
+      if (G.time - (e.needleT || 0) > 3) e.needles = 0;
+      e.needles = (e.needles || 0) + 1; e.needleT = G.time;
+      if (e.needles >= w.supercombine) {
+        e.needles = 0;
+        G.fx.burst(p.x, p.y, p.z, { n: 30, color: ['#f472b6', '#fbcfe8', '#ffffff'], speed: 8, life: 0.5 });
+        G.audio.sfx('boom', { v: 0.5 });
+        G.hud.bubble(e, 'SUPERCOMBINE!', '#f472b6', 0.9);
+        for (const o of G.room.enemies) if (o.alive && Math.hypot(o.pos.x - p.x, o.pos.z - p.z) < 2.4 + o.radius) o.hurt(35 * (this.mods.dmgMul || 1), { source: this, dir: [o.pos.x - p.x, o.pos.z - p.z], knock: 7, stagger: 3, area: true });
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -783,7 +829,7 @@ export class Alex {
     const d = Math.hypot(p.x - this.pos.x, p.y - py, p.z - this.pos.z);
     const hitR = p.r * 0.9 + 0.3;
     if (d < hitR) {
-      const res = this.hurt(p.dmg, { source: p.owner, kind: 'proj', dir: [p.vx, p.vz], knock: p.knock });
+      const res = this.hurt(p.dmg, { source: p.owner, kind: 'proj', dir: [p.vx, p.vz], knock: p.knock, water: p.tag === 'water' });
       if (res === 'dodged') p.dodged = true;
       return res === 'hit' ? 'hit' : 'pass';
     }
@@ -801,7 +847,24 @@ export class Alex {
     }
     if (now < this.mercyUntil) return 'immune';
     if (!(dmg > 0)) return 'immune';
-    const amount = Math.max(1, Math.round(dmg * (this.mods.dmgTakenMul || 1)));
+    if (info.kind === 'proj' && this.mods.faithBlock && Math.random() < this.mods.faithBlock) {
+      G.hud.bubble(this, 'SHIELD OF FAITH', '#fde68a', 0.7);
+      G.fx.burst(this.pos.x, this.pos.y + 1.2, this.pos.z, { n: 10, color: ['#fde68a', '#ffffff'], speed: 4, life: 0.3 });
+      G.audio.sfx('armor', { v: 0.5 });
+      this.mercyUntil = now + 0.2;
+      return 'dodged';
+    }
+    if (info.water && this.mods.devilFruit) { dmg *= 2; G.hud.bubble(this, 'CAN\'T SWIM!', '#7dd3fc', 0.7); }
+    let amount = Math.max(1, Math.round(dmg * (this.mods.dmgTakenMul || 1)));
+    this.lastHitAt = now;
+    const soak = (pool) => { const s = Math.min(this[pool], amount); this[pool] -= s; amount -= s; return s; };
+    const soaked = soak('absorb') + soak('shield');
+    if (soaked > 0) {
+      G.hud.damageNumber(this.pos.x, this.pos.y + 2.3, this.pos.z, Math.round(soaked), 'shield');
+      G.fx.burst(this.pos.x, this.pos.y + 1.1, this.pos.z, { n: 8, color: ['#7dd3fc', '#ffffff'], speed: 4, life: 0.3 });
+      if (this.shield <= 0 && (this.mods.shield || 0) > 0 && soaked > 0) G.audio.sfx('armor', { v: 0.6 });
+      if (amount <= 0) { this.mercyUntil = now + PLAYER.mercy * 0.6; G.audio.sfx('armor', { v: 0.4 }); G.cam.shake(0.12); return 'hit'; }
+    }
     this.hp -= amount;
     G.run.stat('damageTaken', amount);
     G.run.stat('timesHit', 1);
@@ -850,6 +913,7 @@ export class Alex {
   }
 
   heal(n, quiet) {
+    n *= this.mods.healMul || 1;
     const before = this.hp;
     this.hp = Math.min(this.maxHp, this.hp + n);
     const got = this.hp - before;

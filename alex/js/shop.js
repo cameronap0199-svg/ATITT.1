@@ -26,7 +26,7 @@ function iconTexture(icon) {
   iconCache.set(icon, t);
   return t;
 }
-function display(item, price, x, y, z, opts = {}) {
+export function display(item, price, x, y, z, opts = {}) {
   const g = new THREE.Group();
   g.position.set(x, y, z);
   const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: iconTexture(item.icon), transparent: true }));
@@ -47,7 +47,7 @@ function display(item, price, x, y, z, opts = {}) {
   return g;
 }
 
-function priceOf(item) { return Math.max(1, Math.round(item.price * (G.run.mods.priceMul || 1))); }
+export function priceOf(item) { return Math.max(1, Math.round(item.price * (G.run.mods.priceMul || 1))); }
 
 function cashierSay(room, lines) {
   const c = room.cashier;

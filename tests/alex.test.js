@@ -184,3 +184,53 @@ test('relationship hearts drive cook-off and nightmare chances', () => {
   assert.ok(NIGHTMARE_CHANCE[0] > NIGHTMARE_CHANCE[1]);
   for (const s of Object.values(SPECIAL)) assert.ok(s.w > 0 && s.d > 0);
 });
+
+test('crossover rifts: every franchise composes within budget from its own roster', async () => {
+  const { RIFTS, CROSS_INFO, composeRift, rollRift, RIFT_IDS } = await import('../alex/js/world/rifts.js');
+  const rng = makeRng(77);
+  assert.equal(RIFT_IDS.length, 5);
+  for (const id of RIFT_IDS) {
+    const R = RIFTS[id];
+    for (const k of Object.keys(R.weights)) assert.equal(CROSS_INFO[k].franchise, id, k);
+    for (const floor of [1, 2, 3]) for (let i = 0; i < 300; i++) {
+      const budget = rng.range(2.5, 12);
+      const list = composeRift(id, floor, budget, rng);
+      assert.ok(list.length >= 1);
+      const threat = list.reduce((s, k) => s + CROSS_INFO[k].threat, 0);
+      assert.ok(threat <= budget + 1e-6 || list.length === 1, `${id} ${threat} > ${budget}`);
+      const count = {};
+      for (const k of list) count[k] = (count[k] || 0) + 1;
+      for (const [k, cap] of Object.entries(R.caps)) assert.ok((count[k] || 0) <= cap + (k === 'frog' ? 2 : 0), `${id} cap ${k}`);
+      if (count.frog) assert.equal(count.frog % 3, 0, 'frogs come in threes');
+    }
+  }
+  // generous: roughly a quarter to a third of fights open a rift
+  let n = 0;
+  for (let i = 0; i < 20000; i++) if (rollRift(2, rng)) n++;
+  assert.ok(n / 20000 > 0.25 && n / 20000 < 0.35, `rift rate ${n / 20000}`);
+});
+
+test('crossover loot: every reward resolves to a real item, weapon or gadget', async () => {
+  const { RIFTS } = await import('../alex/js/world/rifts.js');
+  const { itemInfo, poolFor, RECIPES, GADGETS } = await import('../alex/js/items.js');
+  for (const [id, R] of Object.entries(RIFTS)) {
+    for (const k of R.rewards) { const it = itemInfo(k); assert.ok(it && it.name && it.icon && it.desc, `${id}: ${k}`); }
+    assert.deepEqual(poolFor('rift:' + id), R.rewards);
+  }
+  for (const [k] of RECIPES) assert.ok(itemInfo(k), k);
+  for (const g of Object.keys(GADGETS)) assert.ok(itemInfo('g:' + g).gadget === g);
+  const mods = combineMods(['overshield', 'gumGum', 'flameFruit', 'loavesFishes', 'armorOfGod', 'armorOfGod', 'armorOfGod'], []);
+  assert.equal(mods.shield, 40); assert.equal(mods.healMul, 2); assert.ok(mods.faithBlock <= 0.35); assert.equal(mods.devilFruit, 2);
+});
+
+test('elite affixes: generous but not universal', async () => {
+  const { rollAffix, AFFIXES } = await import('../alex/js/actors/affixes.js');
+  const rng = makeRng(9);
+  for (const floor of [1, 2, 3]) {
+    let any = 0, shiny = 0;
+    for (let i = 0; i < 20000; i++) { const a = rollAffix(rng, floor, 'lurker'); if (a) { any++; assert.ok(AFFIXES[a]); } if (a === 'shiny') shiny++; }
+    assert.ok(any / 20000 > 0.1 && any / 20000 < 0.3, `floor ${floor}: ${any / 20000}`);
+    assert.ok(shiny > 0);
+  }
+  assert.equal(rollAffix(rng, 3, 'soloA'), null);
+});

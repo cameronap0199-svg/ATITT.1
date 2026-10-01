@@ -15,10 +15,17 @@ import { ECONOMY, PLAYER } from '../config.js';
 import { GEO, glow, mat, textTexture } from './props.js';
 import { stockGasStation, addPedestals, addScalper, addExit } from '../shop.js';
 import { rollAffix } from '../actors/affixes.js';
+import { RIFTS, composeRift, CROSS_INFO, EVENT_CHANCE } from './rifts.js';
+import { openRift, updateRift, closeRift, disposeRift } from './riftRoom.js';
+import { addCraftingTable, addMerchant, addBurningBush } from './events.js';
+
+const threatOfType = (k) => (ENEMY_INFO[k] || CROSS_INFO[k.replace('rift:', '')])?.threat || 1;
 
 const coinGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.05, 14);
 const billGeo = new THREE.BoxGeometry(0.42, 0.02, 0.2);
 const heartGeo = (() => { const g = new THREE.SphereGeometry(0.22, 10, 8); return g; })();
+const blockGeo = new THREE.BoxGeometry(0.32, 0.32, 0.32);
+const blockMats = [new THREE.MeshToonMaterial({ color: '#8b5a2b' }), new THREE.MeshToonMaterial({ color: '#5bb450' })];
 
 export class Room {
   constructor(def, floor, doorsIn) {
@@ -77,9 +84,20 @@ export class Room {
     let budget = (def.budget || 4) + (this.L.budgetAdd || 0);
     const dk = G.run.nextRoomMod;
     if (dk) { budget += dk.threat || 0; this.moneyK = dk.money || 1; this.extra = dk.extra; G.run.nextRoomMod = null; if (dk.text) G.hud.popup(dk.text, '#ff006e', 1.6); }
-    const enc = composeEncounter(this.floor, budget, this.rng, { type: def.type, mimicSpots: this.L.mimicSpots.length > 0, waves: this.L.waves });
+    const rift = def.rift;
+    const enc = composeEncounter(this.floor, rift ? Math.max(2, budget * 0.45) : budget, this.rng, { type: def.type, mimicSpots: this.L.mimicSpots.length > 0, waves: rift ? 1 : this.L.waves });
     this.waves = enc.waves;
     if (this.extra) this.waves[0].push(...this.extra);
+    if (rift) {
+      // part of the fight comes through the rift, in two pushes
+      openRift(this);
+      const list = composeRift(rift.id, this.floor, Math.max(2.5, budget * 0.75), this.rng).map((k) => 'rift:' + k);
+      if (rift.plague === 'frogs') list.push('rift:frog', 'rift:frog', 'rift:frog');
+      if (rift.plague === 'locusts') list.push('rift:locust', 'rift:locust');
+      const half = Math.ceil(list.length / 2);
+      this.waves[0].push(...list.slice(0, half));
+      if (list.length > half) this.waves.push(list.slice(half));
+    }
     this.waveIdx = 0;
     this.spawnWave();
   }
@@ -93,8 +111,16 @@ export class Room {
     const mimicSpots = this.L.mimicSpots.slice();
     const [fx, fz] = G.cam.forward();
     let delay = 0;
-    for (const type of list) {
+    for (let type of list) {
       let p = null, extra = {};
+      if (type.startsWith('rift:')) {
+        type = type.slice(5);
+        const r = this.rift;
+        if (r) {
+          p = this.world.openPointNear(this.rng, r.x, r.z, 4.5, [{ x: a.pos.x, z: a.pos.z, r: 5 }]);
+          if (p) G.fx.burst(p.x, 1.2, p.z, { n: 14, color: [r.def.color, r.def.color2, '#ffffff'], speed: 5, life: 0.5 });
+        }
+      }
       if (type === 'mimic' && mimicSpots.length) { const s = mimicSpots.shift(); p = { x: s.x, z: s.z }; extra = { disguised: true, yaw: s.rot }; }
       for (let tries = 0; !p && tries < 20; tries++) {
         const q = this.world.openPoint(this.rng, avoid, 7.5);
@@ -113,7 +139,7 @@ export class Room {
       delay += 0.08;
       if (e) avoid.push({ x: p.x, z: p.z, r: 1.6 });
     }
-    this.waveThreat = list.reduce((s, k) => s + (ENEMY_INFO[k]?.threat || 1), 0);
+    this.waveThreat = list.reduce((s, k) => s + threatOfType(k), 0);
     this.waveMembers = this.enemies.filter((e) => e.alive);
     this.fightStarted = true;
     G.audio.sfx('spawn', { v: 0.6 });
@@ -151,7 +177,8 @@ export class Room {
   // ---------------------------------------------------------------------------
   onEnemyDeath(e, info) {
     const moneyKind = e.money;
-    this.dropFromEnemy(e, moneyKind);
+    if (!e.noDrop) this.dropFromEnemy(e, moneyKind);
+    if (!e.noDrop && (e.franchise === 'minecraft' || Math.random() < 0.06)) this.addPickup('block', e.pos.x, e.pos.z, e.franchise === 'minecraft' ? 1 + (Math.random() < 0.45 ? 1 : 0) : 1);
     if (!e.noRevive && !e.boss) this.corpses.push({ type: e.type, x: e.pos.x, z: e.pos.z, used: false, noRevive: false });
     G.run.onKill(e, info);
   }
@@ -176,6 +203,7 @@ export class Room {
     let mesh;
     if (kind === 'coin') mesh = new THREE.Mesh(coinGeo, mat('#ffd60a', { emissive: '#b8860b', emissiveIntensity: 0.4 }));
     else if (kind === 'bill') mesh = new THREE.Mesh(billGeo, mat('#52b788', { emissive: '#1b4332', emissiveIntensity: 0.4 }));
+    else if (kind === 'block') mesh = new THREE.Mesh(blockGeo, [blockMats[0], blockMats[0], blockMats[1], blockMats[0], blockMats[0], blockMats[0]]);
     else mesh = new THREE.Mesh(heartGeo, glow('#ff4d6d'));
     const y = this.world.groundAt(x, z, 10, 0.1).h;
     mesh.position.set(x, y + 0.3, z);
@@ -199,6 +227,7 @@ export class Room {
     const cx = b.x, cz = b.z, cy = (b.y0 + b.y1) / 2;
     G.fx.burst(cx, cy, cz, { n: 24, kind: 'debris', color: [col, '#444', '#ddd'], speed: 7, up: 1, life: 1.0, size: 0.25 });
     if (b.kind === 'rack' || b.data.model === 'shirtwall' || b.data.model === 'rack') G.fx.confetti(cx, cy + 0.5, cz, 40);
+    if (b.kind === 'block') this.addPickup('block', cx, cz, 1);
     if (b.data.model === 'car') {
       G.areas.circle({ x: cx, z: cz, r: 2.8, delay: 0.05, dmg: 14, ff: true, enemyDmg: 20, owner: 'hazard', style: 'fire', sound: 'boom', shake: 0.4, propDmg: 20 });
       G.hud.bubble({ pos: new THREE.Vector3(cx, 0, cz), height: 1.5, alive: true }, 'CAR ALARM!', '#ff2e4d', 1.2);
@@ -234,6 +263,7 @@ export class Room {
     const live = this.combatLive() && G.time - this.enteredAt > 1.4;
     for (const h of this.hazards) h.update(dt, live);
     for (const fn of this.animators) fn(G.time, dt);
+    updateRift(this, dt);
     // waves
     if (!this.cleared && this.fightStarted) {
       if (this.waveIdx < this.waves.length) {
@@ -265,6 +295,7 @@ export class Room {
     }
     G.run.stat('roomsCleared', 1);
     G.hud.popup('ROOM CLEARED', '#3cff8f', 1.1);
+    if (this.rift) closeRift(this);
     // Isaac-style clear reward
     const reward = this.L.reward;
     const cx = a.pos.x * 0.3, cz = a.pos.z * 0.3;
@@ -273,11 +304,15 @@ export class Room {
     else if (reward === 'consumable') addPedestals(this, 'counter', 1, {});
     else if (reward === 'scalper') addScalper(this);
     else if (reward === 'toilet') { this.dropMoney(0, 0, 6 + Math.floor(Math.random() * 6)); if (Math.random() < 0.3) addPedestals(this, 'key', 1, {}); }
-    else if (Math.random() < 0.35) {
+    else if (Math.random() < EVENT_CHANCE.bonusDrop) {
       if (Math.random() < 0.5) this.dropMoney(cx, cz, 3 + Math.floor(Math.random() * 6));
       else this.addPickup('heart', cx, cz, 12);
     }
     if (this.def.kind === 'preboss') this.addPickup('heart', 0, 0, 25);
+    const ev = this.def.ev || {};
+    if (ev.crafting || this.rift?.id === 'minecraft') addCraftingTable(this);
+    if (ev.merchant) addMerchant(this);
+    if (ev.bush || (this.rift?.id === 'bible' && Math.random() < 0.35)) addBurningBush(this);
     G.run.onRoomCleared(this);
   }
 
@@ -305,6 +340,7 @@ export class Room {
       if (p.kind === 'bill') p.mesh.rotation.z = Math.sin(p.t * 5) * 0.3;
       if (Math.hypot(dx, dz) < 0.8 && Math.abs(dy) < 1.6 && p.t > 0.2) {
         if (p.kind === 'heart') { if (a.hp >= a.maxHp) return true; a.heal(p.value); }
+        else if (p.kind === 'block') { G.run.addBlocks(p.value); G.audio.sfx('pcoin', { gap: 0.03, p: 0.8 }); G.hud.damageNumber(p.x, p.y + 0.6, p.z, '+' + p.value + ' ◼', 'block'); }
         else { G.run.addMoney(p.value); G.audio.sfx(p.kind === 'coin' ? 'coin' : 'bill', { gap: 0.02 }); }
         this.group.remove(p.mesh);
         return false;
@@ -349,11 +385,20 @@ export class Room {
     G.scene.remove(this.group);
     this.group.traverse((c) => {
       if (c.isMesh || c.isInstancedMesh) {
-        if (c.geometry && !Object.values(GEO).includes(c.geometry) && c.geometry !== coinGeo && c.geometry !== billGeo && c.geometry !== heartGeo) c.geometry.dispose();
+        if (c.geometry && !Object.values(GEO).includes(c.geometry) && c.geometry !== coinGeo && c.geometry !== billGeo && c.geometry !== heartGeo && c.geometry !== blockGeo) c.geometry.dispose();
         if (c.material && c.material.map && c.material.map.isCanvasTexture && c.userData.ownTex) c.material.map.dispose();
       }
     });
     G.cam.clearFades();
     clearTimers();
+    disposeRift(this);
+  }
+
+  // Rift loot: choose one of two items from the franchise, plus a little extra.
+  riftReward(r) {
+    addPedestals(this, 'rift:' + r.id, 2, { choose: true });
+    this.dropMoney(r.x, r.z, 6 + Math.floor(Math.random() * 8));
+    if (r.id === 'minecraft') this.addPickup('block', r.x, r.z, 4);
+    if (this.spawnVehicle && Math.random() < 0.55) this.spawnVehicle(r.def.vehicle, r.x, r.z);
   }
 }

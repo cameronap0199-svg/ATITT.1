@@ -9,6 +9,7 @@ export const ACTIONS = {
   interact: 'Interact / Buy', map: 'Map', pause: 'Pause',
   phone1: 'Phone: Accept / Agree / Option 1', phone2: 'Phone: Decline / Provoke / Option 2',
   phone3: 'Phone: Deflect / Option 3', phone4: 'Phone: Option 4',
+  gadget: 'Use gadget', ride: 'Hop on / off a vehicle',
 };
 
 export const DEFAULT_KEYS = {
@@ -17,6 +18,7 @@ export const DEFAULT_KEYS = {
   lock: ['KeyF', 'Mouse1'], targetPrev: ['KeyQ'], targetNext: ['KeyC'],
   interact: ['KeyE'], map: ['Tab'], pause: ['Escape', 'KeyP'],
   phone1: ['Digit1'], phone2: ['Digit2'], phone3: ['Digit3'], phone4: ['Digit4'],
+  gadget: ['KeyG', 'KeyR'], ride: ['KeyV'],
 };
 
 // Standard gamepad mapping: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 Back, 9 Start,
@@ -24,6 +26,7 @@ export const DEFAULT_KEYS = {
 export const DEFAULT_PAD = {
   jump: [0], dash: [1, 5], melee: [2], ranged: [7], lock: [6], targetPrev: [], targetNext: [],
   interact: [3], map: [8], pause: [9], phone1: [12], phone2: [15], phone3: [13], phone4: [14],
+  gadget: [4], ride: [11],
 };
 export const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Back', 'Start', 'LS', 'RS', 'D-Up', 'D-Down', 'D-Left', 'D-Right', 'Home'];
 

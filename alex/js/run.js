@@ -16,6 +16,9 @@ import { CookOff } from './phone/cookoff.js';
 import { HorseMario } from './phone/platformer.js';
 import { NightmareHorse } from './phone/nightmare.js';
 import { addPedestals, addExit } from './shop.js';
+import { rollRift, EVENT_CHANCE } from './world/rifts.js';
+import { GADGETS } from './items.js';
+import { updateThrown, clearThrown, tickGadgetTimers, spawnPal } from './gadgets.js';
 
 const PROFILE = 'akdh2.profile.v1';
 export function loadProfile() {
@@ -32,6 +35,11 @@ export class Run {
     this.items = [];
     this.buffs = [];
     this.weapons = { melee: 'hunterBlade', ranged: 'micBlaster' };
+    this.gadget = null;
+    this.blocks = 0;
+    this.pal = null;
+    this.palActor = null;
+    this.vehicle = null;
     this.flags = {};
     this.stats = {};
     this.mods = combineMods([], []);
@@ -88,6 +96,8 @@ export class Run {
   enterRoom(id, fromSide) {
     const prev = G.room;
     if (prev) prev.dispose();
+    clearThrown();
+    if (this.palActor) { this.palActor.dispose(); this.palActor = null; }
     G.projectiles.clear();
     G.areas.clear();
     G.targeting.reset();
@@ -128,7 +138,18 @@ export class Run {
       if (this.buffs.length !== before) this.recomputeMods();
     }
     if (hasCombat(def) && !def.cleared) this.combatRoomsEntered++;
+    // crossover rifts are rolled once, on the first visit to a fight
+    if (firstVisit && hasCombat(def) && !def.cleared && def.kind !== 'boss' && def.rift === undefined) def.rift = rollRift(this.floor, this.rng, { chance: this.forceRift ? 1 : undefined });
+    if (this.forceRift && def.rift) { if (this.forceRift !== true) def.rift = { id: this.forceRift, plague: this.forceRift === 'bible' ? (this.forcePlague || 'hail') : undefined }; this.forceRift = null; }
+    // random room events, rolled once per room (all generous)
+    if (firstVisit && !def.ev) {
+      const fight = hasCombat(def) && def.kind !== 'boss';
+      const r = this.rng;
+      def.ev = { vehicle: fight && r() < EVENT_CHANCE.vehicle, merchant: fight && r() < EVENT_CHANCE.merchant, crafting: fight && r() < EVENT_CHANCE.crafting, bush: fight && r() < EVENT_CHANCE.bush };
+    }
+    G.alex.absorb = 0;
     room.begin();
+    if (this.pal) spawnPal();
     this.stat('roomsEntered', 1);
     // music
     if (def.kind !== 'gas' && def.kind !== 'boss' && G.audio.musicName() !== 'floor' + this.floor) G.audio.playMusic('floor' + this.floor);
@@ -181,6 +202,9 @@ export class Run {
     this.stat('time', dt);
     room.update(dt);
     tickPhoneTimers();
+    updateThrown(dt);
+    tickGadgetTimers();
+    if (this.palActor && this.palActor.alive) this.palActor.update(dt);
     if (this.pendingNightmare && G.time > this.pendingNightmare) { this.pendingNightmare = null; this.startNightmare(); }
     if (this.nightmare.active && this.nightmare.horse && G.mode === 'run') {
       if (this.nightmare.horse.update(dt)) this.caughtByHorse();
@@ -195,6 +219,7 @@ export class Run {
 
   onRoomCleared(room) {
     if (this.mods.clearHeal) G.alex.heal(this.mods.clearHeal, true);
+    if (this.gadget && !GADGETS[this.gadget.id].cooldown && this.gadget.charges < this.gadget.max) { this.gadget.charges++; G.hud.popup(`${GADGETS[this.gadget.id].icon} +1 ${GADGETS[this.gadget.id].name}`, '#7dd3fc', 1, true); }
     if (this.mods.clearMoney) this.addMoney(this.mods.clearMoney);
     // Ugly Girlfriend: losing hearts raises the Cook-Off chance
     if (this.cookoffFloor !== this.floor && room.def.kind !== 'boss') {
@@ -243,6 +268,19 @@ export class Run {
   grant(id) {
     const it = itemInfo(id);
     if (!it) return;
+    if (it.gadget) {
+      const g = GADGETS[it.gadget];
+      this.gadget = { id: it.gadget, charges: g.charges || 0, max: g.charges || 0, readyAt: 0 };
+      G.hud.popup('GADGET: ' + it.icon + ' ' + it.name + ' — press ' + G.input.glyph('gadget'), '#7dd3fc', 2);
+      this.stat('gadgetsFound', 1);
+      return;
+    }
+    if (it.devilFruit && this.items.some((k) => ITEMS[k]?.devilFruit)) {
+      G.hud.popup('YOU ATE A SECOND DEVIL FRUIT. THAT IS NOT HOW THIS WORKS.', '#e63946', 2.2);
+      G.alex.hp = Math.max(1, G.alex.hp - 30);
+      G.fx.flash(0.3, '#e63946');
+    }
+    if (it.absorb) G.alex.absorb = Math.max(G.alex.absorb || 0, it.absorb);
     if (it.weapon) {
       this.weapons[it.slot] = it.weapon;
       G.hud.popup('EQUIPPED: ' + it.name, '#4cc9f0', 1.6);
@@ -289,6 +327,7 @@ export class Run {
     return true;
   }
 
+  addBlocks(n) { this.blocks += n; this.stat('blocksMined', n); }
   stat(name, n) { this.stats[name] = (this.stats[name] || 0) + n; }
   statValue(name) {
     const s = this.stats;

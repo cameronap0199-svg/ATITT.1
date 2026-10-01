@@ -529,3 +529,4 @@ export const MODELS = {
     return { group: g, parts: {}, anim(e) { walk(e, L); body.rotation.y = Math.sin(performance.now() * 0.01 + e.pos.x) * 0.5; } };
   },
 };
+export { m as part, grp, cap, box, sph, cyl, cone, eyes, legs, walk, outline };

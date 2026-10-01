@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { G } from '../state.js';
 import { fmtMoney, clamp } from '../core/math.js';
-import { itemInfo, ITEMS } from '../items.js';
+import { itemInfo, ITEMS, GADGETS } from '../items.js';
 import { MELEE, RANGED } from '../combat/weapons.js';
 import { FLOOR_NAMES } from '../config.js';
 import { Nameplates } from './nameplates.js';
@@ -21,8 +21,10 @@ export class HUD {
     root.innerHTML = `
       <div class="hud-tl">
         <div class="hp"><div class="hp-fill"></div><div class="hp-ghost"></div><span class="hp-txt"></span></div>
-        <div class="money"></div>
-        <div class="weapons"><span class="w melee"></span><span class="w ranged"></span></div>
+        <div class="shieldbar"><i class="sb-shield"></i><i class="sb-absorb"></i></div>
+        <div class="moneyrow"><div class="money"></div><span class="blocks"></span></div>
+        <div class="weapons"><span class="w melee"></span><span class="w ranged"></span><span class="w gadget"></span></div>
+        <div class="pal"></div>
         <div class="items"></div>
       </div>
       <div class="hud-top"><div class="where"></div></div>
@@ -40,12 +42,15 @@ export class HUD {
       <div class="prompt"></div>
       <div class="intro"><div class="intro-t"></div><div class="intro-s"></div></div>
       <div class="roomtitle"><div class="rt-a"></div><div class="rt-b"></div></div>
+      <div class="riftbanner"><div class="rb-glitch"></div><div class="rb-tag"></div><div class="rb-title"></div><div class="rb-sub"></div></div>
+      <div class="wildbox"><span></span><i>▼</i></div>
       <div class="tutorial"></div>
       <div class="fps"></div>
       <div class="lockhint"></div>`;
     const q = (s) => root.querySelector(s);
     this.e = {
       hpFill: q('.hp-fill'), hpGhost: q('.hp-ghost'), hpTxt: q('.hp-txt'), money: q('.money'), melee: q('.w.melee'), ranged: q('.w.ranged'), items: q('.items'),
+      shieldbar: q('.shieldbar'), sbShield: q('.sb-shield'), sbAbsorb: q('.sb-absorb'), blocks: q('.blocks'), gadget: q('.w.gadget'), pal: q('.pal'),
       where: q('.where'), boss: q('.boss'), bossName: q('.boss-name'), bossFill: q('.boss-bar i'), bossGhost: q('.boss-bar b'), beat: q('.beatbar'),
       mini: q('.minimap'), big: q('.bigmap'), reticle: q('.reticle'), pips: q('.dashpips'), threats: q('.threats'), nums: q('.nums'), bubbles: q('.bubbles'),
       popups: q('.popups'), prompt: q('.prompt'), intro: q('.intro'), introT: q('.intro-t'), introS: q('.intro-s'), rt: q('.roomtitle'), rtA: q('.rt-a'), rtB: q('.rt-b'),
@@ -79,10 +84,42 @@ export class HUD {
     e.hpGhost.style.width = this.ghostHp * 100 + '%';
     e.hpTxt.textContent = Math.ceil(a.hp) + ' / ' + a.maxHp;
     e.hpFill.classList.toggle('low', f < 0.3);
-    e.money.textContent = fmtMoney(run.money);
+    this._money(realDt);
     const mw = MELEE[run.weapons.melee], rw = RANGED[run.weapons.ranged];
-    e.melee.innerHTML = `${mw.icon}<small>${esc(mw.name)}</small>`;
-    e.ranged.innerHTML = `${rw.icon}<small>${esc(rw.name)}</small>`;
+    const wKey = run.weapons.melee + '|' + run.weapons.ranged;
+    if (wKey !== this._wKey) {
+      if (this._wKey) for (const el2 of [e.melee, e.ranged]) { el2.classList.remove('swap'); void el2.offsetWidth; el2.classList.add('swap'); }
+      this._wKey = wKey;
+      e.melee.innerHTML = `${mw.icon}<small>${esc(mw.name)}</small>`;
+      e.ranged.innerHTML = `${rw.icon}<small>${esc(rw.name)}</small>`;
+    }
+    // shield / absorption
+    const smax = run.mods.shield || 0;
+    e.shieldbar.classList.toggle('on', smax > 0 || a.absorb > 0);
+    e.sbShield.style.transform = `scaleX(${smax ? clamp(a.shield / smax, 0, 1) : 0})`;
+    e.sbAbsorb.style.transform = `scaleX(${clamp((a.absorb || 0) / 30, 0, 1)})`;
+    e.shieldbar.classList.toggle('charging', smax > 0 && a.shield < smax && G.time - a.lastHitAt > 4);
+    // blocks, gadget, companion
+    e.blocks.textContent = run.blocks ? `◼ ${run.blocks}` : '';
+    const gd = run.gadget;
+    const gKey = gd ? gd.id + gd.charges + (gd.readyAt > G.time ? Math.ceil(gd.readyAt - G.time) : '') : '';
+    if (gKey !== this._gKey) {
+      this._gKey = gKey;
+      e.gadget.style.display = gd ? '' : 'none';
+      if (gd) {
+        const def = GADGETS[gd.id];
+        const cnt = def.cooldown ? (gd.readyAt > G.time ? Math.ceil(gd.readyAt - G.time) + 's' : 'READY') : '×' + gd.charges;
+        e.gadget.innerHTML = `${def.icon}<small>${esc(def.name)} <b class="key">${G.input.glyph('gadget')}</b> ${cnt}</small>`;
+        e.gadget.classList.toggle('empty', !def.cooldown && gd.charges <= 0);
+      }
+    }
+    const palKey = run.pal ? run.pal.name + run.pal.level : '';
+    if (palKey !== this._palKey) {
+      this._palKey = palKey;
+      e.pal.innerHTML = run.pal ? `<b>PAL</b> ${esc(run.pal.name)} <i>Lv${run.pal.level}</i>` : '';
+      e.pal.classList.toggle('on', !!run.pal);
+      if (run.pal) { e.pal.classList.remove('pop'); void e.pal.offsetWidth; e.pal.classList.add('pop'); }
+    }
     const itemsKey = run.items.join(',') + '|' + run.buffs.map((b) => b.id + b.roomsLeft).join(',');
     if (itemsKey !== this.lastItems) {
       this.lastItems = itemsKey;
@@ -124,6 +161,20 @@ export class HUD {
     e.lockhint.style.display = !G.input.pointerLocked && G.input.device === 'kbm' && G.mode === 'run' && !G.touch && !this.scratching ? 'block' : 'none';
     e.lockhint.textContent = 'Click the game to capture the mouse';
   }
+
+  // money counts up/down instead of jumping, and pops on change
+  _money(dt) {
+    const run = G.run, e = this.e;
+    if (this.shownMoney == null) this.shownMoney = run.money;
+    const diff = run.money - this.shownMoney;
+    if (Math.abs(diff) > 0.01) {
+      const step = Math.max(1, Math.abs(diff) * Math.min(1, dt * 10));
+      this.shownMoney = Math.abs(diff) <= step ? run.money : this.shownMoney + Math.sign(diff) * step;
+      if (!this._moneyPop) { e.money.classList.remove('up', 'down'); void e.money.offsetWidth; e.money.classList.add(diff > 0 ? 'up' : 'down'); this._moneyPop = true; }
+    } else this._moneyPop = false;
+    e.money.textContent = fmtMoney(Math.round(this.shownMoney));
+  }
+  gadgetUsed() { const g = this.e.gadget; g.classList.remove('used'); void g.offsetWidth; g.classList.add('used'); }
 
   _pips(dt) {
     const a = G.alex, max = a.maxCharges();
@@ -287,6 +338,30 @@ export class HUD {
       m.classList.toggle('bar', (Math.floor(b) + i) % 4 === 0);
     });
     e.querySelector('.beat-center').style.transform = `scale(${1 + Math.max(0, 1 - frac * 5) * 0.5})`;
+  }
+
+  riftBanner(r) {
+    const b = this.root.querySelector('.riftbanner');
+    const plague = { frogs: 'THE PLAGUE OF FROGS', locusts: 'THE PLAGUE OF LOCUSTS', hail: 'THE PLAGUE OF HAIL', darkness: 'THE PLAGUE OF DARKNESS' }[r.plague];
+    b.dataset.franchise = r.id;
+    b.style.setProperty('--rc', r.def.color); b.style.setProperty('--rc2', r.def.color2);
+    b.querySelector('.rb-tag').textContent = '⚠ RIFT · ' + r.def.name;
+    b.querySelector('.rb-title').textContent = plague || r.def.title.replace('RIFT: ', '');
+    b.querySelector('.rb-sub').textContent = r.def.intro;
+    b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
+    clearTimeout(this._rbT);
+    this._rbT = setTimeout(() => b.classList.remove('on'), 3600);
+    if (r.id === 'pokemon') {
+      // classic battle text box, typed out
+      const box = this.root.querySelector('.wildbox'), span = box.querySelector('span');
+      const names = (G.room?.waves || []).flat().filter((k) => k.startsWith('rift:')).map((k) => k.slice(5));
+      const who = { pikachew: 'PIKACHEW', gastlee: 'GASTLEE', magikrap: 'MAGIKRAP', snorelax: 'SNORELAX', gyarados: 'GYARA-DOS' }[names[0]] || 'POKÉMON';
+      const text = `A wild ${who} appeared!`;
+      box.classList.add('on');
+      let i = 0;
+      clearInterval(this._wbI);
+      this._wbI = setInterval(() => { span.textContent = text.slice(0, ++i); if (i >= text.length) { clearInterval(this._wbI); setTimeout(() => box.classList.remove('on'), 2200); } }, 40);
+    }
   }
 
   get scratching() { return this.scratch.isOpen; }

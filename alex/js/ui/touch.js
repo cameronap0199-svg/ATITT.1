@@ -17,6 +17,8 @@ export function setupTouch(root) {
       <button data-a="lock" class="tb sm">LOCK</button>
       <button data-a="interact" class="tb sm">USE</button>
       <button data-a="map" class="tb sm">MAP</button>
+      <button data-a="gadget" class="tb sm">GADGET</button>
+      <button data-a="ride" class="tb sm">RIDE</button>
     </div>
     <button data-a="pause" class="tb pausebtn">II</button>`;
   const stick = root.querySelector('.stick'), knob = stick.querySelector('i');

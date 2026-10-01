@@ -8,6 +8,8 @@ import { MODELS } from './enemyModels.js';
 import { ENEMY_INFO } from '../world/encounters.js';
 import { wrapAngle, clamp, dampAngle } from '../core/math.js';
 import { MOVE } from '../config.js';
+import { CROSS_CLASSES } from './crossover.js';
+import { CROSS_INFO } from '../world/rifts.js';
 
 const RUN = MOVE.runSpeed;
 const tmp = new THREE.Vector3();
@@ -874,11 +876,12 @@ const NAMES = { soloA: 'Solo Stan A', soloB: 'Solo Stan B' };
 const NO_REVIVE = new Set(['queen', 'ultBias', 'delulu', 'soloA', 'soloB', 'fanwar']);
 
 export function createEnemy(type, x, z, opts = {}) {
-  const C = CLASSES[type];
+  const C = CLASSES[type] || CROSS_CLASSES[type];
   if (!C) return null;
-  const info = ENEMY_INFO[type] || { name: NAMES[type], floor: 3, threat: 1 };
-  const floorGap = Math.max(0, (G.room?.floor || 1) - (info.floor || 1));
-  const e = new C({ type, name: info.name, x, z, threat: info.threat, hpMul: (opts.hpMul || 1) * (1 + 0.18 * floorGap) * (G.run?.mods.enemyHpMul || 1), ...opts });
+  const info = ENEMY_INFO[type] || CROSS_INFO[type] || { name: NAMES[type], floor: 3, threat: 1 };
+  // crossover enemies scale with the floor they turn up on
+  const floorGap = info.franchise ? (G.room?.floor || 1) - 1 : Math.max(0, (G.room?.floor || 1) - (info.floor || 1));
+  const e = new C({ type, name: info.name, x, z, threat: info.threat, franchise: info.franchise, elite: !!info.elite, hpMul: (opts.hpMul || 1) * (1 + 0.18 * floorGap) * (G.run?.mods.enemyHpMul || 1), ...opts });
   e.noRevive = NO_REVIVE.has(type);
   return e;
 }

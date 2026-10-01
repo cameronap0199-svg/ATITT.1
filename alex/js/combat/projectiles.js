@@ -13,15 +13,18 @@ const KINDS = {
   cd: { geo: () => new THREE.CylinderGeometry(1, 1, 0.14, 20), max: 150, flat: true },
   bubble: { geo: () => new THREE.BoxGeometry(1.8, 1.1, 0.5), max: 120 },
   crescent: { geo: () => { const g = new THREE.TorusGeometry(1, 0.22, 6, 20, Math.PI); g.rotateX(Math.PI / 2); g.rotateY(Math.PI / 2); return g; }, max: 40 },
+  arrow: { geo: () => new THREE.CylinderGeometry(0.35, 0.35, 4.2, 6).rotateX(Math.PI / 2), max: 200 },
   // friendly
   bolt: { geo: () => new THREE.CapsuleGeometry(0.5, 2.4, 3, 8).rotateX(Math.PI / 2), max: 300, friendly: true },
   slug: { geo: () => new THREE.SphereGeometry(1, 10, 8), max: 60, friendly: true, stretch: 2.2 },
   shirt: { geo: () => new THREE.BoxGeometry(1.6, 0.25, 1.3), max: 40, friendly: true, tumble: true },
   flame: { geo: () => new THREE.IcosahedronGeometry(1, 0), max: 260, friendly: true, tumble: true },
-  star: { geo: () => { const g = new THREE.OctahedronGeometry(1, 0); return g; }, max: 80, friendly: true, tumble: true },
+  star: { geo: () => { const g = new THREE.OctahedronGeometry(1, 0); return g; }, max: 120, friendly: true, tumble: true },
+  needle: { geo: () => new THREE.ConeGeometry(0.45, 3.2, 5).rotateX(Math.PI / 2), max: 160, friendly: true },
+  farrow: { geo: () => new THREE.CylinderGeometry(0.22, 0.22, 4.5, 5).rotateX(Math.PI / 2), max: 40, friendly: true },
 };
 
-const HOSTILE_CORE = { orb: '#ffe3f5', card: '#fff7fb', heart: '#ff9ccf', cd: '#e8f7ff', bubble: '#ffffff', crescent: '#ffd0f2' };
+const HOSTILE_CORE = { orb: '#ffe3f5', card: '#fff7fb', heart: '#ff9ccf', cd: '#e8f7ff', bubble: '#ffffff', crescent: '#ffd0f2', arrow: '#fff1d6' };
 const RIM = '#2a0014';
 
 export class Projectiles {
@@ -86,6 +89,20 @@ export class Projectiles {
         const sp = Math.hypot(p.vx, p.vz);
         p.vx += (dx / l * sp - p.vx) * Math.min(1, p.homing * dt);
         p.vz += (dz / l * sp - p.vz) * Math.min(1, p.homing * dt);
+      }
+      if (p.homing && !p.hostile && G.room) {
+        let best = null, bd = 14;
+        const sp = Math.hypot(p.vx, p.vz) || 1;
+        for (const e of G.room.enemies) {
+          if (!e.alive || !e.targetable() || e.intangible) continue;
+          const dx = e.pos.x - p.x, dz = e.pos.z - p.z, d = Math.hypot(dx, dz);
+          if (d < bd && (dx * p.vx + dz * p.vz) / (d * sp) > 0.2) { bd = d; best = e; }
+        }
+        if (best) {
+          const dx = best.pos.x - p.x, dz = best.pos.z - p.z, dy = best.pos.y + best.height * 0.6 - p.y, l = Math.hypot(dx, dy, dz) || 1, s3 = Math.hypot(p.vx, p.vy, p.vz);
+          const k = Math.min(1, p.homing * dt);
+          p.vx += (dx / l * s3 - p.vx) * k; p.vy += (dy / l * s3 - p.vy) * k; p.vz += (dz / l * s3 - p.vz) * k;
+        }
       }
       if (p.accel) { const s = 1 + p.accel * dt; p.vx *= s; p.vz *= s; }
       p.vy -= p.grav * dt;
@@ -183,7 +200,7 @@ export class Projectiles {
       else d.scale.set(r, r, r * st);
       d.updateMatrix();
       M.core.setMatrixAt(i, d.matrix);
-      let col = p.color || (p.hostile ? HOSTILE_CORE[p.kind] : '#9ff6ff');
+      let col = p.color || (p.hostile ? HOSTILE_CORE[p.kind] : p.kind === 'needle' ? '#f472b6' : p.kind === 'farrow' ? '#e7e5e4' : '#9ff6ff');
       if (p.hostile && contrast === 'max') col = '#fff9c4';
       this.col.set(col);
       M.core.setColorAt(i, this.col);

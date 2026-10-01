@@ -172,6 +172,10 @@ const SFX = {
   good: (o) => { tone(mtof(84), 0.08, { type: 'square', v: 0.06 * o.v }); tone(mtof(91), 0.14, { type: 'square', v: 0.06 * o.v, at: 0.07 }); },
   bad: (o) => { tone(mtof(55), 0.25, { type: 'sawtooth', v: 0.08 * o.v, lp: 900 }); },
   spawn: (o) => { tone(200, 0.4, { type: 'triangle', slide: 700, v: 0.05 * o.v, pan: o.pan }); },
+  hiss: (o) => { noise(1.4, { freq: 5200, sweep: 7000, v: 0.12 * o.v, filter: 'highpass', pan: o.pan, attack: 0.3 }); },
+  teleport: (o) => { tone(300, 0.25, { type: 'sine', slide: 1800, v: 0.08 * o.v, pan: o.pan }); noise(0.25, { freq: 2500, sweep: 600, v: 0.08 * o.v, pan: o.pan }); },
+  splash: (o) => { noise(0.35, { freq: 1200, sweep: 300, v: 0.18 * o.v, pan: o.pan, filter: 'lowpass' }); tone(500, 0.15, { type: 'sine', slide: 200, v: 0.05 * o.v, pan: o.pan }); },
+  zap: (o) => { noise(0.18, { freq: 6000, v: 0.2 * o.v, filter: 'highpass', pan: o.pan }); tone(1600, 0.15, { type: 'sawtooth', slide: 200, v: 0.07 * o.v, pan: o.pan }); },
   crack: (o) => { noise(0.05, { freq: 1800, v: 0.2 * o.v, q: 3 }); },
 };
 

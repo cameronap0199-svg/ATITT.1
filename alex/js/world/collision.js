@@ -295,6 +295,21 @@ export class World {
   }
 
   // Random walkable floor point, away from `avoid` points.
+  // Like openPoint, but sampled within rmax of (cx, cz).
+  openPointNear(rng, cx, cz, rmax, avoid = [], maxH = 0.6) {
+    if (this.navDirty || !this.nav) this.buildNav();
+    const n = this.nav;
+    for (let tries = 0; tries < 120; tries++) {
+      const a = rng() * Math.PI * 2, r = rmax * Math.sqrt(rng());
+      const x = cx + Math.sin(a) * r, z = cz + Math.cos(a) * r;
+      if (Math.abs(x) > this.w / 2 - 1.5 || Math.abs(z) > this.d / 2 - 1.5) continue;
+      const c = this.cellOf(x, z);
+      if (c < 0 || n.h[c] > maxH) continue;
+      if (avoid.some((p) => Math.hypot(p.x - x, p.z - z) < (p.r ?? 1))) continue;
+      return { x, z, y: n.h[c] };
+    }
+    return null;
+  }
   openPoint(rng, avoid = [], minDist = 6, maxH = 0.6, margin = 2.5) {
     if (this.navDirty || !this.nav) this.buildNav();
     const n = this.nav;

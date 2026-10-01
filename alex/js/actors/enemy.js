@@ -148,7 +148,7 @@ export class Enemy {
   los(t = this.target()) { return G.room.world.losClear(this.pos.x, this.pos.y + 1.2, this.pos.z, t.pos.x, t.pos.y + 1, t.pos.z); }
   atkK() { let k = 1; if (this.buff && G.time < this.buff.until) k *= 1.15; if (this.revived) k *= 1.15; if (this.affix === 'swift') k *= 1.12; if (this.frenzy) k *= 1.2; return k * (G.room.enemyAtkK || 1); }
   moveK() { let k = 1; if (this.buff && G.time < this.buff.until) k *= 1.15; if (this.revived) k *= 1.15; if (this.affix === 'swift') k *= 1.35; if (this.frenzy) k *= 1.25; return k * (this.slowK || 1); }
-  telK() { return G.room.telegraphK || 1; }
+  telK() { return (G.room.telegraphK || 1) * (G.run?.mods.foresight || 1); }
 
   // Movement -----------------------------------------------------------------
   faceTarget(dt, rate = 10, t = this.target()) { this.yaw = dampAngle(this.yaw, this.yawTo(t), rate, dt); }
@@ -298,6 +298,7 @@ export class Enemy {
     if (!routed) return null;
     dmg = routed.dmg * (this.dmgTakenK ? this.dmgTakenK(info) : 1);
     if (this.affix === 'armored' && !info.pierceArmor) dmg *= 0.65;
+    if (info.weapon === 'davidSling' && (this.heavy || this.elite)) dmg *= this.boss ? 2 : 4;
     if (dmg > 0) {
       this.hp -= dmg;
       this.flashT = 0.1;
