@@ -20,10 +20,17 @@ import { openRift, updateRift, closeRift, disposeRift } from './riftRoom.js';
 import { addCraftingTable, addMerchant, addBurningBush } from './events.js';
 import { Vehicle, VEHICLE_IDS } from '../vehicles.js';
 import { MC_INFO } from '../mc/mobs.js';
+import { itemCanvas } from '../pokemon/sprites.js';
+import { BAG_ITEMS } from '../pokemon/battle.js';
 import { pickupMesh, enemyDrops, propDrops, mineDamage, blockBroken, decorateRoom, mcUpdate, mcLeaveRoom, addMat, addXp } from '../mc/world.js';
 
 const threatOfType = (k) => (ENEMY_INFO[k] || CROSS_INFO[k.replace('rift:', '')] || MC_INFO[k])?.threat || 1;
 
+const pkMats = new Map();
+function pkPickupMesh(id) {
+  if (!pkMats.has(id)) { const t = new THREE.CanvasTexture(itemCanvas(id)); t.magFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace; pkMats.set(id, new THREE.SpriteMaterial({ map: t, alphaTest: 0.3 })); }
+  const s = new THREE.Sprite(pkMats.get(id)); s.scale.setScalar(0.45); return s;
+}
 const coinGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.05, 14);
 const billGeo = new THREE.BoxGeometry(0.42, 0.02, 0.2);
 const heartGeo = (() => { const g = new THREE.SphereGeometry(0.22, 10, 8); return g; })();
@@ -200,6 +207,9 @@ export class Room {
     const moneyKind = e.money;
     if (!e.noDrop) this.dropFromEnemy(e, moneyKind);
     enemyDrops(this, e);
+    if (!e.passive || e.boss) G.poke?.realtimeKill(e);
+    // Poké Balls turn up on defeated enemies now and then (Pokémon drop them more)
+    if (!e.noDrop && Math.random() < (e.franchise === 'pokemon' ? 0.35 : e.boss ? 1 : 0.06)) this.addPickup('pk', e.pos.x, e.pos.z, e.boss ? 3 : 1, false, e.boss ? 'ultraBall' : Math.random() < 0.15 ? 'greatBall' : Math.random() < 0.2 ? 'potion' : 'pokeBall');
     if (!e.noRevive && !e.boss) this.corpses.push({ type: e.type, x: e.pos.x, z: e.pos.z, used: false, noRevive: false });
     G.run.onKill(e, info);
   }
@@ -226,6 +236,7 @@ export class Room {
     if (kind === 'coin') mesh = new THREE.Mesh(coinGeo, mat('#ffd60a', { emissive: '#b8860b', emissiveIntensity: 0.4 }));
     else if (kind === 'bill') mesh = new THREE.Mesh(billGeo, mat('#52b788', { emissive: '#1b4332', emissiveIntensity: 0.4 }));
     else if (kind === 'mat' || kind === 'xp') mesh = pickupMesh(kind, id);
+    else if (kind === 'pk') mesh = pkPickupMesh(id);
     else mesh = new THREE.Mesh(heartGeo, glow('#ff4d6d'));
     const y = this.world.groundAt(x, z, 10, 0.1).h;
     mesh.position.set(x, y + 0.3, z);
@@ -376,6 +387,7 @@ export class Room {
         if (p.kind === 'heart') { if (a.hp >= a.maxHp) return true; a.heal(p.value); }
         else if (p.kind === 'mat') { addMat(p.id, p.value); G.audio.sfx('mcPop', { gap: 0.03, p: 0.9 + Math.random() * 0.3 }); }
         else if (p.kind === 'xp') addXp(p.value);
+        else if (p.kind === 'pk') { G.poke?.giveBag(p.id, p.value); G.audio.sfx('pkBall', { v: 0.6 }); G.hud.popup(`+${p.value} ${BAG_ITEMS[p.id]?.name || p.id}`, '#fca5a5', 0.9, true); }
         else { G.run.addMoney(p.value); G.audio.sfx(p.kind === 'coin' ? 'coin' : 'bill', { gap: 0.02 }); }
         this.group.remove(p.mesh);
         return false;

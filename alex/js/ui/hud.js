@@ -11,6 +11,8 @@ import { FLOOR_NAMES } from '../config.js';
 import { Nameplates } from './nameplates.js';
 import { ScratchOff } from './scratchoff.js';
 import { McHud } from '../mc/hudmc.js';
+import { spriteURL } from '../pokemon/sprites.js';
+import { monName, maxHp, expProgress } from '../pokemon/mon.js';
 
 const v = new THREE.Vector3();
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
@@ -26,6 +28,7 @@ export class HUD {
         <div class="moneyrow"><div class="money"></div><span class="mchud"></span></div>
         <div class="weapons"><span class="w melee"></span><span class="w ranged"></span><span class="w gadget"></span></div>
         <div class="pal"></div>
+        <div class="pkchip"></div>
         <div class="items"></div>
       </div>
       <div class="hud-top"><div class="where"></div></div>
@@ -52,7 +55,7 @@ export class HUD {
     const q = (s) => root.querySelector(s);
     this.e = {
       hpFill: q('.hp-fill'), hpGhost: q('.hp-ghost'), hpTxt: q('.hp-txt'), money: q('.money'), melee: q('.w.melee'), ranged: q('.w.ranged'), items: q('.items'),
-      shieldbar: q('.shieldbar'), sbShield: q('.sb-shield'), sbAbsorb: q('.sb-absorb'), gadget: q('.w.gadget'), pal: q('.pal'),
+      shieldbar: q('.shieldbar'), sbShield: q('.sb-shield'), sbAbsorb: q('.sb-absorb'), gadget: q('.w.gadget'), pal: q('.pal'), pk: q('.pkchip'),
       where: q('.where'), boss: q('.boss'), bossName: q('.boss-name'), bossFill: q('.boss-bar i'), bossGhost: q('.boss-bar b'), beat: q('.beatbar'),
       mini: q('.minimap'), big: q('.bigmap'), reticle: q('.reticle'), pips: q('.dashpips'), threats: q('.threats'), nums: q('.nums'), bubbles: q('.bubbles'),
       popups: q('.popups'), prompt: q('.prompt'), intro: q('.intro'), introT: q('.intro-t'), introS: q('.intro-s'), rt: q('.roomtitle'), rtA: q('.rt-a'), rtB: q('.rt-b'),
@@ -128,6 +131,20 @@ export class HUD {
       e.pal.innerHTML = run.pal ? `<b>PAL</b> ${esc(run.pal.name)} <i>Lv${run.pal.level}</i>` : '';
       e.pal.classList.toggle('on', !!run.pal);
       if (run.pal) { e.pal.classList.remove('pop'); void e.pal.offsetWidth; e.pal.classList.add('pop'); }
+    }
+    // lead Pokémon + party balls
+    const party = run.party || [];
+    const ld = party.find((m) => m.hp > 0) || party[0];
+    const pkKey = ld ? ld.uid + ld.species + ld.level + '|' + ld.hp + '|' + Math.round(expProgress(ld) * 40) + '|' + party.map((m) => (m.hp > 0 ? 1 : 0) + (m.status ? 's' : '')).join('') : '';
+    if (pkKey !== this._pkKey) {
+      const lvUp = this._pkLv && ld && ld.uid === this._pkUid && ld.level > this._pkLv;
+      this._pkKey = pkKey; this._pkLv = ld?.level; this._pkUid = ld?.uid;
+      e.pk.classList.toggle('on', !!ld);
+      if (ld) {
+        const k = ld.hp / maxHp(ld);
+        e.pk.innerHTML = `<img src="${spriteURL(ld.species, { shiny: ld.shiny })}" alt=""><div><b>${esc(monName(ld))}</b> <i>Lv${ld.level}</i><span class="pkc-hp"><u style="width:${k * 100}%;background:${k > 0.5 ? '#38d878' : k > 0.2 ? '#f8c030' : '#f05038'}"></u></span><span class="pkc-exp"><u style="width:${expProgress(ld) * 100}%"></u></span><span class="pkc-balls">${Array.from({ length: 6 }, (_, i) => `<s class="${party[i] ? (party[i].hp > 0 ? 'ok' : 'fnt') : ''}"></s>`).join('')}</span></div>`;
+        if (lvUp) { e.pk.classList.remove('pop'); void e.pk.offsetWidth; e.pk.classList.add('pop'); }
+      }
     }
     const itemsKey = run.items.join(',') + '|' + run.buffs.map((b) => b.id + b.roomsLeft).join(',');
     if (itemsKey !== this.lastItems) {
@@ -360,6 +377,8 @@ export class HUD {
   // per-room transient UI (rift banner, wild-encounter box)
   clearRoomUI() {
     clearInterval(this._wbI); clearTimeout(this._rbT);
+    // speech bubbles anchored in the old room go with it (Alex's own stay)
+    this.bubbleList = this.bubbleList.filter((b) => { if (b.ent === G.alex) return true; b.d.remove(); return false; });
     this.root.querySelector('.wildbox').classList.remove('on');
     this.root.querySelector('.riftbanner').classList.remove('on');
   }

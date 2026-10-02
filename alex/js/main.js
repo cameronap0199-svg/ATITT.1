@@ -21,6 +21,8 @@ import { loadPortraitOverrides } from './phone/portraits.js';
 import { codex } from './ui/compendium.js';
 import { initPack } from './mc/craftUI.js';
 import { initRealms } from './mc/realms.js';
+import { initPokemon } from './pokemon/index.js';
+import './pokemon/packTabs.js';
 
 const canvas = document.getElementById('view');
 const mini = document.getElementById('mini');
@@ -68,6 +70,7 @@ G.alex.model.setVisible(false);
 G.touch = setupTouch(document.getElementById('touch'));
 initPack();
 initRealms();
+initPokemon();
 
 function applySettings() {
   audio.setVolumes(G.settings);

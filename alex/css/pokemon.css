@@ -1,0 +1,86 @@
+/* ===================================================================== Pokémon */
+/* wild encounter transition: flashes, then bars close in */
+.pk-trans { position: fixed; inset: 0; z-index: 45; pointer-events: none; animation: pkFlash .5s steps(2) 1; }
+.pk-trans::before, .pk-trans::after { content: ''; position: absolute; left: 0; right: 0; height: 50%; background: #000; animation: pkBars .55s .5s cubic-bezier(.6,0,.4,1) forwards; }
+.pk-trans::before { top: 0; transform: translateY(-100%); }
+.pk-trans::after { bottom: 0; transform: translateY(100%); }
+@keyframes pkFlash { 0%, 50% { background: rgba(255,255,255,.85); } 25%, 75%, 100% { background: rgba(0,0,0,.6); } }
+@keyframes pkBars { to { transform: translateY(0); } }
+.reduce-flash .pk-trans { animation: none; background: rgba(0,0,0,.4); }
+
+/* HUD chip */
+.pkchip { display: none; align-items: center; gap: 6px; background: rgba(12,20,40,.72); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 3px 9px 4px 3px; width: max-content; }
+.pkchip.on { display: flex; }
+.pkchip.pop { animation: pkPop .5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes pkPop { 40% { transform: scale(1.15); box-shadow: 0 0 18px #fde047; } }
+.pkchip img { width: 40px; height: 40px; image-rendering: pixelated; }
+.pkchip b { font: 9px 'Press Start 2P', monospace; color: #fff; }
+.pkchip i { font: 8px 'Press Start 2P', monospace; color: #fde047; font-style: normal; }
+.pkc-hp, .pkc-exp { display: block; width: 110px; height: 4px; background: #3a3a3a; margin-top: 3px; border-radius: 2px; overflow: hidden; }
+.pkc-exp { height: 2px; }
+.pkc-hp u, .pkc-exp u { display: block; height: 100%; transition: width .4s; }
+.pkc-exp u { background: #40a8f8; }
+.pkc-balls { display: flex; gap: 3px; margin-top: 3px; }
+.pkc-balls s { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.15); border: 1px solid rgba(0,0,0,.4); text-decoration: none; }
+.pkc-balls s.ok { background: linear-gradient(#ef4444 50%, #f8fafc 50%); }
+.pkc-balls s.fnt { background: linear-gradient(#6b7280 50%, #9ca3af 50%); }
+
+/* Pack: Pokémon tabs */
+.pk-party { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; }
+.pk-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pkmon { position: relative; display: grid; grid-template-columns: 52px 1fr auto; grid-template-rows: auto auto auto auto; align-items: center; gap: 1px 6px; text-align: left; padding: 4px 8px 6px 4px; background: #d8f0f8; border: 3px solid #5070a0; border-radius: 10px; cursor: pointer; font-family: var(--ui); color: #383838; }
+.pkmon.sel { background: #f8e0a0; border-color: #f87030; }
+.pkmon.fnt { background: #e8c0c0; }
+.pkmon img { grid-row: 1 / span 4; width: 52px; height: 52px; image-rendering: pixelated; }
+.pk-n { font: 9px 'Press Start 2P', monospace; }
+.pk-n em { color: #d97706; font-style: normal; }
+.pk-l { font: 8px 'Press Start 2P', monospace; }
+.pk-hp, .pk-exp { grid-column: 2 / span 2; height: 5px; background: #585858; border: 1px solid #3a3a3a; }
+.pk-exp { height: 3px; }
+.pk-hp i, .pk-exp i { display: block; height: 100%; }
+.pk-exp i { background: #40a8f8; }
+.pk-hpn { grid-column: 2 / span 2; font: 7px 'Press Start 2P', monospace; text-align: right; }
+.st { background: #a040a0; color: #fff; padding: 0 3px; border-radius: 2px; }
+.pk-pc { display: flex; flex-wrap: wrap; gap: 3px; }
+.pk-box { position: relative; width: 52px; height: 52px; padding: 0; background: #b4c8d8; border: 2px solid #5070a0; border-radius: 6px; cursor: pointer; }
+.pk-box.sel { border-color: #f87030; background: #f8e0a0; }
+.pk-box img { width: 48px; height: 48px; image-rendering: pixelated; }
+.pk-box b { position: absolute; right: 2px; bottom: 1px; font: 7px 'Press Start 2P', monospace; color: #fff; text-shadow: 1px 1px 0 #000; }
+.pk-sum { background: #f8f8f0; border: 3px solid #706880; border-radius: 10px; padding: 10px; color: #383838; }
+.pk-sum-top { display: flex; gap: 10px; align-items: center; }
+.pk-sum-top img { width: 96px; height: 96px; image-rendering: pixelated; background: radial-gradient(#e0f0ff, #b8d8f0); border-radius: 12px; }
+.pk-sum h4 { margin: 0 0 4px; font: 11px 'Press Start 2P', monospace; }
+.pk-sum h4 small { font-family: var(--ui); font-size: 12px; color: #666; }
+.pk-sum p { margin: 3px 0; font-size: 13px; }
+.pk-dim { color: #777; font-size: 12px; }
+.pkt { display: inline-block; font: 7px 'Press Start 2P', monospace; font-style: normal; color: #fff; background: var(--tc); padding: 3px 5px; border-radius: 4px; text-shadow: 1px 1px 0 rgba(0,0,0,.35); }
+.pk-stats { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.pk-stats td { padding: 2px 4px; border-bottom: 1px solid #e5e5e5; }
+.pk-stats td:nth-child(2) { text-align: right; font-weight: 800; width: 60px; }
+.pk-stats tr.up td:first-child { color: #dc2626; } .pk-stats tr.down td:first-child { color: #2563eb; }
+.pk-sbar { display: block; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+.pk-sbar i { display: block; height: 100%; background: linear-gradient(90deg, #f59e0b, #22c55e); }
+.pk-moves { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.pk-move { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 4px 6px; display: flex; flex-direction: column; gap: 2px; }
+.pk-move b { font-size: 13px; }
+.pk-move span { font-size: 11px; color: #666; }
+.pk-sum .pk-actions select, .pk-bagi select { font-family: var(--ui); font-size: 12px; padding: 5px; border-radius: 3px; border: 2px solid #000; background: #e5e5e5; }
+.pk-msg { margin-top: 6px; background: #284860; color: #fff; padding: 6px 10px; border-radius: 4px; font: 9px/1.6 'Press Start 2P', monospace; }
+.pk-bag { display: flex; flex-direction: column; gap: 4px; max-width: 760px; }
+.pk-bagi { display: grid; grid-template-columns: 40px 1fr auto auto auto; grid-template-rows: auto auto; align-items: center; gap: 0 10px; background: #f8f8f0; border: 2px solid #b0a8c0; border-radius: 8px; padding: 4px 8px; color: #383838; }
+.pk-bagi img { grid-row: 1 / span 2; width: 36px; height: 36px; image-rendering: pixelated; }
+.pk-bagi b { font: 9px 'Press Start 2P', monospace; }
+.pk-bagi span { font: 9px 'Press Start 2P', monospace; }
+.pk-bagi small { grid-column: 2; font-size: 12px; color: #666; }
+.pk-bagi select, .pk-bagi .btn { grid-row: 1 / span 2; }
+@media (max-width: 760px) { .pk-party { grid-template-columns: 1fr; } .pk-list { grid-template-columns: 1fr; } .pk-bagi { grid-template-columns: 36px 1fr auto; } }
+
+/* Pokédex in the Compendium */
+.dex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.dex-card { background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 10px; padding: 4px; text-align: center; font-size: 11px; animation: cardIn .35s both; animation-delay: calc(var(--i, 0) * 12ms); }
+.dex-card img { width: 80px; height: 80px; image-rendering: pixelated; display: block; margin: 0 auto; }
+.dex-card.unseen img { filter: brightness(0) opacity(.45); }
+.dex-card b { display: block; font: 8px 'Press Start 2P', monospace; margin-top: 2px; }
+.dex-card i { font-style: normal; color: #9ca3af; font-size: 10px; }
+.dex-card.caught b::after { content: ' ◓'; color: #ef4444; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(8px); } }

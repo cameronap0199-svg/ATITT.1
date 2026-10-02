@@ -247,10 +247,12 @@ function tryCatch(t, e) {
       G.hud.popup(`Gotcha! ${e.name.toUpperCase()} was caught!`, '#fde047', 2);
       G.audio.sfx('win');
       G.fx.confetti(e.pos.x, 1.5, e.pos.z, 40);
+      G.run.stat('caught', 1);
+      // real Pokémon join the party; anything else becomes Alex's demon pal
+      if (G.poke?.catchRealtime(e)) { e.noDrop = true; e.die({ source: G.alex, captured: true }); return; }
       const old = G.run.pal;
       G.run.pal = { type: e.type, name: e.name, franchise: e.franchise || null, threat: e.threat || 1, level: 1 };
-      G.run.stat('caught', 1);
-      if (old) G.hud.popup(`${old.name} was sent to the PC.`, '#ffffff', 1.6, true);
+      if (old) G.hud.popup(`${old.name} wandered off. ${e.name} is your pal now.`, '#ffffff', 1.6, true);
       e.die({ source: G.alex, captured: true });
       spawnPal();
       return;

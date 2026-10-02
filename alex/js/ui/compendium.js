@@ -7,6 +7,9 @@ import { G } from '../state.js';
 import { MODELS } from '../actors/enemyModels.js';
 import { CROSS_MODELS } from '../actors/crossoverModels.js';
 import { MC_MODELS, MC_INFO } from '../mc/mobs.js';
+import { SPECIES_LIST } from '../pokemon/dex.js';
+import { TYPES } from '../pokemon/types.js';
+import { spriteURL } from '../pokemon/sprites.js';
 import { ENEMY_INFO } from '../world/encounters.js';
 import { CROSS_INFO } from '../world/rifts.js';
 import { ITEMS, GADGETS, itemInfo, WEAPON_PRICES } from '../items.js';
@@ -136,6 +139,15 @@ function itemCards() {
   }).join('');
 }
 
+function pokedexCards() {
+  const d = codex.data.dex || { seen: {}, caught: {} };
+  const seen = SPECIES_LIST.filter((s) => d.seen[s.id]).length, caught = SPECIES_LIST.filter((s) => d.caught[s.id]).length;
+  return `<p class="sub" style="grid-column:1/-1">Seen ${seen} · Caught ${caught} · ${SPECIES_LIST.length} in the regional dex</p><div class="dex-grid" style="grid-column:1/-1">` + SPECIES_LIST.map((s, i) => {
+    const sn = d.seen[s.id], ct = d.caught[s.id];
+    return `<div class="dex-card ${sn ? '' : 'unseen'} ${ct ? 'caught' : ''}" style="--i:${Math.min(i, 60)}"><img src="${spriteURL(s.id)}" alt=""><b>${sn ? esc(s.name) : '???'}</b><i>No.${String(s.no).padStart(3, '0')}${sn ? ' · ' + s.types.map((t) => TYPES[t].name).join('/') : ''}</i></div>`;
+  }).join('') + '</div>';
+}
+
 function vehicleCards() {
   return Object.entries(VEHICLES).map(([k, v]) => {
     const img = portrait('v:' + k, () => ({ group: BUILD[k]().group }));
@@ -155,6 +167,7 @@ export function compendiumPanel(onBack, makeButton) {
     'Venue demons': () => enemyCards(venue, ENEMY_INFO, (k) => () => MODELS[k]()),
     'Rift creatures': () => enemyCards(cross, CROSS_INFO, (k) => () => (CROSS_MODELS[k] || MC_MODELS[k])()),
     'Nether & End': () => enemyCards(mobs, MC_INFO, (k) => () => MC_MODELS[k]()),
+    'Pokédex': pokedexCards,
     'Items & weapons': itemCards,
     'Vehicles': vehicleCards,
   };

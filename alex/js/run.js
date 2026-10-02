@@ -22,6 +22,7 @@ import { updateThrown, clearThrown, tickGadgetTimers, spawnPal } from './gadgets
 import { mcInit, addMat } from './mc/world.js';
 import { ENCHANTS } from './mc/data.js';
 import { addStronghold } from './mc/realmLayouts.js';
+import { pokeInit } from './pokemon/index.js';
 
 const PROFILE = 'akdh2.profile.v1';
 export function loadProfile() {
@@ -50,6 +51,7 @@ export class Run {
     this.gadget = null;
     this.realm = 'overworld';
     mcInit(this);
+    pokeInit(this);
     this.pal = null;
     this.palActor = null;
     this.vehicle = null;
@@ -121,6 +123,7 @@ export class Run {
   // ---------------------------------------------------------------------------
   enterRoom(id, fromSide) {
     const prev = G.room;
+    G.poke?.leaveRoom();
     if (prev) prev.dispose();
     clearThrown();
     if (this.palActor) { this.palActor.dispose(); this.palActor = null; }
@@ -178,6 +181,7 @@ export class Run {
     }
     G.alex.absorb = 0;
     room.begin();
+    G.poke?.setupRoom(room);
     if (this.pal) spawnPal();
     // your ride comes through the door with you
     if (this.vehicle) {
@@ -242,6 +246,7 @@ export class Run {
     updateThrown(dt);
     tickGadgetTimers();
     if (this.palActor && this.palActor.alive) this.palActor.update(dt);
+    G.poke?.updateRoom(room, dt);
     if (this.pendingNightmare && G.time > this.pendingNightmare) { this.pendingNightmare = null; this.startNightmare(); }
     if (this.nightmare.active && this.nightmare.horse && G.mode === 'run') {
       if (this.nightmare.horse.update(dt)) this.caughtByHorse();
@@ -337,6 +342,8 @@ export class Run {
       return;
     }
     if (it.heal) G.alex.heal(it.heal);
+    if (id === 'rareCandy') G.poke?.giveBag('rareCandy', 1);
+    if (id === 'superPotion') G.poke?.giveBag('superPotion', 1);
     if (it.poisonChance && this.rng() < it.poisonChance) {
       this.buffs.push({ id: 'sushi', roomsLeft: 2, mods: { moveMul: 0.85, dashRechargeMul: 0.8 } });
       G.hud.popup('FOOD POISONING (2 rooms)', '#9ef01a', 1.6);
