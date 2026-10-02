@@ -65,28 +65,34 @@ function drawTemplate(g, rows, c) {
   });
 }
 
-// Deterministic pixel noise for block faces.
-function faceTex(kind, c, seed) {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 8;
+// Deterministic pixel noise for block faces (8 px for icons, 16 px for world blocks).
+export function faceTex(kind, c, seed, n = 8) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = n;
   const g = cv.getContext('2d');
-  let s = seed * 9301 + 49297;
+  const q = n / 8;
+  let s = (seed * 9301 + 49297) % 233280;
   const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+  for (let py = 0; py < n; py++) for (let px = 0; px < n; px++) {
+    const x = Math.floor(px / q), y = Math.floor(py / q);
     let col = c[0];
-    if (kind === 'ore') col = rnd() < 0.2 && x > 0 && y > 0 && x < 7 && y < 7 ? c[1] : shade(c[0], (rnd() - 0.5) * 0.25);
+    if (kind === 'ore') col = (rnd() < 0.2 / q && x > 0 && y > 0 && x < 7 && y < 7) || (q > 1 && ((x * 7 + y * 13 + seed) % 11 === 0) && x > 0 && y > 0 && x < 7 && y < 7) ? shade(c[1], (rnd() - 0.5) * 0.3) : shade(c[0], (rnd() - 0.5) * 0.25);
     else if (kind === 'log') col = x % 3 === 0 ? shade(c[0], -0.25) : shade(c[0], (rnd() - 0.5) * 0.2);
     else if (kind === 'logtop') col = (Math.max(Math.abs(x - 3.5), Math.abs(y - 3.5)) | 0) % 2 ? c[1] : shade(c[1], -0.15);
     else if (kind === 'planks') col = y % 4 === 3 ? shade(c[0], -0.3) : shade(c[0], (rnd() - 0.5) * 0.15);
-    else if (kind === 'brick') col = y % 4 === 3 || (x + (y >> 2) * 4) % 8 === 0 ? shade(c[0], -0.35) : shade(c[0], (rnd() - 0.5) * 0.15);
+    else if (kind === 'brick') col = y % 4 === 3 || (x + (y >> 2) * 4) % 8 === 0 ? shade(c[0], -0.35) : shade(c[c[1] && rnd() < 0.2 ? 1 : 0], (rnd() - 0.5) * 0.15);
     else if (kind === 'grassside') col = y < 2 || (y === 2 && rnd() < 0.5) ? shade(c[0], (rnd() - 0.5) * 0.2) : shade(c[1], (rnd() - 0.5) * 0.25);
     else if (kind === 'tnt') col = y >= 3 && y <= 4 ? '#f5f5f5' : shade(c[0], (rnd() - 0.5) * 0.15);
-    else if (kind === 'furnace') col = x >= 2 && x <= 5 && y >= 4 && y <= 6 ? '#1a1a1a' : shade(c[0], (rnd() - 0.5) * 0.3);
+    else if (kind === 'furnace') col = x >= 2 && x <= 5 && y >= 4 && y <= 6 ? (y === 6 && rnd() < 0.5 ? '#f97316' : '#1a1a1a') : shade(c[0], (rnd() - 0.5) * 0.3);
     else if (kind === 'tabletop') col = (x === 0 || y === 0 || x === 7 || y === 7) ? shade(c[1], -0.2) : shade(c[0], (rnd() - 0.5) * 0.15);
     else if (kind === 'enchant') col = y < 2 ? '#dc2626' : y < 3 ? '#38bdf8' : shade(c[0], (rnd() - 0.5) * 0.3);
     else if (kind === 'glow') col = rnd() < 0.4 ? c[0] : shade(c[1], (rnd() - 0.3) * 0.3);
-    else col = shade(c[rnd() < 0.15 && c[2] ? 2 : 0], (rnd() - 0.5) * 0.3);
+    else if (kind === 'leaves') col = rnd() < 0.18 ? shade(c[1], -0.4) : shade(c[0], (rnd() - 0.5) * 0.35);
+    else if (kind === 'obsidian') col = rnd() < 0.12 ? c[1] : shade(c[0], (rnd() - 0.5) * 0.5);
+    else if (kind === 'endframe') col = y < 2 ? shade('#2f6b5f', (rnd() - 0.5) * 0.3) : shade(c[0], (rnd() - 0.5) * 0.15);
+    else if (kind === 'lava') col = shade(rnd() < 0.3 ? '#fde047' : '#f97316', (rnd() - 0.5) * 0.25);
+    else col = shade(c[rnd() < 0.15 && c[2] ? 2 : rnd() < 0.25 && c[1] ? 1 : 0], (rnd() - 0.5) * 0.25);
     g.fillStyle = col;
-    g.fillRect(x, y, 1, 1);
+    g.fillRect(px, py, 1, 1);
   }
   return cv;
 }

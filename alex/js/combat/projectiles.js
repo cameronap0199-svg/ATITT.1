@@ -129,7 +129,7 @@ export class Projectiles {
       if (b) {
         if (b === 'floor') {
           if (p.bounce > 0) { p.bounce--; p.vy = Math.abs(p.vy) * 0.6; p.y = 0.05; return false; }
-        } else if (b.hp != null && G.room) G.room.damageBlock(b, p.dmg * p.propDmg, p);
+        } else if (b.hp != null && G.room) G.room.damageBlock(b, p.dmg * p.propDmg, { hostile: p.hostile, proj: true });
         if (p.onHit) p.onHit(p, null);
         G.fx.burst(p.x, p.y, p.z, { n: 5, color: p.hostile ? '#ff9ccf' : '#8ff7ff', speed: 3, life: 0.25, size: 0.12 });
         return true;

@@ -19,6 +19,7 @@ import { FLOOR_PALETTE } from './world/builder.js';
 import { setupTouch } from './ui/touch.js';
 import { loadPortraitOverrides } from './phone/portraits.js';
 import { codex } from './ui/compendium.js';
+import { initPack } from './mc/craftUI.js';
 
 const canvas = document.getElementById('view');
 const mini = document.getElementById('mini');
@@ -64,6 +65,7 @@ G.codex = codex;
 G.alex = new Alex(scene);
 G.alex.model.setVisible(false);
 G.touch = setupTouch(document.getElementById('touch'));
+initPack();
 
 function applySettings() {
   audio.setVolumes(G.settings);
@@ -99,7 +101,7 @@ function startRun(seed, opts = {}) {
   if (!G.touch) G.input.requestLock();
 }
 function setFloorLook(n) {
-  const pal = FLOOR_PALETTE[n];
+  const pal = FLOOR_PALETTE[n] || FLOOR_PALETTE[1];
   scene.background.set(pal.bg);
   scene.fog.color.set(pal.fog);
 }
@@ -123,6 +125,7 @@ function quitToTitle() {
   if (G.room) { G.room.dispose(); G.room = null; }
   G.projectiles.clear(); G.areas.clear(); G.fx.clear();
   G.phone.reset();
+  G.pack?.close();
   G.hud.show(false);
   G.alex.model.setVisible(false);
   G.run = null;
@@ -161,12 +164,14 @@ function simulate(realDt) {
   const dt = realDt * scale;
   G.dt = dt;
   G.input.update(realDt);
-  if (G.mode !== frame.lastMode) { frame.lastMode = G.mode; document.body.classList.toggle('playing', G.mode === 'run'); document.body.classList.toggle('minigame', G.mode === 'minigame'); }
+  if (G.mode !== frame.lastMode) { frame.lastMode = G.mode; document.body.classList.toggle('playing', G.mode === 'run'); document.body.classList.toggle('minigame', G.mode === 'minigame'); document.body.classList.toggle('packing', G.mode === 'pack'); }
 
   if (G.mode === 'run') {
     if (G.input.pressed('pause')) { pause(); return; }
+    if (G.input.pressed('pack') && !G.run.transition) { G.pack.open(); return; }
     G.time += dt;
-    if (G.run.floor !== G._lookFloor) { G._lookFloor = G.run.floor; setFloorLook(G.run.floor); }
+    const look = G.run.realm && G.run.realm !== 'overworld' ? G.run.realm : G.run.floor;
+    if (look !== G._lookFloor) { G._lookFloor = look; setFloorLook(look); }
     G.targeting.update(dt);
     if (!G.run.transition) G.alex.update(dt);
     G.run.update(dt);
@@ -178,6 +183,9 @@ function simulate(realDt) {
     G.hud.update(dt, realDt);
     audio.setIntensity(G.room && G.room.combatLive() ? 1 : 0.5);
     if (G.debug) debugKeys();
+  } else if (G.mode === 'pack') {
+    G.pack.update(realDt);
+    G.hud.update(0, realDt);
   } else if (G.mode === 'minigame' && G.minigame) {
     // (minigames can't be paused: the nightmare waits for no one)
     const m = G.minigame;

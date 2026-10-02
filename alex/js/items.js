@@ -59,6 +59,14 @@ export const ITEMS = {
   manna: { cat: 'rift', franchise: 'bible', name: 'Manna from Heaven', icon: '🍞', price: 10, desc: 'Heals 15, then heals 6 every time you clear a room this floor.', heal: 15, timed: { floor: true, mods: { clearHeal: 6 } } },
   loavesFishes: { cat: 'rift', franchise: 'bible', name: 'Five Loaves & Two Fishes', icon: '🐟', price: 32, desc: 'All healing is doubled.', mods: { healMul: 2 } },
   armorOfGod: { cat: 'rift', franchise: 'bible', name: 'Armor of God', icon: '✝️', price: 46, desc: 'Take 15% less damage; the shield of faith blocks 15% of projectiles outright. (Ephesians 6)', mods: { dmgTakenMul: 0.85, faithBlock: 0.15 } },
+  // --- crafted Minecraft gear (crafting table only) -------------------------------
+  leatherTunic: { cat: 'special', franchise: 'minecraft', name: 'Leather Tunic', icon: '🦺', price: 0, desc: 'Take 5% less damage, +5 max HP. Crafted.', mods: { dmgTakenMul: 0.95, maxHp: 5 } },
+  ironHelmet: { cat: 'special', franchise: 'minecraft', name: 'Iron Helmet', icon: '⛑️', price: 0, desc: 'Take 6% less damage. Crafted.', mods: { dmgTakenMul: 0.94 } },
+  goldHelmet: { cat: 'special', franchise: 'minecraft', name: 'Golden Helmet', icon: '👑', price: 0, desc: 'Take 4% less damage. Piglins think you are cool (they ignore you longer).', mods: { dmgTakenMul: 0.96, piglinFriend: 1 } },
+  diamondArmor: { cat: 'special', franchise: 'minecraft', name: 'Diamond Chestplate', icon: '💠', price: 0, desc: 'Take 18% less damage, +20 max HP. Crafted.', mods: { dmgTakenMul: 0.82, maxHp: 20 } },
+  diamondHelmet: { cat: 'special', franchise: 'minecraft', name: 'Diamond Helmet', icon: '🔷', price: 0, desc: 'Take 9% less damage. Crafted.', mods: { dmgTakenMul: 0.91 } },
+  mcShield: { cat: 'special', franchise: 'minecraft', name: 'Shield', icon: '🛡️', price: 0, desc: '+25 recharging shield. Crafted from planks and iron.', mods: { shield: 25 } },
+  dragonEgg: { cat: 'special', franchise: 'minecraft', name: 'Dragon Egg', icon: '🥚', price: 0, desc: 'You killed the Ender Dragon. +25% damage, +25 max HP.', mods: { dmgMul: 1.25, maxHp: 25 } },
   blessing: { cat: 'special', name: 'Blessing of the Burning Bush', icon: '🌿', price: 0, desc: 'Full heal and +10 max HP. The bush is fine, by the way.', heal: 999, mods: { maxHp: 10 } },
 };
 
@@ -77,8 +85,6 @@ export function gadgetItem(id) {
 }
 export const GADGET_PRICES = { plasmaGrenade: 30, tnt: 28, enderPearl: 26, captureBall: 34, mosesStaff: 42 };
 
-// Crafting table recipes (cost in blocks).
-export const RECIPES = [['w:diamondSword', 10], ['g:tnt', 5], ['goldenApple', 4], ['ironArmor', 8], ['g:enderPearl', 6], ['w:bow', 7]];
 
 // Weapons sold in the locked case / found in Lost & Found.
 export const WEAPON_PRICES = { revolver: 35, nunchucks: 28, shirtCannon: 32, gasPump: 40, fanSign: 38, shuriken: 24, energySword: 45, diamondSword: 34, samsonJawbone: 36, needler: 38, bow: 30, davidSling: 32 };
@@ -124,8 +130,9 @@ export const BASE_MODS = {
   perfectWindow: 0, moneyChance: 0, moneyMul: 1, magnetMul: 1, maxHp: 0, stunChance: 0, lifesteal: 0, dmgTakenMul: 1,
   priceMul: 1, revive: 0, readable: 0, clearHeal: 0, clearMoney: 0, phoneTime: 1, attackSpeed: 1,
   shield: 0, healMul: 1, meleeRange: 0, fireDash: 0, devilFruit: 0, pierceArmor: 0, foresight: 1, faithBlock: 0, companionDmg: 1,
+  mineMul: 1, mcFortune: 0, mcLoot: 0, fireAspect: 0, piglinFriend: 0,
 };
-const ADDITIVE = new Set(['dashCharges', 'airDashes', 'perfectWindow', 'moneyChance', 'maxHp', 'stunChance', 'lifesteal', 'revive', 'readable', 'clearHeal', 'clearMoney', 'shield', 'meleeRange', 'fireDash', 'devilFruit', 'pierceArmor', 'faithBlock']);
+const ADDITIVE = new Set(['dashCharges', 'airDashes', 'perfectWindow', 'moneyChance', 'maxHp', 'stunChance', 'lifesteal', 'revive', 'readable', 'clearHeal', 'clearMoney', 'shield', 'meleeRange', 'fireDash', 'devilFruit', 'pierceArmor', 'faithBlock', 'mcFortune', 'mcLoot', 'fireAspect', 'piglinFriend']);
 
 export function combineMods(itemIds, buffs) {
   const m = { ...BASE_MODS };

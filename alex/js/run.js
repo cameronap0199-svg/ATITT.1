@@ -19,6 +19,8 @@ import { addPedestals, addExit } from './shop.js';
 import { rollRift, EVENT_CHANCE } from './world/rifts.js';
 import { GADGETS } from './items.js';
 import { updateThrown, clearThrown, tickGadgetTimers, spawnPal } from './gadgets.js';
+import { mcInit, addMat } from './mc/world.js';
+import { ENCHANTS } from './mc/data.js';
 
 const PROFILE = 'akdh2.profile.v1';
 export function loadProfile() {
@@ -45,7 +47,8 @@ export class Run {
     this.buffs = [];
     this.weapons = { melee: 'hunterBlade', ranged: 'micBlaster' };
     this.gadget = null;
-    this.blocks = 0;
+    this.realm = 'overworld';
+    mcInit(this);
     this.pal = null;
     this.palActor = null;
     this.vehicle = null;
@@ -349,8 +352,16 @@ export class Run {
     if (!it.heal && !it.weapon) G.hud.popup('GOT: ' + (it.icon || '') + ' ' + it.name, '#ffd60a', 1.4, true);
   }
 
+  // Enchantments and carried trophies act like permanent buffs.
+  passiveBuffs() {
+    const out = [];
+    for (const [id, lvl] of Object.entries(this.ench || {})) for (let i = 0; i < lvl; i++) out.push({ mods: ENCHANTS[id]?.mods });
+    if (this.inv?.dragonEgg) out.push({ mods: ITEMS.dragonEgg.mods });
+    return out;
+  }
+
   recomputeMods() {
-    this.mods = combineMods(this.items, this.buffs);
+    this.mods = combineMods(this.items, [...this.buffs, ...this.passiveBuffs()]);
     const a = G.alex;
     const newMax = PLAYER.maxHp + this.mods.maxHp;
     if (newMax !== a.maxHp) { const gain = newMax - a.maxHp; a.maxHp = newMax; if (gain > 0) a.hp += gain; a.hp = Math.min(a.hp, a.maxHp); }
@@ -365,7 +376,7 @@ export class Run {
     return true;
   }
 
-  addBlocks(n) { this.blocks += n; this.stat('blocksMined', n); }
+  addBlocks(n) { addMat('cobblestone', n); }
   stat(name, n) { this.stats[name] = (this.stats[name] || 0) + n; }
   statValue(name) {
     const s = this.stats;

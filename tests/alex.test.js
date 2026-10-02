@@ -214,12 +214,13 @@ test('crossover rifts: every franchise composes within budget from its own roste
 
 test('crossover loot: every reward resolves to a real item, weapon or gadget', async () => {
   const { RIFTS } = await import('../alex/js/world/rifts.js');
-  const { itemInfo, poolFor, RECIPES, GADGETS } = await import('../alex/js/items.js');
+  const { itemInfo, poolFor, GADGETS } = await import('../alex/js/items.js');
+  const { MC_GEAR } = await import('../alex/js/mc/data.js');
   for (const [id, R] of Object.entries(RIFTS)) {
     for (const k of R.rewards) { const it = itemInfo(k); assert.ok(it && it.name && it.icon && it.desc, `${id}: ${k}`); }
     assert.deepEqual(poolFor('rift:' + id), R.rewards);
   }
-  for (const [k] of RECIPES) assert.ok(itemInfo(k), k);
+  for (const g of Object.values(MC_GEAR)) if (g.grant) assert.ok(itemInfo(g.grant), g.grant);
   for (const g of Object.keys(GADGETS)) assert.ok(itemInfo('g:' + g).gadget === g);
   const mods = combineMods(['overshield', 'gumGum', 'flameFruit', 'loavesFishes', 'armorOfGod', 'armorOfGod', 'armorOfGod'], []);
   assert.equal(mods.shield, 40); assert.equal(mods.healMul, 2); assert.ok(mods.faithBlock <= 0.35); assert.equal(mods.devilFruit, 2);

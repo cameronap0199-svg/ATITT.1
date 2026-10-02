@@ -19,14 +19,13 @@ import { RIFTS, composeRift, CROSS_INFO, EVENT_CHANCE } from './rifts.js';
 import { openRift, updateRift, closeRift, disposeRift } from './riftRoom.js';
 import { addCraftingTable, addMerchant, addBurningBush } from './events.js';
 import { Vehicle, VEHICLE_IDS } from '../vehicles.js';
+import { pickupMesh, enemyDrops, propDrops, mineDamage, blockBroken, decorateRoom, mcUpdate, mcLeaveRoom, addMat, addXp } from '../mc/world.js';
 
 const threatOfType = (k) => (ENEMY_INFO[k] || CROSS_INFO[k.replace('rift:', '')])?.threat || 1;
 
 const coinGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.05, 14);
 const billGeo = new THREE.BoxGeometry(0.42, 0.02, 0.2);
 const heartGeo = (() => { const g = new THREE.SphereGeometry(0.22, 10, 8); return g; })();
-const blockGeo = new THREE.BoxGeometry(0.32, 0.32, 0.32);
-const blockMats = [new THREE.MeshToonMaterial({ color: '#8b5a2b' }), new THREE.MeshToonMaterial({ color: '#5bb450' })];
 
 export class Room {
   constructor(def, floor, doorsIn) {
@@ -74,7 +73,9 @@ export class Room {
     if (def.kind === 'treasure') addPedestals(this, 'treasure', 2, { choose: true });
     if (def.kind === 'secret') { addPedestals(this, 'secret', 1, {}); if (!def.looted) { this.dropMoney(0, -2, 15); } }
     if (def.kind === 'boss' && def.cleared && (this.floor < 3 || G.run.infinite)) { addPedestals(this, 'boss', 1, {}); addExit(this); }
-    if (def.kind === 'start' && this.floor === 1 && !def.visited) G.hud.tutorial();
+    if (def.kind === 'start' && this.floor === 1 && !def.visited && !def.realm) G.hud.tutorial();
+    // Minecraft: trees, ore veins, ruined portals, placed stations, portals
+    decorateRoom(this);
     // parked vehicles stay where you left them; some fights come with a free ride
     if (def.parked) { for (const p of def.parked) this.spawnVehicle(p.type, p.x, p.z, p.yaw, p); def.parked = null; }
     if (def.ev?.vehicle && !def.vehicleSpawned) {
@@ -83,10 +84,10 @@ export class Room {
       if (p) { const type = this.rng.pick(VEHICLE_IDS); this.spawnVehicle(type, p.x, p.z, this.rng() * Math.PI * 2); G.hud.popup('A RIDE IS PARKED HERE — ' + G.input.glyph('ride') + ' / ' + G.input.glyph('interact') + ' to hop in', '#67f3ff', 2, true); }
     }
     // restore uncollected pickups
-    if (def.savedPickups) { for (const p of def.savedPickups) this.addPickup(p.kind, p.x, p.z, p.value, true); def.savedPickups = null; }
+    if (def.savedPickups) { for (const p of def.savedPickups) this.addPickup(p.kind, p.x, p.z, p.value, true, p.id); def.savedPickups = null; }
   }
 
-  combatLive() { return !this.cleared && (this.enemies.some((e) => e.alive) || this.waveIdx < this.waves.length); }
+  combatLive() { return !this.cleared && (this.enemies.some((e) => e.alive && !e.passive) || this.waveIdx < this.waves.length); }
 
   spawnEncounter() {
     const def = this.def;
@@ -188,7 +189,7 @@ export class Room {
   onEnemyDeath(e, info) {
     const moneyKind = e.money;
     if (!e.noDrop) this.dropFromEnemy(e, moneyKind);
-    if (!e.noDrop && (e.franchise === 'minecraft' || Math.random() < 0.06)) this.addPickup('block', e.pos.x, e.pos.z, e.franchise === 'minecraft' ? 1 + (Math.random() < 0.45 ? 1 : 0) : 1);
+    enemyDrops(this, e);
     if (!e.noRevive && !e.boss) this.corpses.push({ type: e.type, x: e.pos.x, z: e.pos.z, used: false, noRevive: false });
     G.run.onKill(e, info);
   }
@@ -209,22 +210,24 @@ export class Room {
     for (let i = 0; i < bills; i++) this.addPickup('bill', x, z, 5);
     for (let i = 0; i < Math.min(coins, 30); i++) this.addPickup('coin', x, z, 1 + (i === 29 ? coins - 30 : 0));
   }
-  addPickup(kind, x, z, value, still) {
+  addPickup(kind, x, z, value, still, id) {
     let mesh;
+    if (kind === 'block') { kind = 'mat'; id = 'cobblestone'; }
     if (kind === 'coin') mesh = new THREE.Mesh(coinGeo, mat('#ffd60a', { emissive: '#b8860b', emissiveIntensity: 0.4 }));
     else if (kind === 'bill') mesh = new THREE.Mesh(billGeo, mat('#52b788', { emissive: '#1b4332', emissiveIntensity: 0.4 }));
-    else if (kind === 'block') mesh = new THREE.Mesh(blockGeo, [blockMats[0], blockMats[0], blockMats[1], blockMats[0], blockMats[0], blockMats[0]]);
+    else if (kind === 'mat' || kind === 'xp') mesh = pickupMesh(kind, id);
     else mesh = new THREE.Mesh(heartGeo, glow('#ff4d6d'));
     const y = this.world.groundAt(x, z, 10, 0.1).h;
     mesh.position.set(x, y + 0.3, z);
     this.group.add(mesh);
     const a = Math.random() * Math.PI * 2, sp = still ? 0 : 2 + Math.random() * 3;
-    this.pickups.push({ kind, value, mesh, x, y: y + 0.3, z, vx: Math.sin(a) * sp, vy: still ? 0 : 5 + Math.random() * 2, vz: Math.cos(a) * sp, t: 0, ground: y });
+    this.pickups.push({ kind, id, value, mesh, x, y: y + 0.3, z, vx: Math.sin(a) * sp, vy: still ? 0 : 5 + Math.random() * 2, vz: Math.cos(a) * sp, t: 0, ground: y });
   }
 
   // ---------------------------------------------------------------------------
   damageBlock(b, dmg, src) {
     if (!b || b.hp == null || !b.alive) return;
+    if (b.data.mc) { dmg = mineDamage(this, b, dmg, src || {}); if (!(dmg > 0)) return; }
     b.hp -= dmg;
     if (b.meshes) { b.meshes.position.x = b.x + (Math.random() - 0.5) * 0.08; setTimeout(() => { if (b.meshes) b.meshes.position.x = b.x; }, 60); }
     if (b.hp > 0) return;
@@ -238,7 +241,8 @@ export class Room {
     const cx = b.x, cz = b.z, cy = (b.y0 + b.y1) / 2;
     G.fx.burst(cx, cy, cz, { n: 24, kind: 'debris', color: [col, '#444', '#ddd'], speed: 7, up: 1, life: 1.0, size: 0.25 });
     if (b.kind === 'rack' || b.data.model === 'shirtwall' || b.data.model === 'rack') G.fx.confetti(cx, cy + 0.5, cz, 40);
-    if (b.kind === 'block') this.addPickup('block', cx, cz, 1);
+    if (b.data.mc || b.data.portalFrame) blockBroken(this, b, opts);
+    else if (!opts.decay) propDrops(this, b);
     if (b.data.model === 'car') {
       G.areas.circle({ x: cx, z: cz, r: 2.8, delay: 0.05, dmg: opts.vehicle ? 0 : 14, ff: !opts.vehicle, enemyDmg: 20, owner: 'hazard', style: 'fire', sound: 'boom', shake: 0.4, propDmg: opts.vehicle ? 0 : 20 });
       G.hud.bubble({ pos: new THREE.Vector3(cx, 0, cz), height: 1.5, alive: true }, 'CAR ALARM!', '#ff2e4d', 1.2);
@@ -251,16 +255,16 @@ export class Room {
       if (b.containsXZ(o.x, o.z, 0.05)) this.destroyBlock(o, opts);
     }
   }
-  damageBlocksInRadius(x, z, r, dmg) {
-    for (const b of this.world.blocks.slice()) if (b.hp != null && b.alive && Math.hypot(b.x - x, b.z - z) < r + b.radius() * 0.6) this.damageBlock(b, dmg);
+  damageBlocksInRadius(x, z, r, dmg, src = { explosion: true }) {
+    for (const b of this.world.blocks.slice()) if (b.hp != null && b.alive && Math.hypot(b.x - x, b.z - z) < r + b.radius() * 0.6) this.damageBlock(b, dmg, src);
   }
-  damageBlocksInArc(x, z, yaw, range, halfArc, dmg) {
+  damageBlocksInArc(x, z, yaw, range, halfArc, dmg, src = { melee: true }) {
     for (const b of this.world.blocks.slice()) {
       if (b.hp == null || !b.alive) continue;
       const dx = b.x - x, dz = b.z - z, d = Math.hypot(dx, dz);
       if (d - b.radius() * 0.7 > range) continue;
       const a = Math.abs(((Math.atan2(dx, dz) - yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-      if (a < halfArc + 0.3 || d < 1.2) this.damageBlock(b, dmg);
+      if (a < halfArc + 0.3 || d < 1.2) this.damageBlock(b, dmg, src);
     }
   }
 
@@ -280,14 +284,15 @@ export class Room {
     for (const h of this.hazards) h.update(dt, live);
     for (const fn of this.animators) fn(G.time, dt);
     updateRift(this, dt);
+    mcUpdate(this, dt);
     for (const v of this.vehicles) if (!v.driver) v.update(dt);
     // waves
     if (!this.cleared && this.fightStarted) {
       if (this.waveIdx < this.waves.length) {
-        const alive = this.waveMembers.filter((e) => e.alive);
+        const alive = this.waveMembers.filter((e) => e.alive && !e.passive);
         const left = alive.reduce((s, e) => s + (e.threat || 1), 0);
         if (!alive.length || left < this.waveThreat * 0.3) this.spawnWave();
-      } else if (!this.enemies.some((e) => e.alive)) this.onClear();
+      } else if (!this.enemies.some((e) => e.alive && !e.passive)) this.onClear();
     }
     this._pickups(dt);
     this._interact();
@@ -327,7 +332,7 @@ export class Room {
     }
     if (this.def.kind === 'preboss') this.addPickup('heart', 0, 0, 25);
     const ev = this.def.ev || {};
-    if (ev.crafting || this.rift?.id === 'minecraft') addCraftingTable(this);
+    if ((ev.crafting || this.rift?.id === 'minecraft') && !this.def.tableGiven) { this.def.tableGiven = true; addCraftingTable(this); }
     if (ev.merchant) addMerchant(this);
     if (ev.bush || (this.rift?.id === 'bible' && Math.random() < 0.35)) addBurningBush(this);
     G.run.onRoomCleared(this);
@@ -340,7 +345,7 @@ export class Room {
       p.t += dt;
       const dx = a.pos.x - p.x, dz = a.pos.z - p.z, dy = a.pos.y + 0.8 - p.y;
       const d = Math.hypot(dx, dz);
-      if (p.t > 0.35 && d < magnet && p.kind !== 'heart' || (p.kind === 'heart' && d < 1.4 && a.hp < a.maxHp)) {
+      if (p.t > 0.35 && d < magnet * (p.kind === 'xp' ? 1.6 : 1) && p.kind !== 'heart' || (p.kind === 'heart' && d < 1.4 && a.hp < a.maxHp)) {
         const sp = 10 + p.t * 4;
         p.vx = (dx / (d || 1)) * sp; p.vz = (dz / (d || 1)) * sp; p.vy = dy * 6;
         p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt;
@@ -355,9 +360,11 @@ export class Room {
       p.mesh.position.set(p.x, p.y + Math.sin(p.t * 4) * 0.05, p.z);
       p.mesh.rotation.y += dt * 4;
       if (p.kind === 'bill') p.mesh.rotation.z = Math.sin(p.t * 5) * 0.3;
+      if (p.kind === 'xp') p.mesh.material.rotation = p.t * 2;
       if (Math.hypot(dx, dz) < 0.8 && Math.abs(dy) < 1.6 && p.t > 0.2) {
         if (p.kind === 'heart') { if (a.hp >= a.maxHp) return true; a.heal(p.value); }
-        else if (p.kind === 'block') { G.run.addBlocks(p.value); G.audio.sfx('pcoin', { gap: 0.03, p: 0.8 }); G.hud.damageNumber(p.x, p.y + 0.6, p.z, '+' + p.value + ' ◼', 'block'); }
+        else if (p.kind === 'mat') { addMat(p.id, p.value); G.audio.sfx('mcPop', { gap: 0.03, p: 0.9 + Math.random() * 0.3 }); }
+        else if (p.kind === 'xp') addXp(p.value);
         else { G.run.addMoney(p.value); G.audio.sfx(p.kind === 'coin' ? 'coin' : 'bill', { gap: 0.02 }); }
         this.group.remove(p.mesh);
         return false;
@@ -406,27 +413,28 @@ export class Room {
     this.def.parked = parked.length ? parked : null;
     if (G.alex.vehicle) G.alex.vehicle = null;
     // keep uncollected money for revisits
-    const keep = this.pickups.filter((p) => p.kind !== 'heart' || true).map((p) => ({ kind: p.kind, x: p.x, z: p.z, value: p.value }));
+    const keep = this.pickups.map((p) => ({ kind: p.kind, id: p.id, x: p.x, z: p.z, value: p.value }));
     this.def.savedPickups = keep.length ? keep : null;
     for (const e of this.enemies) if (e.alive) e.alive = false;
     for (const h of this.hazards) h.dispose();
     G.scene.remove(this.group);
     this.group.traverse((c) => {
       if (c.isMesh || c.isInstancedMesh) {
-        if (c.geometry && !Object.values(GEO).includes(c.geometry) && c.geometry !== coinGeo && c.geometry !== billGeo && c.geometry !== heartGeo && c.geometry !== blockGeo) c.geometry.dispose();
+        if (c.geometry && !c.geometry.userData?.shared && !Object.values(GEO).includes(c.geometry) && c.geometry !== coinGeo && c.geometry !== billGeo && c.geometry !== heartGeo) c.geometry.dispose();
         if (c.material && c.material.map && c.material.map.isCanvasTexture && c.userData.ownTex) c.material.map.dispose();
       }
     });
     G.cam.clearFades();
     clearTimers();
     disposeRift(this);
+    mcLeaveRoom(this);
   }
 
   // Rift loot: choose one of two items from the franchise, plus a little extra.
   riftReward(r) {
     addPedestals(this, 'rift:' + r.id, 2, { choose: true });
     this.dropMoney(r.x, r.z, 6 + Math.floor(Math.random() * 8));
-    if (r.id === 'minecraft') this.addPickup('block', r.x, r.z, 4);
+    if (r.id === 'minecraft') for (const id of ['oakLog', 'ironIngot', 'coal', 'string']) if (Math.random() < 0.7) this.addPickup('mat', r.x, r.z, 1 + Math.floor(Math.random() * 3), false, id);
     if (this.spawnVehicle && Math.random() < 0.55) this.spawnVehicle(r.def.vehicle, r.x, r.z);
   }
 }

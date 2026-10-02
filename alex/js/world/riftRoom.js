@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { G } from '../state.js';
 import { RIFTS } from './rifts.js';
 import { mat, glow } from './props.js';
+import { placeBlock } from '../mc/world.js';
 
 const ringGeo = new THREE.TorusGeometry(1.6, 0.16, 10, 48);
 const discGeo = new THREE.CircleGeometry(1.55, 40);
@@ -65,25 +66,21 @@ export function openRift(room) {
   G.run.stat('riftsOpened', 1);
 }
 
-// Grass / dirt / stone cubes scattered around: vaultable cover, breakable.
+// Real Overworld blocks scattered around: grass, dirt, stone, sand, ores and the odd
+// tree. Vaultable cover; mine them for materials.
 function placeBlocks(room, spot) {
-  const kinds = [['#5bb450', '#8b5a2b'], ['#8b5a2b', '#8b5a2b'], ['#7a7a7a', '#7a7a7a'], ['#c2a26a', '#c2a26a']];
-  const n = 6 + Math.floor(room.rng() * 6);
+  const kinds = ['grass', 'grass', 'dirt', 'stone', 'stone', 'sand', 'coalOre', 'ironOre', 'gravel', room.floor >= 2 ? 'goldOre' : 'coalOre', room.floor >= 3 ? 'diamondOre' : 'ironOre'];
+  const n = 7 + Math.floor(room.rng() * 7);
   const avoid = [{ x: G.alex.pos.x, z: G.alex.pos.z, r: 3 }, { x: spot.x, z: spot.z, r: 3 }];
   for (const d of room.doors) avoid.push({ x: d.x, z: d.z, r: 3 });
   for (let i = 0; i < n; i++) {
     const p = room.world.openPoint(room.rng, avoid, 2, 0.4, 3);
     if (!p) continue;
     avoid.push({ x: p.x, z: p.z, r: 1.6 });
-    const [top, side] = room.rng.pick(kinds);
+    const x = Math.round(p.x), z = Math.round(p.z);
+    const key = room.rng.pick(kinds);
     const stack = room.rng() < 0.3 ? 2 : 1;
-    for (let k = 0; k < stack; k++) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), [mat(side), mat(side), mat(top), mat(side), mat(side), mat(side)]);
-      mesh.position.set(Math.round(p.x) + 0.5 * 0, k + 0.5, Math.round(p.z));
-      room.group.add(mesh);
-      const b = room.world.add({ kind: 'block', x: mesh.position.x, z: mesh.position.z, w: 1, d: 1, h: 1, y0: k, hp: 25, color: side, vault: true });
-      b.meshes = mesh;
-    }
+    for (let k = 0; k < stack; k++) placeBlock(room, k === 1 && key === 'grass' ? 'grass' : key === 'grass' && stack === 2 && k === 0 ? 'dirt' : key, x, z, k);
   }
   room.world.buildNav();
 }

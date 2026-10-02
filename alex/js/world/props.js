@@ -370,6 +370,9 @@ function extruded(g, shape, w, h, d, color) {
   g.add(m);
 }
 
+// Other modules (Minecraft blocks) can add prop models.
+export function registerPropModel(name, fn) { M[name] = fn; }
+
 export function buildProp(o) {
   const g = new THREE.Group();
   (M[o.model] || M.box)(g, o);

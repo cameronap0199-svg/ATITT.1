@@ -19,6 +19,7 @@ export function setupTouch(root) {
       <button data-a="map" class="tb sm">MAP</button>
       <button data-a="gadget" class="tb sm">GADGET</button>
       <button data-a="ride" class="tb sm">RIDE</button>
+      <button data-a="pack" class="tb sm">BAG</button>
     </div>
     <button data-a="pause" class="tb pausebtn">II</button>`;
   const stick = root.querySelector('.stick'), knob = stick.querySelector('i');
@@ -26,6 +27,7 @@ export function setupTouch(root) {
   const R = 60;
   const onStart = (e) => {
     if (G.mode !== 'run' && G.mode !== 'minigame') return;
+    if (e.target.closest && e.target.closest('#pack, .pk-panel')) return;
     for (const t of e.changedTouches) {
       if (t.target.closest('button')) continue;
       if (t.clientX < innerWidth * 0.45 && moveId === null) {

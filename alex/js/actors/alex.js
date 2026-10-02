@@ -740,6 +740,7 @@ export class Alex {
       const dealt = e.hurt(dmg, { source: this, dir: [e.pos.x - this.pos.x, e.pos.z - this.pos.z], knock: s.knock, stagger: s.stagger + (a.perfect ? 3 : 0), launch: s.launch, melee: true, part, perfect: a.perfect, finisher: s.finisher, pierceArmor: !!m.pierceArmor });
       if (s.launch && e.alive && !e.heavy) { this.launchTarget = e; this.launchUntil = G.time + 0.8; }
       if (m.stunChance && Math.random() < m.stunChance) e.stun?.(1);
+      if (m.fireAspect && e.alive) e.burn = { until: G.time + 1.5 + m.fireAspect, dps: 5 * m.fireAspect * (m.dmgMul || 1) };
       if (m.lifesteal && s.finisher) this.heal(m.lifesteal, true);
       G.targeting.onHit(e);
       const hp = e.aimPoint(aimV);
@@ -750,7 +751,7 @@ export class Alex {
       G.input.rumble(s.finisher ? 0.5 : 0.25, 50);
       if (dealt === 'armor') G.audio.sfx('armor');
     }
-    if (G.room.damageBlocksInArc) G.room.damageBlocksInArc(this.pos.x, this.pos.z, this.yaw, s.range + (m.meleeRange || 0), halfArc, s.dmg * 0.8, a.hits);
+    if (G.room.damageBlocksInArc) G.room.damageBlocksInArc(this.pos.x, this.pos.z, this.yaw, s.range + (m.meleeRange || 0), halfArc, s.dmg * 0.8, { melee: true });
   }
 
   // -------------------------------------------------------------------------

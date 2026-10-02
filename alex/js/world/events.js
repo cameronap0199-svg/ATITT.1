@@ -1,9 +1,10 @@
-// Random room events: the crafting table (Minecraft blocks → gear), the travelling
+// Random room events: a free crafting table (and sometimes a furnace), the travelling
 // crossover merchant, and the burning bush (a free blessing). Rolled per room in run.js.
 
 import * as THREE from 'three';
 import { G } from '../state.js';
-import { itemInfo, rollItems, RECIPES } from '../items.js';
+import { itemInfo, rollItems } from '../items.js';
+import { placeStation } from '../mc/world.js';
 import { display, priceOf } from '../shop.js';
 import { mat, glow, textTexture } from './props.js';
 
@@ -14,37 +15,11 @@ function spot(room, near = 0) {
 
 export function addCraftingTable(room) {
   const p = spot(room);
-  const g = new THREE.Group();
-  const side = new THREE.MeshToonMaterial({ map: textTexture('⚒', { bg: '#8b5a2b', fg: '#3b2a14', w: 128, h: 128, font: 'bold 90px sans-serif' }) });
-  const top = new THREE.MeshToonMaterial({ map: textTexture('▦', { bg: '#b07a45', fg: '#5c3a1e', w: 128, h: 128, font: 'bold 110px sans-serif' }) });
-  const box = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), [side, side, top, side, side, side]);
-  box.position.y = 0.55;
-  g.add(box);
-  g.position.set(p.x, 0, p.z);
-  room.group.add(g);
-  room.world.add({ kind: 'craft', x: p.x, z: p.z, w: 1.1, d: 1.1, h: 1.1, vault: true });
-  const options = room.rng.shuffle(RECIPES.slice()).slice(0, 3);
-  let pick = 0;
-  G.hud.bubble({ pos: new THREE.Vector3(p.x, 0, p.z), height: 1.4, alive: true }, '⚒ CRAFTING TABLE', '#c2a26a', 2.2);
-  room.addInteractable({
-    x: p.x, z: p.z, r: 1.9, id: 'craft',
-    prompt: () => {
-      const [id, cost] = options[pick % options.length];
-      const it = itemInfo(id);
-      return { title: `⚒ Craft: ${it.icon} ${it.name}`, text: `${it.desc}  ·  Costs ${cost} ◼ blocks (you have ${G.run.blocks}). Press again to cycle recipes when you can't afford it.`, action: G.run.blocks >= cost ? `Craft (${cost} ◼)` : 'Next recipe' };
-    },
-    use: () => {
-      const [id, cost] = options[pick % options.length];
-      if (G.run.blocks < cost) { pick++; G.audio.sfx('ui'); return; }
-      G.run.blocks -= cost;
-      G.run.grant(id);
-      G.run.stat('crafted', 1);
-      G.audio.sfx('buy');
-      G.fx.burst(p.x, 1.4, p.z, { n: 20, kind: 'debris', color: ['#8b5a2b', '#5bb450', '#7a7a7a'], speed: 5, life: 0.6, size: 0.18 });
-      options.splice(pick % options.length, 1);
-      if (!options.length) room.removeInteractable(room.interactables.find((o) => o.id === 'craft'));
-    },
-  });
+  const x = Math.round(p.x), z = Math.round(p.z);
+  placeStation(room, 'craftingTable', x, z);
+  if (room.rng() < 0.45) placeStation(room, 'furnace', x + 1.5, z);
+  room.world.buildNav();
+  G.hud.bubble({ pos: new THREE.Vector3(x, 0, z), height: 1.4, alive: true }, '⚒ A CRAFTING TABLE APPEARED', '#c2a26a', 2.2);
 }
 
 export function addMerchant(room) {

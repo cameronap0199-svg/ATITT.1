@@ -68,6 +68,11 @@ export const MELEE = {
     air: null, dash: null, charged: null, counter: null,
   },
 };
+// Craftable Minecraft swords: the diamond sword's moveset at lower damage.
+const mcSword = (name, k, color, icon, desc) => ({ ...MELEE.diamondSword, name, color, icon, desc, combo: MELEE.diamondSword.combo.map((s) => ({ ...s, dmg: Math.round(s.dmg * k) })) });
+MELEE.woodSword = mcSword('Wooden Sword', 0.62, '#b8945f', '🗡️', 'Crafted from planks and a stick. Better than nothing. Barely. (Minecraft)');
+MELEE.stoneSword = mcSword('Stone Sword', 0.8, '#9ca3af', '🗡️', 'Cobblestone on a stick. The classic second sword. (Minecraft)');
+MELEE.ironSword = mcSword('Iron Sword', 0.92, '#e5e7eb', '⚔️', 'Reliable. Sweeping Edge on the third swing. (Minecraft)');
 // Weapons without their own air/dash/charged/counter moves borrow the katana's.
 for (const w of Object.values(MELEE)) for (const k of ['air', 'dash', 'charged', 'counter']) if (!w[k]) w[k] = MELEE.hunterBlade[k];
 

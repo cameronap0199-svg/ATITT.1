@@ -10,6 +10,7 @@ import { MELEE, RANGED } from '../combat/weapons.js';
 import { FLOOR_NAMES } from '../config.js';
 import { Nameplates } from './nameplates.js';
 import { ScratchOff } from './scratchoff.js';
+import { McHud } from '../mc/hudmc.js';
 
 const v = new THREE.Vector3();
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
@@ -22,7 +23,7 @@ export class HUD {
       <div class="hud-tl">
         <div class="hp"><div class="hp-fill"></div><div class="hp-ghost"></div><span class="hp-txt"></span></div>
         <div class="shieldbar"><i class="sb-shield"></i><i class="sb-absorb"></i></div>
-        <div class="moneyrow"><div class="money"></div><span class="blocks"></span></div>
+        <div class="moneyrow"><div class="money"></div><span class="mchud"></span></div>
         <div class="weapons"><span class="w melee"></span><span class="w ranged"></span><span class="w gadget"></span></div>
         <div class="pal"></div>
         <div class="items"></div>
@@ -51,7 +52,7 @@ export class HUD {
     const q = (s) => root.querySelector(s);
     this.e = {
       hpFill: q('.hp-fill'), hpGhost: q('.hp-ghost'), hpTxt: q('.hp-txt'), money: q('.money'), melee: q('.w.melee'), ranged: q('.w.ranged'), items: q('.items'),
-      shieldbar: q('.shieldbar'), sbShield: q('.sb-shield'), sbAbsorb: q('.sb-absorb'), blocks: q('.blocks'), gadget: q('.w.gadget'), pal: q('.pal'),
+      shieldbar: q('.shieldbar'), sbShield: q('.sb-shield'), sbAbsorb: q('.sb-absorb'), gadget: q('.w.gadget'), pal: q('.pal'),
       where: q('.where'), boss: q('.boss'), bossName: q('.boss-name'), bossFill: q('.boss-bar i'), bossGhost: q('.boss-bar b'), beat: q('.beatbar'),
       mini: q('.minimap'), big: q('.bigmap'), reticle: q('.reticle'), pips: q('.dashpips'), threats: q('.threats'), nums: q('.nums'), bubbles: q('.bubbles'),
       popups: q('.popups'), prompt: q('.prompt'), intro: q('.intro'), introT: q('.intro-t'), introS: q('.intro-s'), rt: q('.roomtitle'), rtA: q('.rt-a'), rtB: q('.rt-b'),
@@ -69,7 +70,9 @@ export class HUD {
     this.pipsFullT = 0;
     this.plates = new Nameplates(root.querySelector('.plates'));
     this.scratch = new ScratchOff(document.body);
+    this.mc = new McHud(root, root.querySelector('.mchud'));
   }
+  mcPickup(id, n) { this.mc.add(id, n); }
 
   show(on) { this.visible = on; this.root.classList.toggle('on', on); }
 
@@ -106,7 +109,7 @@ export class HUD {
     e.sbAbsorb.style.transform = `scaleX(${clamp((a.absorb || 0) / 30, 0, 1)})`;
     e.shieldbar.classList.toggle('charging', smax > 0 && a.shield < smax && G.time - a.lastHitAt > 4);
     // blocks, gadget, companion
-    e.blocks.textContent = run.blocks ? `◼ ${run.blocks}` : '';
+    this.mc.update();
     const gd = run.gadget;
     const gKey = gd ? gd.id + gd.charges + (gd.readyAt > G.time ? Math.ceil(gd.readyAt - G.time) : '') : '';
     if (gKey !== this._gKey) {
