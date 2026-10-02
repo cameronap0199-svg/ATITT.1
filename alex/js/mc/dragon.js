@@ -17,7 +17,7 @@ const now = () => performance.now() * 0.001;
 const pan = (e) => G.cam.panOf(e.pos.x, e.pos.z);
 
 // ---------------------------------------------------------------------------- model
-function dragonModel() {
+export function dragonModel() {
   const g = new THREE.Group();
   const skin = '#15111c', plate = '#2a2433', eye = '#d946ef';
   const root = grp(g, 0, 1.4, 0);

@@ -27,10 +27,12 @@ You can also serve the repo from any static host (for example GitHub Pages) and 
 | Interact / buy | E | Y |
 | Gadget (grenade, TNT, pearl, capture ball, staff) | G / R | LB |
 | Hop on / off a vehicle | V (or E) | RS (or Y) |
+| Pack: inventory, crafting, Pokémon, Bag | I / B | LS |
+| Battles and menus: move · confirm · back | WASD/arrows · Space or E · Shift or Esc | stick/D-pad · A or Y · B |
 | Phone: accept · decline / agree · provoke · deflect | 1 2 3 (4) | D-pad |
 | Map (hold) / pause | Tab / Esc | Back / Start |
 
-Every binding can be changed in **Settings → Keyboard / Controller**. Touch devices get an on-screen stick and buttons (including GADGET and RIDE).
+Every binding can be changed in **Settings → Keyboard / Controller**. Touch devices get an on-screen stick and buttons (including GADGET, RIDE and BAG); Pokémon battles, evolutions and the Pack are tapped directly.
 
 ## What's in it
 
@@ -67,20 +69,43 @@ Every binding can be changed in **Settings → Keyboard / Controller**. Touch de
 - **Pokémon:** Pikachew (lightning), Gastlee (phases), Magikrap (useless — until it evolves into Gyara-DOS), Snorelax (sleeps, body slams, Rests). A wild-encounter text box announces them.
 - **The Bible:** Plague Frogs, Locust Swarm, Pharaoh's Charioteer, Golden Calf (idol that buffs everyone), Goliath (a sling stone fells him). Rifts bring a plague: frogs, locusts, hail or darkness.
 
-Closing a rift drops a choose-one loot pedestal: new weapons (Energy Sword, Needler, Diamond Sword, Bow, Jawbone of a Donkey, David's Sling), gadgets (Plasma Grenade, TNT, Ender Pearl, Capture Ball, Staff of Moses) and items (Overshield, Devil Fruits, Haki, Rare Candy, Armor of God…). The Capture Ball catches a weakened demon as a companion that follows you between rooms and fights. Minecraft mobs drop blocks for the crafting table.
+Closing a rift drops a choose-one loot pedestal: new weapons (Energy Sword, Needler, Diamond Sword, Bow, Jawbone of a Donkey, David's Sling), gadgets (Plasma Grenade, TNT, Ender Pearl, Capture Ball, Staff of Moses) and items (Overshield, Devil Fruits, Haki, Rare Candy, Armor of God…). The Capture Ball catches a weakened demon as a pal that follows you and fights. Catch a rift Pokémon with it and it joins your party as a real Pokémon.
 
-**Vehicles.** Warthog, Minecart, Mini-Merry (Land Edition), Acro Bike and the Chariot of Fire. Steer with the stick, ram demons, smash props; each has its own boost and weapon, soaks half your damage and follows you through doors.
+**Vehicles.** Warthog, Minecart, Mini-Merry (Land Edition), Acro Bike and the Chariot of Fire. Steer with the stick and ram demons. Each has its own boost and weapon, soaks half your damage and follows you through doors. Rides plough through anything that isn't a wall, door or parked ride: cars, buses, tents, crates, shelves, pillars and blocks all get smashed, and drop materials. Stairs and stage platforms are climbed rather than smashed. The Chariot flies over low props.
+
+**Minecraft, for real.** Every room on a floor grows trees and stone outcrops with ore veins (coal, iron, gold, lapis, redstone, diamond, emerald, obsidian), and they stay mined when you come back. Everything drops something: each demon, rift mob, Pokémon and boss has its own drop table, every prop drops by what it is (cars give iron, glass and redstone; crates give planks; toilets give paper), and XP orbs fill a Minecraft XP bar. Pickaxe tiers matter: wood → stone → iron → diamond, and the wrong tool gets you nothing (obsidian needs diamond). The **Pack** (I/B) has a 2×2 pocket grid everywhere and the full **3×3 grid next to a Crafting Table** you place yourself. You can click or tap ingredients into slots (shaped, mirrored and shapeless recipes), or let the recipe book lay them out. There are 40+ recipes: planks, sticks, tables, furnaces, torches, every pickaxe and sword tier, the bow, leather/iron/gold/diamond armour, a shield, flint and steel, minecarts that spawn a ride, TNT, golden apples, bread, books, beds (don't sleep in the Nether), the Enchanting Table and Eyes of Ender. The **Furnace** smelts with real fuel values, and the **Enchanting Table** spends XP levels and lapis on Sharpness, Power, Protection, Efficiency, Fortune, Looting, Fire Aspect, Mending and more.
+
+**The Nether, the End and the Ender Dragon.** Some rooms hold a ruined portal with a loot chest. Build a 10-obsidian **Nether Portal**, light it with flint and steel, and stand in it (with the purple wobble) to reach an eight-room Nether: Nether Wastes, Soul Sand Valley (slow ground), Crimson and Warped Forests (huge fungi), Basalt Deltas (lava everywhere), a Nether Fortress, the **Blaze Spawner** room (break the cage), a Bastion Remnant (piglin brutes guarding treasure) and a Piglin Trading Post (barter gold ingots for ender pearls and more). The Nether has its own mobs:
+- zombified piglins, neutral until you hit one, then all of them come for you
+- ghasts whose fireballs you can swing back at them
+- blazes, splitting magma cubes, wither skeletons, silverfish and spiders
+
+Blaze rods + ender pearls → **Eyes of Ender**. Throw one and it flies toward the door that leads to the floor's hidden **stronghold**; in the room next to it, the eye dives into the ground and opens the way. Fill the stronghold's twelve End Portal frames and jump in. **The End**: an island of obsidian pillars topped with End Crystals that heal the dragon through beams. The **Ender Dragon** circles spitting dragon's-breath fireballs, dives at you, and perches by the exit portal to breathe (that's when it's hittable up close). Kill it for its death beams, the Dragon Egg (+25% damage, +25 max HP), the exit portal and a short End Poem.
+
+**Pokémon, the actual game.** There are 125 parody species in evolution lines, each with a procedural GBA-style pixel sprite (front and back), 18 types with the full type chart, and 169 moves.
+- **Starting out:** Professor Oakley waits in the first parking lot with three starters and five Poké Balls.
+- **Wild encounters:** tall grass grows in many rooms and rustles into wild encounters. The transition flashes into a handheld-style battle screen with FIGHT / BAG / POKéMON / RUN, HP and EXP bars and typewriter text.
+- **Battle rules:** Gen-3 damage (STAB, crits, random roll), accuracy, priority and Speed, burn, paralysis, poison, toxic, sleep, freeze, confusion, flinch, stat stages, recoil, drain, recharge and Self-Destruct.
+- **Catching:** Poké Balls use real shake checks, and full-HP legendaries almost never stay in.
+- **Trainers:** they spot you ("!"), walk up and challenge you for prize money. Youngster Joey's Rattatat is in the top percentage.
+- **Levels and moves:** Pokémon level up from battles **and from every demon Alex defeats in real time** (the Exp. Share spreads it). Level-ups show the stat box, and new moves are learned, with "1, 2, and… Poof!" when the moveset is full.
+- **Evolution:** the classic sequence, with flickering white silhouettes speeding up, a flash, then "Congratulations!" Press B to stop it; a cancelled evolution comes back at the next level-up. Stones evolve Pikachew, Eevie (five ways), Vulpicks and others.
+- **Party and items:** a party of six plus Bill's PC, with a full summary screen (nature, stats, moves with PP). The Bag holds Poké Balls, potions, Revives, Rare Candy and stones. The Gas Station has a **Pokémon Center** and a **Poké Mart**.
+- **The follower:** your lead Pokémon follows Alex around the 3D rooms and fights alongside him with its real moves.
+- **Pokédex:** it persists between runs and lives in the Compendium.
+
+**∞ Infinite Mode.** Start it from the title menu. Beating the Demon King opens an ENCORE exit back to the parking lot, and every loop gets tougher: +45% enemy HP, +25% damage, a bigger threat budget, more elites, higher wild Pokémon levels and +20% money. Your party, materials, gear and enchantments carry over. The title screen tracks your best loop.
 
 **Random events.** Parked vehicles, a travelling merchant with crossover goods, a crafting table, a burning bush that blesses you, and bigger clear rewards — all rolled generously per room.
 
-**Compendium.** Every creature and vehicle as a rendered 3D portrait, plus item cards. Things you haven't met stay silhouettes.
+**Compendium.** Every creature and vehicle as a rendered 3D portrait, the Nether & End mobs, the Pokédex, plus item cards. Things you haven't met stay silhouettes.
 
 **Accessibility.** Settings cover aim assist, combat camera assist, sensitivity (per axis and per device), inversion, FOV, camera distance, shake 0–100%, motion blur, recentering and its delay, lock hold or toggle, auto-targeting and auto-switch, projectile contrast, attack indicator intensity, perfect-dodge assistance, rapid fire, auto sprint, ledge protection, vibration, photosensitivity (reduce flashing plus a flash intensity slider), render scale reduced UI motion, enemy health bars and full remapping.
 
 ## Code map
 
 ```
-index.html, css/game.css      page + all UI styling
+index.html, css/*.css         page + UI styling (game, ui2, mc, pokemon)
 js/main.js                    boot, main loop (time scaling for perfect-dodge slow-mo / hit-stop)
 js/config.js                  every tuning number from the design doc
 js/core/                      rng, math, settings, input (buffers, gamepad, text capture), audio (synth + sequencer)
@@ -92,7 +117,17 @@ js/phone/                     Heartline runtime, callers, KJV verses, Cook-Off, 
 js/ui/                        HUD, nameplates, scratch-offs, compendium, menus, touch controls
 js/actors/crossover*.js       the 22 rift creatures and their models; affixes.js = elite variants
 js/world/rifts.js, riftRoom.js, events.js   rift data + composition, portal/plagues, room events
-js/vehicles.js, gadgets.js, companions.js   rides, the gadget slot, captured companions
+js/vehicles.js, gadgets.js, companions.js   rides (and prop smashing), the gadget slot, demon pals
+js/mc/                        Minecraft: data.js (items, recipes, smelting, XP, enchants, ores, drop tables),
+                              icons.js (pixel icons), blocks.js (block textures), world.js (mining, drops,
+                              stations, portals, eyes), craftUI.js (the Pack), hudmc.js, mobs.js (Nether mobs),
+                              dragon.js (Ender Dragon + crystals), realmLayouts.js (Nether / stronghold / End
+                              rooms and maps), realms.js (travel, barterer, spawner, End Portal, End Poem)
+js/pokemon/                   types.js, moves.js, dex.js (species, learnsets, habitats), mon.js (stats, EXP,
+                              learning, evolution), battleCore.js (battle rules), battle.js (battle screen),
+                              scenes.js (evolution + move prompts), sprites.js (procedural pixel sprites),
+                              companion.js (follower), index.js (party, grass, trainers, Oakley, Center),
+                              packTabs.js (party / PC / Bag / Mart)
 js/phone/portraits.js         painted caller portraits
 js/items.js, shop.js, lottery.js, run.js, fx.js, cameraRig.js
 ```

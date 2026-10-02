@@ -50,6 +50,7 @@ export const MC = {
   magmaCream: { name: 'Magma Cream', icon: 'ball', c: ['#f97316', '#facc15'] },
   paper: { name: 'Paper', icon: 'paper', c: ['#f8fafc', '#cbd5e1'] },
   wheat: { name: 'Wheat', icon: 'wheat', c: ['#e9c46a', '#b08a2e'] },
+  sugarCane: { name: 'Sugar Cane', icon: 'wheat', c: ['#86d06a', '#3f8f32'] },
   book: { name: 'Book', icon: 'book', c: ['#8b4513', '#f8fafc'] },
   // food
   apple: { name: 'Apple', icon: 'apple', c: ['#e11d48', '#7c2d12'], food: { heal: 12 } },
@@ -125,7 +126,7 @@ export const RECIPES = [
   { out: 'blazePowder', n: 2, shapeless: ['blazeRod'] },
   { out: 'eyeOfEnder', shapeless: ['enderPearl', 'blazePowder'] },
   { out: 'book', shapeless: ['paper', 'paper', 'paper', 'leather'] },
-  { out: 'paper', n: 3, shape: ['WWW'], key: { W: 'wheat' } },
+  { out: 'paper', n: 3, shape: ['SSS'], key: { S: 'sugarCane' } },
   { out: 'enchantingTable', shape: [' B ', 'DOD', 'OOO'], key: { B: 'book', D, O: 'obsidian' } },
   { out: 'bed', shape: ['WWW', 'PPP'], key: { W: 'wool', P } },
   { out: 'wool', shape: ['SS', 'SS'], key: { S: 'string' } },
@@ -238,7 +239,7 @@ export const ORES = {
   leaves: { name: 'Oak Leaves', hp: 6, tier: 0, drop: [['apple', 0.18, 1, 1], ['stick', 0.35, 1, 2]], c: ['#3f8f32', '#2f6b25'], tex: 'leaves', xp: 0, soft: true },
   grass: { name: 'Grass Block', hp: 14, tier: 0, drop: [['dirt', 1, 1, 1], ['wheat', 0.15, 1, 1]], c: ['#5bb450', '#8b5a2b'], tex: 'grass', xp: 0 },
   dirt: { name: 'Dirt', hp: 12, tier: 0, drop: [['dirt', 1, 1, 1]], c: ['#8b5a2b', '#6e4520'], tex: 'dirt', xp: 0 },
-  sand: { name: 'Sand', hp: 12, tier: 0, drop: [['sand', 1, 1, 2]], c: ['#e2d39c', '#cdbd84'], tex: 'sand', xp: 0 },
+  sand: { name: 'Sand', hp: 12, tier: 0, drop: [['sand', 1, 1, 2], ['sugarCane', 0.3, 1, 2]], c: ['#e2d39c', '#cdbd84'], tex: 'sand', xp: 0 },
   gravel: { name: 'Gravel', hp: 14, tier: 0, drop: [['flint', 0.4, 1, 1], ['gravel', 0.6, 1, 1]], c: ['#857f7c', '#6b6563'], tex: 'gravel', xp: 0 },
   stone: { name: 'Stone', hp: 40, tier: 1, drop: [['cobblestone', 1, 1, 1]], c: ['#7b7b7b', '#6a6a6a'], tex: 'stone', xp: 0 },
   coalOre: { name: 'Coal Ore', hp: 45, tier: 1, drop: [['coal', 1, 1, 2]], c: ['#7b7b7b', '#1f1f1f'], tex: 'ore', xp: 1 },
@@ -325,7 +326,7 @@ export const DROPS = {
   witherSkeleton: T(['coal', 0.7, 1, 2], ['bone', 0.7, 1, 2]),
   // One Piece
   marine: T(['gunpowder', 0.4, 1, 2], ['ironIngot', 0.2, 1, 1], ['bread', 0.2, 1, 1]),
-  fishman: T(['bone', 0.4, 1, 2], ['lapis', 0.3, 1, 2]),
+  fishman: T(['bone', 0.4, 1, 2], ['lapis', 0.3, 1, 2], ['sugarCane', 0.4, 1, 3]),
   pacifista: T(['ironIngot', 0.9, 2, 4], ['redstone', 0.9, 2, 5], ['diamond', 0.2, 1, 1]),
   seaKing: T(['bone', 0.9, 3, 6], ['leather', 0.8, 2, 4], ['diamond', 0.3, 1, 2]),
   // Pokémon (real-time rift versions)
@@ -349,7 +350,7 @@ export const DROPS = {
 // Pokémon drop by their primary type.
 export const TYPE_DROPS = {
   fire: T(['coal', 0.5, 1, 2], ['blazePowder', 0.1, 1, 1]), water: T(['lapis', 0.4, 1, 2], ['sand', 0.3, 1, 2]),
-  grass: T(['oakLog', 0.5, 1, 2], ['apple', 0.3, 1, 1], ['wheat', 0.3, 1, 2]), electric: T(['redstone', 0.6, 1, 3]),
+  grass: T(['oakLog', 0.5, 1, 2], ['apple', 0.3, 1, 1], ['wheat', 0.3, 1, 2], ['sugarCane', 0.25, 1, 2]), electric: T(['redstone', 0.6, 1, 3]),
   rock: T(['cobblestone', 0.7, 1, 3], ['flint', 0.3, 1, 1], ['rawIron', 0.2, 1, 1]), ground: T(['dirt', 0.6, 1, 3], ['sand', 0.4, 1, 2], ['flint', 0.2, 1, 1]),
   ghost: T(['glowstoneDust', 0.3, 1, 2], ['enderPearl', 0.12, 1, 1]), psychic: T(['enderPearl', 0.15, 1, 1], ['lapis', 0.3, 1, 2]),
   bug: T(['string', 0.75, 1, 2]), flying: T(['feather', 0.85, 1, 2]), poison: T(['slimeball', 0.45, 1, 1]),
@@ -364,7 +365,7 @@ export const PROP_DROPS = {
   crate: T(['oakPlanks', 0.9, 2, 4], ['stick', 0.5, 1, 3], ['apple', 0.12, 1, 1]), table: T(['oakPlanks', 0.8, 1, 3], ['stick', 0.4, 1, 2]),
   chair: T(['stick', 0.8, 1, 2], ['oakPlanks', 0.3, 1, 1]), tent: T(['wool', 0.7, 1, 3], ['stick', 0.6, 1, 3], ['string', 0.5, 1, 2]),
   cooler: T(['apple', 0.4, 1, 2], ['bread', 0.3, 1, 1]), speaker: T(['redstone', 0.8, 1, 3], ['ironIngot', 0.4, 1, 1], ['oakPlanks', 0.3, 1, 2]),
-  barrier: T(['cobblestone', 0.8, 1, 3]), pillar: T(['cobblestone', 0.9, 2, 4]), planter: T(['dirt', 0.9, 1, 3], ['oakLog', 0.35, 1, 1], ['apple', 0.2, 1, 1]),
+  barrier: T(['cobblestone', 0.8, 1, 3]), pillar: T(['cobblestone', 0.9, 2, 4]), planter: T(['dirt', 0.9, 1, 3], ['oakLog', 0.35, 1, 1], ['apple', 0.2, 1, 1], ['sugarCane', 0.4, 1, 2]),
   rack: T(['wool', 0.8, 1, 3], ['string', 0.5, 1, 2], ['ironIngot', 0.2, 1, 1]), shirtwall: T(['wool', 0.8, 1, 3], ['string', 0.5, 1, 2]),
   toilet: T(['paper', 0.85, 1, 3], ['glass', 0.3, 1, 1]), mannequin: T(['leather', 0.5, 1, 1], ['wool', 0.4, 1, 1]),
   roadcase: T(['ironIngot', 0.5, 1, 1], ['oakPlanks', 0.6, 1, 2], ['redstone', 0.3, 1, 2]), console: T(['redstone', 0.9, 2, 4], ['glass', 0.4, 1, 1], ['goldNugget', 0.3, 1, 2]),

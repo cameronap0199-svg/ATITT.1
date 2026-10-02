@@ -277,8 +277,15 @@ export class Screens {
         <p>Six callers, six personalities. Relationships persist between runs and have consequences. Mostly.</p>
         <h3>Rifts, gadgets &amp; rides</h3>
         <p>Some fights tear open a <b>rift</b> to Halo, Minecraft, One Piece, Pokémon or the Bible. Close it for loot: weapons, items, and a <b>gadget</b> — ${k('gadget')} throws grenades, drops TNT, pearls you across the room, parts the sea, or <b>catches a weakened demon</b> as a companion.</p>
-        <p>${k('ride')} or ${k('interact')} hops into a <b>vehicle</b>: steer with the stick, ${k('dash')} boost, ${k('ranged')} vehicle weapon, ${k('jump')} horn / hop. Rides follow you through doors.</p>
-        <p>Minecraft mobs drop ◼ blocks for the crafting table. Elite demons wear titles (Swift, Armored, Shiny…) and pay better. Gas Station scratchers are real: drag to scratch.</p>
+        <p>${k('ride')} or ${k('interact')} hops into a <b>vehicle</b>: steer with the stick, ${k('dash')} boost, ${k('ranged')} vehicle weapon, ${k('jump')} horn / hop. Rides plough straight through cars, crates and anything else that isn't a wall, and follow you through doors.</p>
+        <p>Elite demons wear titles (Swift, Armored, Shiny…) and pay better. Gas Station scratchers are real: drag to scratch.</p>
+        <h3>⛏ Minecraft</h3>
+        <p>Everything drops materials: demons, mobs, Pokémon, smashed props, trees and ore veins (hit them). ${k('pack')} opens the <b>Pack</b>: 2×2 crafting anywhere, the full 3×3 grid next to a <b>Crafting Table</b> (4 planks — place it from the Pack), a recipe book that fills the grid, the Furnace and the Enchanting Table. Better pickaxes mine better ores; obsidian needs diamond.</p>
+        <p>10 obsidian + Flint and Steel = a <b>Nether Portal</b>. Blazes in the fortress drop rods; rods + ender pearls make <b>Eyes of Ender</b>. Throw one: it flies toward the hidden <b>stronghold</b>. Fill the End Portal frame and go fight the <b>Ender Dragon</b> (shoot the crystals first).</p>
+        <h3>◓ Pokémon</h3>
+        <p>Professor Oakley waits in the first parking lot with three starters. Walk through <b>tall grass</b> for wild battles (FIGHT / BAG / POKéMON / RUN — catch them with Poké Balls). Trainers spot you and challenge you. Pokémon level up from battles <i>and</i> from every demon you defeat, learn moves, and evolve. Up to six in your party, the rest in Bill's PC. Your lead Pokémon follows you and fights with its moves. Pokémon Center and Poké Mart: at the Gas Station.</p>
+        <h3>∞ Infinite Mode</h3>
+        <p>From the title menu: beat the Demon King and the show starts over from the parking lot, harder each loop. Your Pokémon, materials and gear come with you.</p>
         <h3>Tips</h3>
         <p>Hold ${k('map')} for the full map. ${k('interact')} buys / takes / uses. Photosensitivity, reduced UI motion, camera assist, aim assist, projectile contrast and more are in Settings. The Compendium tracks every creature you meet.</p>
       </div></div>`;
@@ -298,6 +305,8 @@ export class Screens {
       ['Rooms cleared', s.roomsCleared || 0], ['Calls answered / declined', `${s.callsAnswered || 0} / ${s.callsDeclined || 0}`], ['Accuracy', r.statValue('accuracy') + '%'],
       ['Items purchased', s.itemsPurchased || 0], ['Lottery tickets', s.lotteryTickets || 0], ['Props destroyed', s.propsDestroyed || 0],
       ['Rifts closed', s.riftsOpened || 0], ['Demons caught', s.caught || 0], ['Vehicles ridden', s.vehiclesRidden || 0], ['Blocks mined', s.blocksMined || 0],
+      ['Things crafted', s.crafted || 0], ['Pokémon caught', s.pkCaught || 0], ['Pokémon levels gained', s.pkLevels || 0], ['Evolutions', s.evolutions || 0],
+      ['Trainer battles', s.pkTrainerBattles || 0], ['Nether trips', s.netherVisits || 0], ['Ender Dragons slain', s.dragonsSlain || 0], ['Props rammed', s.propsRammed || 0],
     ];
     return '<div class="stats">' + rows.map(([a, b]) => `<div><span>${esc(a)}</span><b>${esc(String(b))}</b></div>`).join('') + '</div>';
   }

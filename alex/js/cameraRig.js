@@ -230,15 +230,19 @@ function setFade(b, on) {
     if (!c.isMesh) return;
     if (on) {
       c.userData.origMat = c.material;
-      let fm = fadeCache.get(c.material);
-      if (!fm) {
-        fm = c.material.clone();
-        fm.transparent = true;
-        fm.opacity = 0.22;
-        fm.depthWrite = false;
-        fadeCache.set(c.material, fm);
-      }
-      c.material = fm;
+      const fade1 = (m) => {
+        let fm = fadeCache.get(m);
+        if (!fm) {
+          fm = m.clone();
+          fm.transparent = true;
+          fm.opacity = 0.22;
+          fm.depthWrite = false;
+          fadeCache.set(m, fm);
+        }
+        return fm;
+      };
+      // Minecraft blocks carry one material per face
+      c.material = Array.isArray(c.material) ? c.material.map(fade1) : fade1(c.material);
     } else if (c.userData.origMat) c.material = c.userData.origMat;
   });
 }

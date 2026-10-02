@@ -237,3 +237,191 @@ test('elite affixes: generous but not universal', async () => {
   }
   assert.equal(rollAffix(rng, 3, 'soloA'), null);
 });
+
+// ---------------------------------------------------------------------------- Minecraft
+test('minecraft: shaped, mirrored and shapeless recipes match; costs and layouts agree', async () => {
+  const D = await import('../alex/js/mc/data.js');
+  const P = 'oakPlanks', S = 'stick', I = 'ironIngot';
+  assert.equal(D.matchRecipe(['oakLog', null, null, null], 2)?.out, 'oakPlanks');
+  assert.equal(D.matchRecipe([P, P, P, P], 2)?.out, 'craftingTable');
+  assert.equal(D.matchRecipe([null, P, null, null, P, null, null, null, null], 3)?.out, 'stick');
+  assert.equal(D.matchRecipe([I, I, I, null, S, null, null, S, null], 3)?.out, 'ironPickaxe');
+  // the bow and its mirror image
+  assert.equal(D.matchRecipe([null, S, 'string', S, null, 'string', null, S, 'string'], 3)?.out, 'bow');
+  assert.equal(D.matchRecipe(['string', S, null, 'string', null, S, 'string', S, null], 3)?.out, 'bow');
+  assert.equal(D.matchRecipe(['flint', I, null, null], 2)?.out, 'flintAndSteel');
+  assert.equal(D.matchRecipe(['blazePowder', null, null, 'enderPearl'], 2)?.out, 'eyeOfEnder');
+  assert.equal(D.matchRecipe([I, I, I, null], 2), null);
+  for (const r of D.RECIPES) {
+    assert.ok(D.mcInfo(r.out), r.out);
+    for (const id of Object.keys(D.recipeCost(r))) assert.ok(D.MC[id], `${r.out} needs ${id}`);
+    const w = D.recipeFits(r, 2) ? 2 : 3;
+    assert.equal(D.matchRecipe(D.layout(r, w), w)?.out, r.out, `layout round-trips for ${r.out}`);
+  }
+  assert.ok(D.canAfford({ oakPlanks: 4 }, D.RECIPES.find((r) => r.out === 'craftingTable')));
+  assert.ok(!D.canAfford({ oakPlanks: 3 }, D.RECIPES.find((r) => r.out === 'craftingTable')));
+});
+
+test('minecraft: drops, ores, smelting, pickaxes and the XP curve', async () => {
+  const D = await import('../alex/js/mc/data.js');
+  const rng = makeRng(4);
+  for (const t of [...Object.values(D.DROPS), ...Object.values(D.TYPE_DROPS), ...Object.values(D.PROP_DROPS)]) for (const [id, ch, a, b] of t) { assert.ok(D.MC[id], id); assert.ok(ch > 0 && ch <= 1 && a <= b); }
+  for (const [k, o] of Object.entries(D.ORES)) for (const [id] of o.drop) assert.ok(D.MC[id], `${k} drops ${id}`);
+  for (const [a, b] of Object.entries(D.SMELT)) assert.ok(D.MC[a] && D.MC[b]);
+  for (const w of Object.values(D.ORE_WEIGHTS)) for (const k of Object.keys(w)) assert.ok(D.ORES[k], k);
+  // every enemy in the game has a table (or the default) and rolls deterministic counts
+  let total = 0;
+  for (let i = 0; i < 200; i++) total += D.rollDrops(D.DROPS.creeper, rng).reduce((s, [, n]) => s + n, 0);
+  assert.ok(total > 150, 'creepers drop gunpowder');
+  assert.equal(D.bestPick({}).tier, 0);
+  assert.equal(D.bestPick({ woodPickaxe: 1, ironPickaxe: 1 }).tier, 3);
+  assert.equal(D.bestPick({ diamondPickaxe: 1 }).tier, D.ORES.obsidian.tier);
+  // Minecraft's XP curve: level 30 = 1395 points
+  assert.equal(D.xpForLevel(30), 1395);
+  assert.equal(D.levelFromXp(1395).level, 30);
+  assert.equal(D.levelFromXp(6).level, 0);
+  assert.equal(D.levelFromXp(7).level, 1);
+  const offers = D.rollEnchantOffers(makeRng(1), {});
+  assert.equal(offers.length, 3);
+  assert.deepEqual(offers.map((o) => o.cost), [1, 2, 3]);
+  assert.equal(D.PORTAL_OBSIDIAN, 10);
+  for (let i = 0; i < 50; i++) { const n = D.prefilledEyes(makeRng(i)); assert.ok(n >= 0 && n < D.END_FRAME_SLOTS); }
+});
+
+test('realms: Nether maps, strongholds and the eye of ender path', async () => {
+  const R = await import('../alex/js/mc/realmLayouts.js');
+  const { generateFloor } = await import('../alex/js/world/floorgen.js');
+  for (let s = 0; s < 40; s++) {
+    const n = R.generateNether(makeRng(s), [8, 12]);
+    const biomes = n.rooms.map((r) => r.biome);
+    for (const b of ['wastes', 'fortress', 'spawner', 'bastion', 'trade']) assert.ok(biomes.includes(b), `seed ${s} has ${b}`);
+    for (const r of n.rooms) { for (const [d, to] of Object.entries(r.doors)) assert.equal(n.rooms[to].doors[{ N: 'S', S: 'N', W: 'E', E: 'W' }[d]], r.id); assert.ok(R.REALM_LAYOUTS[r.layout], r.layout); }
+    assert.ok(R.pathTo(n, n.startId, n.rooms.find((r) => r.biome === 'spawner').id).length >= 6);
+    const floor = generateFloor(1 + (s % 3), makeRng(s));
+    const st = R.addStronghold(floor, makeRng(s + 99));
+    assert.ok(st && st.hidden && st.special === 'stronghold');
+    assert.ok(R.pathTo(floor, floor.startId, st.id), 'stronghold reachable');
+  }
+  for (const b of Object.keys(R.REALM_SPAWNS)) {
+    const list = R.composeRealm(b, 10, makeRng(3));
+    assert.ok(list.length > 0);
+  }
+  for (const L of Object.values(R.REALM_LAYOUTS)) {
+    const { makeBuilder } = await import('../alex/js/world/layouts.js');
+    const b = makeBuilder(L.w, L.d, makeRng(1));
+    L.build(b, 2);
+    for (const o of b.L.blocks) { assert.ok(Math.abs(o.x) < L.w / 2 && Math.abs(o.z) < L.d / 2, `${L.key} block inside`); }
+  }
+});
+
+// ---------------------------------------------------------------------------- Pokémon
+test('pokemon: dex, learnsets, evolutions and habitats are consistent', async () => {
+  const D = await import('../alex/js/pokemon/dex.js');
+  const { MOVES } = await import('../alex/js/pokemon/moves.js');
+  const { TYPES } = await import('../alex/js/pokemon/types.js');
+  assert.ok(D.SPECIES_LIST.length >= 100, 'way more pokemon');
+  const nos = new Set();
+  for (const s of D.SPECIES_LIST) {
+    assert.ok(!nos.has(s.no), `dup dex no ${s.no}`); nos.add(s.no);
+    assert.equal(s.base.length, 6);
+    for (const t of s.types) assert.ok(TYPES[t], `${s.id} type ${t}`);
+    const ls = D.learnsetOf(s.id);
+    assert.ok(ls.length >= 4, `${s.id} learns moves`);
+    for (const [lv, m] of ls) { assert.ok(MOVES[m], `${s.id} move ${m}`); assert.ok(lv >= 1 && lv <= 100); }
+    for (const e of s.evo ? (Array.isArray(s.evo) ? s.evo : [s.evo]) : []) { assert.ok(D.SPECIES[e.to], `${s.id} → ${e.to}`); assert.ok(e.lvl || D.STONES[e.item], `${s.id} evolves somehow`); }
+    assert.ok(s.look && s.look.form && s.look.c.length >= 3);
+  }
+  for (const list of Object.values(D.HABITATS)) for (const id of list) assert.ok(D.SPECIES[id], id);
+  for (const id of D.STARTERS) assert.ok(D.SPECIES[id].evo);
+});
+
+test('pokemon: stats, EXP, level-up learning and evolution', async () => {
+  const M = await import('../alex/js/pokemon/mon.js');
+  const D = await import('../alex/js/pokemon/dex.js');
+  const rng = makeRng(8);
+  const m = M.makeMon('charmandork', 5, rng, { nature: 'Hardy' });
+  assert.equal(m.moves.length, 3);
+  assert.deepEqual(m.moves.map((x) => x.id).sort(), ['ember', 'growl', 'scratch']);
+  const st = M.calcStats(m);
+  assert.ok(st.hp >= 19 && st.hp <= 21, `level-5 hp ${st.hp}`);
+  // perfect IVs, neutral nature, level 100 Charizzard has textbook stats
+  const z = M.makeMon('charizzard', 100, rng, { perfect: true, nature: 'Hardy' });
+  assert.equal(M.calcStats(z).hp, 297);
+  assert.equal(M.calcStats(z).spa, 254);
+  // Adamant: +Atk −SpA
+  assert.deepEqual(M.natureMods('Adamant'), { atk: 1.1, spa: 0.9 });
+  // EXP to level 16 learns Fire Fang and offers evolution
+  const evs = M.gainExp(m, M.expAt(16) - m.exp);
+  assert.equal(m.level, 16);
+  // Leer fills the fourth slot at 8; Dragon Breath (12) and Fire Fang (16) need a move forgotten
+  assert.ok(evs.some((e) => e.type === 'learned' && e.move === 'leer'));
+  assert.ok(evs.some((e) => e.type === 'learnPrompt' && e.move === 'fireFang'));
+  assert.ok(evs.some((e) => e.type === 'canEvolve' && e.to === 'charmelon'));
+  const levelEv = evs.filter((e) => e.type === 'level');
+  assert.equal(levelEv.length, 11);
+  const r = M.evolve(m, 'charmelon');
+  assert.equal(m.species, 'charmelon');
+  assert.ok(M.calcStats(m).atk > st.atk);
+  void r;
+  // full moveset → prompt instead of learning
+  const full = M.makeMon('bulbasore', 15, rng);
+  assert.equal(full.moves.length, 4);
+  const e2 = M.gainExp(full, M.expAt(19) - full.exp);
+  assert.ok(e2.some((e) => e.type === 'learnPrompt' && e.move === 'takeDown'));
+  assert.ok(M.learnMove(full, 'takeDown', 0));
+  assert.equal(full.moves[0].id, 'takeDown');
+  // stones
+  const p = M.makeMon('pikachew', 10, rng);
+  assert.equal(M.evolutionFor(p, { item: 'thunderStone' }), 'raichew');
+  assert.equal(M.evolutionFor(p, { item: 'fireStone' }), null);
+  const e = M.makeMon('eevie', 10, rng);
+  assert.equal(M.evolutionFor(e, { item: 'waterStone' }), 'vaporieon');
+  assert.equal(M.evolutionFor(e, { item: 'moonStone' }), 'umbreeon');
+  assert.ok(D.SPECIES.raichew);
+});
+
+test('pokemon: damage, type chart, status and catching', async () => {
+  const B = await import('../alex/js/pokemon/battleCore.js');
+  const M = await import('../alex/js/pokemon/mon.js');
+  const { effectiveness } = await import('../alex/js/pokemon/types.js');
+  assert.equal(effectiveness('water', ['fire']), 2);
+  assert.equal(effectiveness('electric', ['ground']), 0);
+  assert.equal(effectiveness('grass', ['fire', 'flying']), 0.25);
+  assert.equal(effectiveness('ground', ['rock', 'steel']), 4);
+  assert.equal(effectiveness('fighting', ['ghost']), 0);
+  const rng = makeRng(2);
+  const a = B.battler(M.makeMon('squirtul', 20, rng, { perfect: true, nature: 'Hardy' }), 'me');
+  const d = B.battler(M.makeMon('charmandork', 20, rng, { perfect: true, nature: 'Hardy' }), 'foe');
+  const se = B.calcDamage(a, d, 'waterGun', rng, { crit: false, roll: 1 });
+  const nve = B.calcDamage(d, a, 'ember', rng, { crit: false, roll: 1 });
+  assert.equal(se.eff, 2); assert.equal(nve.eff, 0.5);
+  assert.ok(se.dmg > nve.dmg * 3, `${se.dmg} vs ${nve.dmg}`);
+  const crit = B.calcDamage(a, d, 'waterGun', rng, { crit: true, roll: 1 });
+  assert.ok(crit.dmg > se.dmg);
+  // a turn produces readable events and changes HP
+  const ev = [];
+  const before = d.mon.hp;
+  B.useMove(a, d, 'waterGun', ev, () => 0.5);
+  assert.ok(d.mon.hp < before);
+  assert.ok(ev.some((e) => e.t === 'text' && /super effective/.test(e.s)));
+  // status: fire types can't be burned; a paralysed Pokémon is slower
+  assert.ok(!B.inflict(d, 'brn', [], () => 0));
+  const sp0 = B.effStat(a, 'spe');
+  assert.ok(B.inflict(a, 'par', [], () => 0));
+  assert.equal(B.effStat(a, 'spe'), sp0 / 2);
+  // catching: Master Ball always works; full-HP legendaries rarely do
+  const leg = B.battler(M.makeMon('mewtoo', 70, rng), 'foe');
+  assert.equal(B.catchShakes(leg, 'masterBall', rng), 4);
+  let caught = 0;
+  for (let i = 0; i < 400; i++) if (B.catchShakes(leg, 'pokeBall', makeRng(i)) >= 4) caught++;
+  assert.ok(caught < 10, `legendary catches ${caught}`);
+  const weak = B.battler(M.makeMon('rattatat', 3, rng), 'foe');
+  weak.mon.hp = 1;
+  let c2 = 0;
+  for (let i = 0; i < 200; i++) if (B.catchShakes(weak, 'pokeBall', makeRng(i)) >= 4) c2++;
+  assert.ok(c2 > 150, `weak rattatat catches ${c2}`);
+  // speed decides who moves first, priority beats speed
+  const fast = B.battler(M.makeMon('pidgeyet', 50, rng), 'me'), slow = B.battler(M.makeMon('snorelax', 50, rng), 'foe');
+  assert.equal(B.order(fast, 'tackle', slow, 'tackle', rng)[0], fast);
+  assert.equal(B.order(fast, 'tackle', slow, 'quickAttack', rng)[0], slow);
+});

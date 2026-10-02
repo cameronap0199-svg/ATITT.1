@@ -16,6 +16,7 @@ import { hasCombat } from '../world/floorgen.js';
 import { MOVES } from './moves.js';
 
 export const PARTY_MAX = 6;
+let busy = false;           // a battle / evolution scene is up (or starting)
 const CROSS_TO_SPECIES = { pikachew: 'pikachew', gastlee: 'gastlee', magikrap: 'magikrap', gyarados: 'gyarados', snorelax: 'snorelax' };
 
 // ---------------------------------------------------------------------------- dex (persistent)
@@ -27,6 +28,8 @@ export const dexSeen = (id) => !!dex().seen[id];
 
 // ---------------------------------------------------------------------------- party
 export function pokeInit(run) {
+  busy = false;
+  if (typeof document !== 'undefined') document.body.classList.remove('pokescene');
   run.party = [];
   run.pc = [];
   run.bag = { pokeBall: 0, potion: 0 };
@@ -88,12 +91,12 @@ function exp(mon, amt) {
 }
 
 // ---------------------------------------------------------------------------- scenes
-let busy = false;
 function enterMini(make) {
   const run = G.run;
   G.mode = 'minigame';
   G.input.releaseLock();
   document.getElementById('mini').classList.add('on');
+  document.body.classList.add('pokescene');
   busy = true;
   G.minigame = make();
 }
@@ -101,6 +104,7 @@ function exitMini() {
   G.minigame = null;
   busy = false;
   document.getElementById('mini').classList.remove('on');
+  document.body.classList.remove('pokescene');
   G.mode = 'run';
   const room = G.room;
   const song = room?.def.realm || (room?.def.kind === 'gas' ? 'shop' : 'floor' + G.run.floor);
@@ -143,7 +147,10 @@ export function startBattle({ foes, trainer = null, onWin }) {
   if (!lead()) return;
   busy = true;
   dropBuddy();
+  const run = G.run;
   transition(() => {
+    // the world moved on during the flash (died, quit, left the room): no battle
+    if (G.run !== run || G.mode !== 'run' || !G.alex.alive || !lead()) { busy = false; refreshBuddy(); return; }
     enterMini(() => new Battle({
       foes, trainer, terrain: terrain(),
       onDone: (result, evolutions) => {

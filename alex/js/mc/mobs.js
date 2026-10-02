@@ -203,6 +203,8 @@ export const MC_MODELS = {
   },
 };
 
+MC_MODELS.piglinBrute = () => MC_MODELS.piglin(true);
+
 // ---------------------------------------------------------------------------- enemies
 export const MC_INFO = {
   piglin: { name: 'Zombified Piglin', franchise: 'minecraft', threat: 1.5 },
@@ -268,7 +270,7 @@ class Piglin extends Mob {
   }
 }
 class PiglinBrute extends Mob {
-  constructor(o) { super({ hp: 75, speed: RUN * 0.62, radius: 0.45, height: 2, poise: 'med', ...o }, 'piglin', true); this.angry = true; }
+  constructor(o) { super({ hp: 75, speed: RUN * 0.62, radius: 0.45, height: 2, poise: 'med', ...o }, 'piglinBrute'); this.angry = true; }
   think(dt) {
     this.pose = null;
     const d = this.seek(dt, this.speed);

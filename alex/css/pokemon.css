@@ -84,3 +84,5 @@
 .dex-card i { font-style: normal; color: #9ca3af; font-size: 10px; }
 .dex-card.caught b::after { content: ' ◓'; color: #ef4444; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } }
+/* battles and evolutions are tapped directly: hide the action buttons */
+.touch.pokescene #touch, .touch.minigame.pokescene #touch { display: none !important; }

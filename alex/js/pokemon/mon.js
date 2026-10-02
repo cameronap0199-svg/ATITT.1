@@ -101,7 +101,9 @@ export function gainExp(mon, amount) {
       if (mon.moves.length < 4) mon.moves.push(moveSlot(m));
     }
   }
-  const evo = evolutionFor(mon, {});
+  // like the handheld games, evolution is offered when a level is gained (a cancelled
+  // evolution comes back at the next level-up)
+  const evo = events.some((e) => e.type === 'level') ? evolutionFor(mon, {}) : null;
   if (evo) events.push({ type: 'canEvolve', to: evo });
   return events;
 }

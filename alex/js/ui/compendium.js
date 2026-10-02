@@ -7,6 +7,7 @@ import { G } from '../state.js';
 import { MODELS } from '../actors/enemyModels.js';
 import { CROSS_MODELS } from '../actors/crossoverModels.js';
 import { MC_MODELS, MC_INFO } from '../mc/mobs.js';
+import { dragonModel } from '../mc/dragon.js';
 import { SPECIES_LIST } from '../pokemon/dex.js';
 import { TYPES } from '../pokemon/types.js';
 import { spriteURL } from '../pokemon/sprites.js';
@@ -71,6 +72,7 @@ const DESC = {
   magmaCube: 'Hops at you. Splits into smaller cubes when it dies.',
   witherSkeleton: 'Tall, black, stone sword. Lives in Nether fortresses.',
   silverfish: 'Tiny. Fast. Hurt one and its friends crawl out of the walls.',
+  enderDragon: 'Circles the End, dives, perches by the portal to breathe. End Crystals heal it: shoot them first.',
 };
 
 // ---------------------------------------------------------------------------- portraits
@@ -158,7 +160,8 @@ function vehicleCards() {
 export function compendiumPanel(onBack, makeButton) {
   const n = document.createElement('div');
   n.className = 'panel compendium';
-  const venue = Object.keys(ENEMY_INFO), cross = Object.keys(CROSS_INFO), mobs = Object.keys(MC_INFO).filter((k) => !CROSS_INFO[k]);
+  const MOB_INFO = { ...MC_INFO, enderDragon: { name: 'Ender Dragon', franchise: 'minecraft', threat: 20 } };
+  const venue = Object.keys(ENEMY_INFO), cross = Object.keys(CROSS_INFO), mobs = Object.keys(MOB_INFO).filter((k) => !CROSS_INFO[k]);
   const seenCount = [...venue, ...cross, ...mobs].filter((k) => codex.data.seen[k]).length;
   n.innerHTML = `<h2>📖 COMPENDIUM</h2><p class="sub">${seenCount} / ${venue.length + cross.length + mobs.length} creatures encountered. Rift creatures come from Halo, Minecraft, One Piece, Pokémon and the Bible.</p>`;
   const tabs = document.createElement('div'); tabs.className = 'tabs';
@@ -166,7 +169,7 @@ export function compendiumPanel(onBack, makeButton) {
   const pages = {
     'Venue demons': () => enemyCards(venue, ENEMY_INFO, (k) => () => MODELS[k]()),
     'Rift creatures': () => enemyCards(cross, CROSS_INFO, (k) => () => (CROSS_MODELS[k] || MC_MODELS[k])()),
-    'Nether & End': () => enemyCards(mobs, MC_INFO, (k) => () => MC_MODELS[k]()),
+    'Nether & End': () => enemyCards(mobs, MOB_INFO, (k) => () => (k === 'enderDragon' ? dragonModel() : MC_MODELS[k]())),
     'Pokédex': pokedexCards,
     'Items & weapons': itemCards,
     'Vehicles': vehicleCards,
