@@ -26,9 +26,18 @@ export function loadProfile() {
 }
 export function saveProfile(p) { try { localStorage.setItem(PROFILE, JSON.stringify(p)); } catch { /* ignore */ } }
 
+// Infinite Mode: after the Demon King the show starts over from the parking lot,
+// harder every loop. Scaling for loop n (0 = first time through).
+export function loopScale(loop) {
+  return { hp: 1 + 0.45 * loop, dmg: 1 + 0.25 * loop, budget: 2 * loop, money: 1 + 0.2 * loop, affix: Math.min(0.35, 0.1 * loop), level: 15 * loop };
+}
+
 export class Run {
-  constructor(seed = (Math.random() * 2 ** 31) | 0) {
+  constructor(seed = (Math.random() * 2 ** 31) | 0, opts = {}) {
     this.seed = seed;
+    this.infinite = !!opts.infinite;
+    this.loop = 0;
+    this.scale = loopScale(0);
     this.rng = makeRng(seed);
     this.floor = 1;
     this.money = 0;
@@ -59,7 +68,7 @@ export class Run {
     this.ended = false;
   }
 
-  roomRng(id) { return makeRng((this.seed ^ (this.floor * 100003) ^ (id * 7919)) | 0); }
+  roomRng(id) { return makeRng((this.seed ^ (this.floor * 100003) ^ (id * 7919) ^ (this.loop * 3571) ^ (this.realmSalt || 0)) | 0); }
 
   start() {
     const p = loadProfile();
@@ -80,15 +89,26 @@ export class Run {
     this.map = generateFloor(n, this.rng.fork());
     this.enterRoom(this.map.startId, null);
     G.audio.playMusic('floor' + n, { restart: true });
-    G.hud.roomTitle(`FLOOR ${n} — ${FLOOR_NAMES[n - 1]}`, FLOOR_PLACES[n - 1]);
+    G.hud.roomTitle(`${this.loop ? `∞ LOOP ${this.loop + 1} · ` : ''}FLOOR ${n} — ${FLOOR_NAMES[n - 1]}`, FLOOR_PLACES[n - 1]);
     const p = loadProfile();
     p.bestFloor = Math.max(p.bestFloor, n);
+    if (this.infinite) p.bestLoop = Math.max(p.bestLoop || 0, this.loop + 1);
     saveProfile(p);
   }
 
   nextFloor() {
     if (this.transition) return;
     G.audio.sfx('door');
+    if (this.floor >= 3 && this.infinite) {
+      this.fade(() => {
+        this.loop++;
+        this.scale = loopScale(this.loop);
+        this.stat('loops', 1);
+        G.hud.popup(`∞ ENCORE — LOOP ${this.loop + 1}`, '#ff4fa3', 2.4);
+        this.startFloor(1);
+      });
+      return;
+    }
     this.fade(() => this.startFloor(this.floor + 1));
   }
 
@@ -251,6 +271,13 @@ export class Run {
       G.hud.popup(this.floor === 1 ? 'THE OPENING ACT IS OVER' : 'THE HEADLINER GUARDIAN FALLS', '#ffd60a', 2.4);
       addPedestals(room, 'boss', 1, {});
       addExit(room);
+    } else if (this.infinite) {
+      G.hud.popup(`LOOP ${this.loop + 1} CLEARED — THE SHOW GOES ON`, '#ffd60a', 3);
+      const p = loadProfile();
+      p.wins++;
+      saveProfile(p);
+      addPedestals(room, 'boss', 2, { choose: false });
+      addExit(room);
     } else {
       G.hud.popup('THE K-POP DEMON KING IS DEFEATED', '#ffd60a', 3);
       this.inputLocked = true;
@@ -270,6 +297,7 @@ export class Run {
 
   // ---------------------------------------------------------------------------
   addMoney(n, spend) {
+    if (n > 0 && !spend) n = Math.round(n * this.scale.money);
     this.money = Math.max(0, this.money + n);
     if (n > 0 && !spend) this.stat('moneyCollected', n);
     if (n < 0) this.stat('moneySpent', -n);

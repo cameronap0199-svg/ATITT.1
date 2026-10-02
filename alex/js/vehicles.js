@@ -16,6 +16,8 @@ import { clamp, damp, dampAngle, wrapAngle } from './core/math.js';
 import { RANGED } from './combat/weapons.js';
 
 const aimV = new THREE.Vector3();
+const UNSMASHABLE = new Set(['wall', 'door', 'vehicle', 'bossBody', 'portal']);
+export const smashable = (b) => b.alive && b.solid !== false && !b.wall && !UNSMASHABLE.has(b.kind) && !b.data?.keep && !b.data?.noSmash;
 
 export const VEHICLES = {
   warthog: { name: 'Warthog', franchise: 'halo', icon: '🚙', maxSpeed: 17, accel: 13, turn: 2.3, grip: 5, radius: 1.25, hp: 140, ram: 30, seatY: 0.64, seatZ: 0.1, boost: 'nitro', weapon: 'turret', hint: 'Shoot: turret · Dash: nitro · Jump: horn' },
@@ -261,8 +263,11 @@ export class Vehicle {
       if (this.airY <= 0) { this.airY = 0; if (this.vy < -8) { G.cam.shake(0.15); G.audio.sfx('land', { v: 0.6 }); } this.vy = 0; }
       this.pos.y = damp(this.pos.y, g.h, 18, dt) ;
     }
-    // collisions (flyers skip anything they can float over)
-    const hits = w.collide(this.pos, d.radius * 0.8, 1.4, { ignoreClutter: true, stepUp: d.fly ? 1.6 : 0.5 + this.airY });
+    // anything that isn't a wall or a door gets smashed out of the way
+    if (Math.abs(this.speed) > 2.5) this._smash(fwdX, fwdZ);
+    // collisions (flyers skip anything they can float over; ramps and tiers are climbed)
+    const py = this.pos.y;
+    const hits = w.collide(this.pos, d.radius * 0.8, 1.4, { ignoreClutter: true, stepUp: d.fly ? 1.6 : 0.5 + this.airY, ignore: (b) => b.data?.keep && b.y1 <= py + 1.35 });
     const wall = hits.find((c) => c.block.wall || c.block.y1 > this.pos.y + 0.8);
     if (wall && Math.abs(this.speed) > 3) {
       const hard = Math.abs(this.speed) > 9;
@@ -271,7 +276,6 @@ export class Vehicle {
       this.speed *= -0.25;
       this.vel.multiplyScalar(-0.2);
     }
-    for (const c of hits) if (c.block.hp != null && !c.block.wall && Math.abs(this.speed) > 6) this.room.damageBlock(c.block, Math.abs(this.speed) * 2);
     // keep inside the room
     const hw = this.room.L.w / 2 - d.radius * 0.6, hd = this.room.L.d / 2 - d.radius * 0.6;
     this.pos.x = clamp(this.pos.x, -hw, hw); this.pos.z = clamp(this.pos.z, -hd, hd);
@@ -298,6 +302,29 @@ export class Vehicle {
     if (Math.abs(this.speed) > 12) G.fx.speed(0.4);
     G.cam.vehicleYaw = this.yaw;
     G.cam.vehicleSpeed = Math.abs(this.speed);
+  }
+
+  // Plough through props: cars, tents, crates, shelves, pillars, blocks, chairs…
+  // Walls, doors, parked rides, stairs and platforms stay (the last two are climbed).
+  _smash(fwdX, fwdZ) {
+    const d = this.def, room = this.room, w = room.world;
+    if (room.def.kind === 'gas') return;   // "NOT IN MY STORE"
+    const cx = this.pos.x + fwdX * d.radius * 0.45, cz = this.pos.z + fwdZ * d.radius * 0.45;
+    const r = d.radius * 0.95 + 0.25, y = this.pos.y + this.airY;
+    const low = d.fly ? 1.0 : 0.04;
+    let big = 0;
+    for (const b of w.near(cx, cz, r + 3, [])) {
+      if (!smashable(b) || b.y1 <= y + low || b.y0 > y + 1.8) continue;
+      if (!b.pushCircle(cx, cz, r) && !b.containsXZ(cx, cz, 0.1)) continue;
+      big = Math.max(big, b.radius());
+      room.destroyBlock(b, { vehicle: true });
+      G.run.stat('propsRammed', 1);
+    }
+    if (big) {
+      this.speed *= big > 2.2 ? 0.86 : big > 1 ? 0.95 : 0.99;
+      G.cam.shake(Math.min(0.3, 0.06 + big * 0.06));
+      if (G.time > (this._smashSfx || 0)) { this._smashSfx = G.time + 0.12; G.audio.sfx('slam', { v: 0.35 + Math.min(0.4, big * 0.1) }); }
+    }
   }
 
   _ram(dt) {

@@ -336,7 +336,7 @@ export class HUD {
     const e = this.e;
     e.rtA.textContent = a; e.rtB.textContent = b || '';
     e.rt.classList.remove('on'); void e.rt.offsetWidth; e.rt.classList.add('on');
-    e.where.textContent = `FLOOR ${G.run.floor} · ${FLOOR_NAMES[G.run.floor - 1]}`;
+    e.where.textContent = `${G.run.loop ? '∞' + (G.run.loop + 1) + ' · ' : ''}FLOOR ${G.run.floor} · ${FLOOR_NAMES[G.run.floor - 1]}`;
   }
 
   setBeat(b, bpm) {

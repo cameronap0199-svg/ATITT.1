@@ -883,6 +883,7 @@ export class Alex {
     }
     if (now < this.mercyUntil) return 'immune';
     if (!(dmg > 0)) return 'immune';
+    dmg *= G.run.scale?.dmg || 1;
     if (info.kind === 'proj' && this.mods.faithBlock && Math.random() < this.mods.faithBlock) {
       G.hud.bubble(this, 'SHIELD OF FAITH', '#fde68a', 0.7);
       G.fx.burst(this.pos.x, this.pos.y + 1.2, this.pos.z, { n: 10, color: ['#fde68a', '#ffffff'], speed: 4, life: 0.3 });

@@ -81,13 +81,14 @@ const screens = new Screens(document.getElementById('ui'), {
 G.screens = screens;
 
 // Run lifecycle -------------------------------------------------------------
-function startRun(seed) {
+function startRun(seed, opts = {}) {
+  if (typeof seed === 'object' && seed) { opts = seed; seed = undefined; }
   audio.initAudio();
   if (G.room) { G.room.dispose(); G.room = null; }
   G.projectiles.clear(); G.areas.clear(); G.fx.clear();
   G.phone.reset();
   G.time = 0;
-  G.run = new Run(seed);
+  G.run = new Run(seed, opts);
   G.alex.model.setVisible(true);
   screens.clear();
   G.mode = 'run';

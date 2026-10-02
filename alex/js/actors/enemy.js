@@ -20,7 +20,7 @@ export class Enemy {
     this.yaw = o.yaw ?? Math.atan2(G.alex.pos.x - o.x, G.alex.pos.z - o.z);
     this.radius = o.radius ?? 0.5;
     this.height = o.height ?? 1.8;
-    this.maxHp = Math.round(o.hp * (o.hpMul || 1));
+    this.maxHp = Math.round(o.hp * (o.hpMul || 1) * (G.run?.scale?.hp || 1));
     this.hp = this.maxHp;
     this.speed = o.speed ?? 4;
     this.alive = true;

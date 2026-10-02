@@ -73,7 +73,7 @@ export class Room {
     if (def.kind === 'gas') stockGasStation(this);
     if (def.kind === 'treasure') addPedestals(this, 'treasure', 2, { choose: true });
     if (def.kind === 'secret') { addPedestals(this, 'secret', 1, {}); if (!def.looted) { this.dropMoney(0, -2, 15); } }
-    if (def.kind === 'boss' && def.cleared && this.floor < 3) { addPedestals(this, 'boss', 1, {}); addExit(this); }
+    if (def.kind === 'boss' && def.cleared && (this.floor < 3 || G.run.infinite)) { addPedestals(this, 'boss', 1, {}); addExit(this); }
     if (def.kind === 'start' && this.floor === 1 && !def.visited) G.hud.tutorial();
     // parked vehicles stay where you left them; some fights come with a free ride
     if (def.parked) { for (const p of def.parked) this.spawnVehicle(p.type, p.x, p.z, p.yaw, p); def.parked = null; }
@@ -90,7 +90,7 @@ export class Room {
 
   spawnEncounter() {
     const def = this.def;
-    let budget = (def.budget || 4) + (this.L.budgetAdd || 0);
+    let budget = (def.budget || 4) + (this.L.budgetAdd || 0) + (G.run.scale?.budget || 0);
     const dk = G.run.nextRoomMod;
     if (dk) { budget += dk.threat || 0; this.moneyK = dk.money || 1; this.extra = dk.extra; G.run.nextRoomMod = null; if (dk.text) G.hud.popup(dk.text, '#ff006e', 1.6); }
     const rift = def.rift;
@@ -144,7 +144,7 @@ export class Room {
       }
       if (!p) p = { x: (this.rng() - 0.5) * this.L.w * 0.6, z: (this.rng() - 0.5) * this.L.d * 0.6 };
       const e = this.spawnEnemy(type, p.x, p.z, { readyDelay: 1.3 + delay, ...extra });
-      if (e && !e.boss && !extra.disguised) { const af = rollAffix(this.rng, this.floor, type); if (af) e.applyAffix(af); }
+      if (e && !e.boss && !extra.disguised) { const af = rollAffix(this.rng, this.floor, type, G.run.scale?.affix || 0); if (af) e.applyAffix(af); }
       delay += 0.08;
       if (e) avoid.push({ x: p.x, z: p.z, r: 1.6 });
     }
@@ -230,7 +230,8 @@ export class Room {
     if (b.hp > 0) return;
     this.destroyBlock(b);
   }
-  destroyBlock(b) {
+  destroyBlock(b, opts = {}) {
+    if (!b.alive) return;
     this.world.remove(b);
     if (b.meshes) { this.group.remove(b.meshes); }
     const col = b.data.color || '#999';
@@ -239,11 +240,16 @@ export class Room {
     if (b.kind === 'rack' || b.data.model === 'shirtwall' || b.data.model === 'rack') G.fx.confetti(cx, cy + 0.5, cz, 40);
     if (b.kind === 'block') this.addPickup('block', cx, cz, 1);
     if (b.data.model === 'car') {
-      G.areas.circle({ x: cx, z: cz, r: 2.8, delay: 0.05, dmg: 14, ff: true, enemyDmg: 20, owner: 'hazard', style: 'fire', sound: 'boom', shake: 0.4, propDmg: 20 });
+      G.areas.circle({ x: cx, z: cz, r: 2.8, delay: 0.05, dmg: opts.vehicle ? 0 : 14, ff: !opts.vehicle, enemyDmg: 20, owner: 'hazard', style: 'fire', sound: 'boom', shake: 0.4, propDmg: opts.vehicle ? 0 : 20 });
       G.hud.bubble({ pos: new THREE.Vector3(cx, 0, cz), height: 1.5, alive: true }, 'CAR ALARM!', '#ff2e4d', 1.2);
     }
     G.audio.sfx('hitHeavy', { v: 0.5, pan: G.cam.panOf(cx, cz) });
     G.run.stat('propsDestroyed', 1);
+    // whatever was sitting on top falls with it (stacked blocks, things on tables)
+    for (const o of this.world.blocks.slice()) {
+      if (!o.alive || o.data?.keep || o.wall || Math.abs(o.y0 - b.y1) > 0.08 || o.y0 < 0.1) continue;
+      if (b.containsXZ(o.x, o.z, 0.05)) this.destroyBlock(o, opts);
+    }
   }
   damageBlocksInRadius(x, z, r, dmg) {
     for (const b of this.world.blocks.slice()) if (b.hp != null && b.alive && Math.hypot(b.x - x, b.z - z) < r + b.radius() * 0.6) this.damageBlock(b, dmg);

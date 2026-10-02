@@ -342,3 +342,8 @@
 /* touch controls stay usable during the cook-off and Horse Mario minigames */
 .touch.minigame #touch { display: block !important; z-index: 36; }
 .touch.minigame #touch .tb.sm, .touch.minigame #touch .pausebtn { display: none; }
+
+/* ---------------------------------------------------------------- Infinite Mode */
+.btn.infinite { background: linear-gradient(90deg, #3c096c, #ff4fa3, #4cc9f0, #3c096c); background-size: 300% 100%; color: #fff; border-color: rgba(255,255,255,.35); animation: infgrad 6s linear infinite; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+@keyframes infgrad { to { background-position: 300% 0; } }
+.calm .btn.infinite { animation: none; }

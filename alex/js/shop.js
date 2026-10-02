@@ -213,7 +213,7 @@ export function addExit(room) {
   room.animators.push((t) => { ring.rotation.z = t; disc.material.opacity = 0.3 + Math.sin(t * 3) * 0.1; });
   room.addInteractable({
     x: 0, z: -6, r: 1.8, mesh: g,
-    prompt: () => ({ title: floor === 1 ? 'ENTER THE VENUE' : 'GO BACKSTAGE', text: floor === 1 ? 'Floor 2 — THE VENUE' : 'Floor 3 — BEHIND THE SHOW', action: 'Go' }),
+    prompt: () => (floor >= 3 ? { title: '∞ ENCORE', text: `Loop ${G.run.loop + 2} — back to the parking lot. Everything hits harder.`, action: 'Go' } : { title: floor === 1 ? 'ENTER THE VENUE' : 'GO BACKSTAGE', text: floor === 1 ? 'Floor 2 — THE VENUE' : 'Floor 3 — BEHIND THE SHOW', action: 'Go' }),
     use: () => G.run.nextFloor(),
   });
 }

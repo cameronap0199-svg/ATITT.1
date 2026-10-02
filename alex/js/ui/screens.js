@@ -87,10 +87,11 @@ export class Screens {
         <div class="logo-c">A 3D comedy roguelike bullet hell · Parking lot → Venue → Stage</div>
       </div>
       <div class="menu"></div>
-      <div class="meta">Runs ${p.runs} · Clears ${p.wins} · Best floor ${p.bestFloor || '—'}</div>
+      <div class="meta">Runs ${p.runs} · Clears ${p.wins} · Best floor ${p.bestFloor || '—'}${p.bestLoop ? ' · Best ∞ loop ' + p.bestLoop : ''}</div>
       <div class="foot">Keyboard + mouse or controller. Everything is procedural — no art files were harmed.</div>`;
     const m = n.querySelector('.menu');
     m.appendChild(this.button('▶ START RUN', () => this.hooks.startRun(), 'primary big'));
+    m.appendChild(this.button('∞ INFINITE MODE', () => this.hooks.startRun({ infinite: true }), 'infinite'));
     m.appendChild(this.button('♥ HEARTLINE', () => this.heartline(() => this.title())));
     m.appendChild(this.button('📖 COMPENDIUM', () => this.compendium(() => this.title())));
     m.appendChild(this.button('⚙ SETTINGS', () => this.settings(() => this.title())));
@@ -101,7 +102,7 @@ export class Screens {
 
   pause() {
     const n = el('div', 'panel pause');
-    n.innerHTML = `<h2>PAUSED</h2><p class="sub">Floor ${G.run.floor} · ${esc(FLOOR_NAMES[G.run.floor - 1])} · ${fmtMoney(G.run.money)}</p>`;
+    n.innerHTML = `<h2>PAUSED</h2><p class="sub">${G.run.infinite ? `∞ Loop ${G.run.loop + 1} · ` : ''}Floor ${G.run.floor} · ${esc(FLOOR_NAMES[G.run.floor - 1])} · ${fmtMoney(G.run.money)}</p>`;
     const m = el('div', 'menu');
     m.appendChild(this.button('Resume', () => this.hooks.resume(), 'primary'));
     m.appendChild(this.button('Settings', () => this.settings(() => this.pause())));
@@ -292,7 +293,7 @@ export class Screens {
     const r = G.run, s = r.stats;
     const t = Math.round(s.time || 0);
     const rows = [
-      ['Floor reached', r.floor], ['Time', Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0')], ['Demons defeated', Math.round(s.kills || 0)],
+      ['Floor reached', r.infinite ? `Loop ${r.loop + 1} · F${r.floor}` : r.floor], ['Time', Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0')], ['Demons defeated', Math.round(s.kills || 0)],
       ['Money collected', fmtMoney(s.moneyCollected || 0)], ['Sent to Girlfriend', fmtMoney(s.moneyToGirlfriend || 0)], ['Perfect dodges', s.perfectDodges || 0],
       ['Rooms cleared', s.roomsCleared || 0], ['Calls answered / declined', `${s.callsAnswered || 0} / ${s.callsDeclined || 0}`], ['Accuracy', r.statValue('accuracy') + '%'],
       ['Items purchased', s.itemsPurchased || 0], ['Lottery tickets', s.lotteryTickets || 0], ['Props destroyed', s.propsDestroyed || 0],
@@ -313,7 +314,7 @@ export class Screens {
       <p class="quote"><b>THE K-POP DEMON KING:</b> "${esc(dk.line(r.statValue(r.dkStat)))} ...And now you have died. I will be adding that to the statistic."</p>
       ${this.statsHtml()}`;
     const row = el('div', 'row');
-    row.appendChild(this.button('Try again', () => this.hooks.startRun(), 'primary'));
+    row.appendChild(this.button('Try again', () => this.hooks.startRun({ infinite: r.infinite }), 'primary'));
     row.appendChild(this.button('Title', () => this.hooks.quitToTitle()));
     n.appendChild(row);
     this.open(n);

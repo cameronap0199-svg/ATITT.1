@@ -17,9 +17,9 @@ export const AFFIX_CHANCE = [0.12, 0.17, 0.22];
 export const SHINY_CHANCE = 0.035;
 const NO_AFFIX = new Set(['soloA', 'soloB', 'dancer', 'mimic', 'splashcarp', 'frog']);
 
-export function rollAffix(rng, floor, type) {
+export function rollAffix(rng, floor, type, extra = 0) {
   if (NO_AFFIX.has(type)) return null;
   if (rng() < SHINY_CHANCE) return 'shiny';
-  if (rng() >= AFFIX_CHANCE[Math.max(0, Math.min(2, floor - 1))]) return null;
+  if (rng() >= AFFIX_CHANCE[Math.max(0, Math.min(2, floor - 1))] + extra) return null;
   return rng.weighted(Object.entries(AFFIXES).filter(([, a]) => a.weight > 0).map(([k, a]) => [k, a.weight]));
 }
