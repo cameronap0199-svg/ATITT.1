@@ -117,5 +117,6 @@ export const HEARTLINE = {
 
 // Relationship score (-5…+5) → hearts shown on the phone (0–5).
 export const heartsFor = (score) => Math.max(0, Math.min(5, Math.ceil((score + 5) / 2)));
-export const COOKOFF_CHANCE = [0.35, 0.22, 0.12, 0.06, 0.02, 0];       // index = hearts
+export const COOKOFF_CHANCE = [0.16, 0.1, 0.06, 0.03, 0.01, 0];       // index = hearts, rolled per room clear
+export const COOKOFF_GAP = 6;                                          // room clears between cook-offs (and max one per floor)
 export const NIGHTMARE_CHANCE = [0.22, 0.12, 0.06, 0, 0, 0];

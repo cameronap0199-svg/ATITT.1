@@ -25,7 +25,7 @@ export function setupTouch(root) {
   let moveId = null, lookId = null, sx = 0, sy = 0, lx = 0, ly = 0;
   const R = 60;
   const onStart = (e) => {
-    if (G.mode !== 'run') return;
+    if (G.mode !== 'run' && G.mode !== 'minigame') return;
     for (const t of e.changedTouches) {
       if (t.target.closest('button')) continue;
       if (t.clientX < innerWidth * 0.45 && moveId === null) {

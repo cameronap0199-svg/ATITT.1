@@ -160,7 +160,7 @@ function simulate(realDt) {
   const dt = realDt * scale;
   G.dt = dt;
   G.input.update(realDt);
-  if (G.mode !== frame.lastMode) { frame.lastMode = G.mode; document.body.classList.toggle('playing', G.mode === 'run'); }
+  if (G.mode !== frame.lastMode) { frame.lastMode = G.mode; document.body.classList.toggle('playing', G.mode === 'run'); document.body.classList.toggle('minigame', G.mode === 'minigame'); }
 
   if (G.mode === 'run') {
     if (G.input.pressed('pause')) { pause(); return; }

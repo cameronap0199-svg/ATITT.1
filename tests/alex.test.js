@@ -179,7 +179,9 @@ test('relationship hearts drive cook-off and nightmare chances', () => {
   assert.equal(heartsFor(5), 5);
   assert.equal(heartsFor(0), 3);
   assert.equal(heartsFor(-5), 0);
-  assert.deepEqual(COOKOFF_CHANCE, [0.35, 0.22, 0.12, 0.06, 0.02, 0]);
+  for (let i = 1; i < COOKOFF_CHANCE.length; i++) assert.ok(COOKOFF_CHANCE[i] <= COOKOFF_CHANCE[i - 1], 'fewer hearts → more cook-offs');
+  assert.ok(COOKOFF_CHANCE[0] <= 0.2, 'cook-offs stay occasional even at zero hearts');
+  assert.equal(COOKOFF_CHANCE[5], 0);
   assert.equal(NIGHTMARE_CHANCE[5], 0);
   assert.ok(NIGHTMARE_CHANCE[0] > NIGHTMARE_CHANCE[1]);
   for (const s of Object.values(SPECIAL)) assert.ok(s.w > 0 && s.d > 0);

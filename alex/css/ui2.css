@@ -339,3 +339,6 @@
 .touch .phone, .touch .phone.show { bottom: auto; }
 .touch .riftbanner { top: 168px; min-width: 0; width: min(520px, 70vw); padding: 6px 20px 8px; }
 .touch .wildbox { bottom: 110px; width: min(520px, 60vw); left: 40%; }
+/* touch controls stay usable during the cook-off and Horse Mario minigames */
+.touch.minigame #touch { display: block !important; z-index: 36; }
+.touch.minigame #touch .tb.sm, .touch.minigame #touch .pausebtn { display: none; }

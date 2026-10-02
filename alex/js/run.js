@@ -9,7 +9,7 @@ import { ROOM_TYPES, SPECIAL } from './world/layouts.js';
 import { Room } from './world/room.js';
 import { combineMods, ITEMS, itemInfo, rollItems } from './items.js';
 import { MELEE, RANGED } from './combat/weapons.js';
-import { HEARTLINE, COOKOFF_CHANCE, NIGHTMARE_CHANCE, ECONOMY, FLOOR_NAMES, FLOOR_PLACES, PLAYER } from './config.js';
+import { HEARTLINE, COOKOFF_CHANCE, COOKOFF_GAP, NIGHTMARE_CHANCE, ECONOMY, FLOOR_NAMES, FLOOR_PLACES, PLAYER } from './config.js';
 import { DK_STATS, CALLERS } from './phone/callers.js';
 import { tickPhoneTimers } from './phone/heartline.js';
 import { CookOff } from './phone/cookoff.js';
@@ -230,9 +230,10 @@ export class Run {
     if (this.gadget && !GADGETS[this.gadget.id].cooldown && this.gadget.charges < this.gadget.max) { this.gadget.charges++; G.hud.popup(`${GADGETS[this.gadget.id].icon} +1 ${GADGETS[this.gadget.id].name}`, '#7dd3fc', 1, true); }
     if (this.mods.clearMoney) this.addMoney(this.mods.clearMoney);
     // Ugly Girlfriend: losing hearts raises the Cook-Off chance
-    if (this.cookoffFloor !== this.floor && room.def.kind !== 'boss') {
+    const clears = this.stats.roomsCleared || 0;
+    if (this.cookoffFloor !== this.floor && room.def.kind !== 'boss' && clears - (this.lastCookoffClear ?? -COOKOFF_GAP) >= COOKOFF_GAP) {
       const chance = COOKOFF_CHANCE[G.phone.hearts('ugly')] || 0;
-      if (this.rng() < chance) { this.cookoffFloor = this.floor; this.pendingCookoff = G.time + 1.2; }
+      if (this.rng() < chance) { this.cookoffFloor = this.floor; this.lastCookoffClear = clears; this.pendingCookoff = G.time + 1.2; }
     }
   }
 
@@ -387,12 +388,13 @@ export class Run {
 
   caughtByHorse() {
     const horse = this.nightmare.horse;
+    const hpBefore = G.alex.hp;
     G.mode = 'minigame';
     G.input.releaseLock();
     G.audio.sfx('neigh');
     G.pixelateUntil = G.realTime + 0.8;
     document.getElementById('mini').classList.add('on');
-    G.minigame = new HorseMario(() => {
+    G.minigame = new HorseMario((won) => {
       horse.remove();
       this.nightmare.active = false;
       this.nightmare.horse = null;
@@ -402,9 +404,18 @@ export class Run {
       G.audio.playMusic('floor' + this.floor, { restart: true });
       G.alex.spawnSafe(2);
       G.input.clearBuffers();
-      const d = G.phone.change('mario', 2);
-      G.phone.toast('mario', 'thank you horse', d);
-      this.stat('nightmaresSurvived', 1);
+      if (won) {
+        const d = G.phone.change('mario', 2);
+        G.phone.toast('mario', 'thank you horse', d);
+        this.stat('nightmaresSurvived', 1);
+      } else {
+        // out of lives: Alex wakes up where he was, with half the health he had
+        G.alex.hp = Math.max(1, Math.round(hpBefore / 2));
+        G.fx.hurtVignette(0.9);
+        G.hud.popup('THE HORSE WON — HALF HEALTH', '#e63946', 2);
+        G.phone.toast('mario', 'horse won. baby mario sorry', 0);
+        this.stat('nightmaresLost', 1);
+      }
     });
   }
 }

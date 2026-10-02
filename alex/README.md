@@ -50,9 +50,9 @@ Every binding can be changed in **Settings → Keyboard / Controller**. Touch de
 
 **♥ HEARTLINE.** Six callers ring mid-combat (and sometimes while you explore), and nothing pauses. Every call rolls its own ringtone, caller mood (good mood, grumpy, chaotic, sleepy), signal quality (garbled lines, dropped calls that ring back), hold music and option order, and people text you between calls. Each caller has a persistent relationship from −5 to +5 and their own consequences:
 - **Girlfriend:** asks for escalating amounts of money, and sends gifts when your hearts are high.
-- **Ugly Girlfriend:** raises the chance of the UGLY KITCHEN COOK-OFF, a five-stage timing minigame that ends in "Pay me." if you lose.
+- **Ugly Girlfriend:** fewer hearts raise the chance of the UGLY KITCHEN COOK-OFF (still only occasional: at most once per floor, several rooms apart). Each one cooks a random dish over four rounds drawn from thirteen (chop, stir, flip, crack, plate, season, whisk, secret recipe, grocery run, microwave, pour, grill, order up), all with randomized timing. Lose and it ends in "Pay me."
 - **Cameron's Cat:** fully functional hearts, no consequences.
-- **Baby Mario:** triggers the pixel-horse nightmare and a three-stage Horse Mario platformer.
+- **Baby Mario:** triggers the pixel-horse nightmare and a three-stage Horse Mario platformer. You get 3 lives (a death retries the same stage); lose them all and Alex wakes up with half the health he had.
 - **The K-Pop Demon King:** obsesses over one of your stats each run and reshapes the next room and his boss fight.
 - **Jesus Christ:** played straight. A low relationship brings a Bible Check (KJV) that escalates from one blank, to two blanks, to typing the word yourself while you're being shot at.
 

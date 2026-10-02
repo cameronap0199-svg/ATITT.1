@@ -116,8 +116,10 @@ export class HorseMario {
     this.onDone = onDone;
     this.stage = 0;
     this.deaths = 0;
+    this.lives = 3;           // lose all three and the horse wins (Alex wakes up hurt)
+    this.over = 0;
     this.coins = 0;
-    this.spr = { h: [spriteCanvas(HORSE), spriteCanvas(HORSE2)], hl: [spriteCanvas(HORSE, true), spriteCanvas(HORSE2, true)], g: spriteCanvas(GOOMBAP) };
+    this.spr = { h: [spriteCanvas(HORSE), spriteCanvas(HORSE2)], hl: [spriteCanvas(HORSE, true), spriteCanvas(HORSE2, true)], g: spriteCanvas(GOOMBAP), creepy: horseCanvas(3, true) };
     G.audio.playMusic('nightmare', { restart: true });
     this.load(0);
   }
@@ -156,6 +158,11 @@ export class HorseMario {
   }
 
   step() {
+    if (this.over) {
+      this.over++;
+      if (this.over > 170 && !this.finished) { this.finished = true; this.onDone(false); }
+      return;
+    }
     if (this.banner > 0) { this.banner -= 1 / 60; return; }
     const p = this.p, inp = G.input;
     if (p.dead) {
@@ -169,7 +176,7 @@ export class HorseMario {
       p.win++;
       if (p.y < 9 * T) p.y += 2;
       if (p.win > 110) {
-        if (this.stage >= LEVELS.length - 1) { this.finished = true; this.onDone(); } else this.load(this.stage + 1);
+        if (this.stage >= LEVELS.length - 1) { this.finished = true; this.onDone(true); } else this.load(this.stage + 1);
       }
       return;
     }
@@ -256,10 +263,10 @@ export class HorseMario {
     G.run.stat('nightmareDeaths', 1);
   }
   restart() {
-    // Die? Restart the nightmare. (After enough deaths the horse takes pity and
-    // only restarts the current stage.)
-    this.load(this.deaths >= 5 ? this.stage : 0);
-    this.pity = this.deaths >= 5;
+    // A life is gone: retry the same stage. No lives left: the horse wins.
+    this.lives--;
+    if (this.lives <= 0) { this.over = 1; G.audio.sfx('neigh'); return; }
+    this.load(this.stage);
   }
 
   draw(g, cw, ch) {
@@ -315,15 +322,27 @@ export class HorseMario {
     g.fillText('x' + String(this.coins).padStart(2, '0'), 100, 12);
     g.fillText(L.name.split(':')[0], 150, 12);
     g.fillText('TIME ' + Math.max(0, Math.ceil(this.time)), 200, 22);
-    g.fillText('DEATHS ' + this.deaths, 8, 22);
+    for (let i = 0; i < 3; i++) { g.globalAlpha = i < this.lives ? 1 : 0.25; g.drawImage(this.spr.h[0], 8 + i * 15, 14, 14, 14); }
+    g.globalAlpha = 1;
     if (this.banner > 0) {
       g.fillStyle = '#000'; g.fillRect(0, 0, VW, VH);
       g.fillStyle = '#fff'; g.textAlign = 'center';
       g.fillText(L.name, VW / 2, 80);
       g.drawImage(this.spr.h[0], VW / 2 - 24, 96);
-      g.fillText('x ∞', VW / 2 + 12, 108);
-      if (this.pity) g.fillText('THE HORSE FEELS SORRY FOR YOU', VW / 2, 140);
-      else if (this.stage === 0 && this.deaths === 0) g.fillText('BABY MARIO NIGHTMARE', VW / 2, 140);
+      g.fillText('x ' + this.lives, VW / 2 + 12, 108);
+      if (this.stage === 0 && this.deaths === 0) { g.fillText('BABY MARIO NIGHTMARE', VW / 2, 140); g.fillText('REACH THE FLAG 3 TIMES TO WAKE UP', VW / 2, 156); }
+      else if (this.deaths) g.fillText(this.lives === 1 ? 'LAST LIFE' : this.lives + ' LIVES LEFT', VW / 2, 140);
+    }
+    if (this.over) {
+      g.fillStyle = '#000'; g.fillRect(0, 0, VW, VH);
+      g.fillStyle = '#fff'; g.textAlign = 'center';
+      g.fillText('GAME OVER', VW / 2, 84);
+      const k = Math.min(1, this.over / 60);
+      g.drawImage(this.spr.creepy, VW / 2 - 24, 96 - 10 * k);
+      g.fillStyle = '#e63946';
+      g.fillText('THE HORSE WINS', VW / 2, 168);
+      g.fillStyle = '#aaa';
+      g.fillText('YOU WAKE UP. IT HURTS.', VW / 2, 188);
     }
     g.restore();
   }
