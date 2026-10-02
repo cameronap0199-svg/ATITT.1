@@ -285,7 +285,7 @@ export class Alex {
     if ((S.autoSprint && mag > 0.3) || this.runT > MOVE.sprintAfter) speed = MOVE.sprintSpeed;
     this.sprinting = speed >= MOVE.sprintSpeed && mag > 0.3;
     speed *= (m.moveMul || 1);
-    if (zone && zone.type === 'sticky') speed *= 0.6;
+    if (zone && (zone.type === 'sticky' || zone.type === 'soul')) speed *= zone.type === 'soul' ? 0.55 : 0.6;
     const air = !this.grounded;
     let accel = MOVE.runSpeed / MOVE.accelTime, decel = MOVE.runSpeed / MOVE.decelTime;
     if (zone && zone.type === 'grease' && !air) { accel *= 0.22; decel *= 0.12; }
@@ -994,6 +994,17 @@ export class Alex {
     if (this.zone && this.zone.type === 'hot' && G.room.combatLive()) {
       this.hotT = (this.hotT || 0) + dt;
       if (this.hotT > 0.5) { this.hotT = 0; this.hurt(5, { source: 'hazard', kind: 'area', knock: 0.5 }); }
+    } else if (this.zone && this.zone.type === 'lava' && !this.vehicle?.def.fly) {
+      // lava: always hurts, and bounces you out like the real thing (badly)
+      this.hotT = (this.hotT || 0) + dt;
+      if (this.hotT > 0.4) {
+        this.hotT = 0;
+        this.hurt(9, { source: 'hazard', kind: 'area', knock: 0 });
+        this.mercyUntil = 0;
+        if (this.grounded && !this.vehicle) { this.vel.y = 7; this.grounded = false; }
+        G.fx.burst(this.pos.x, this.pos.y + 0.3, this.pos.z, { n: 10, color: ['#f97316', '#fde047'], speed: 3, up: 2, life: 0.5, grav: -1 });
+        G.audio.sfx('sizzle', { v: 0.5 });
+      }
     } else this.hotT = 0;
   }
 

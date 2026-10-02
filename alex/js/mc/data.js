@@ -257,6 +257,15 @@ export const ORES = {
   netherBrick: { name: 'Nether Bricks', hp: 80, tier: 1, drop: [['netherrack', 0.5, 1, 1]], c: ['#2c1418', '#4a2228'], tex: 'brick', xp: 0 },
   stoneBrick: { name: 'Stone Bricks', hp: 80, tier: 1, drop: [['cobblestone', 1, 1, 1]], c: ['#7a7a7a', '#5e5e5e'], tex: 'brick', xp: 0 },
   endStone: { name: 'End Stone', hp: 50, tier: 1, drop: [['cobblestone', 0.5, 1, 1]], c: ['#e8e4a8', '#cfc98a'], tex: 'stone', xp: 0 },
+  crimsonStem: { name: 'Crimson Stem', hp: 30, tier: 0, drop: [['oakLog', 1, 1, 1]], c: ['#5c1f2e', '#8a2a3f'], tex: 'log', xp: 0 },
+  warpedStem: { name: 'Warped Stem', hp: 30, tier: 0, drop: [['oakLog', 1, 1, 1]], c: ['#1f4f4a', '#3a8a7f'], tex: 'log', xp: 0 },
+  netherWart: { name: 'Nether Wart Block', hp: 8, tier: 0, drop: [['stick', 0.25, 1, 1]], c: ['#8a1a1a', '#5a0f0f'], tex: 'leaves', xp: 0, soft: true },
+  warpedWart: { name: 'Warped Wart Block', hp: 8, tier: 0, drop: [['stick', 0.25, 1, 1]], c: ['#167a72', '#0f5a55'], tex: 'leaves', xp: 0, soft: true },
+  shroomlight: { name: 'Shroomlight', hp: 8, tier: 0, drop: [['glowstoneDust', 1, 1, 2]], c: ['#fdba74', '#ea580c'], tex: 'glow', xp: 0 },
+  boneBlock: { name: 'Bone Block', hp: 40, tier: 1, drop: [['bone', 1, 2, 4]], c: ['#e8e3d0', '#cfc9b3'], tex: 'stone', xp: 0 },
+  basalt: { name: 'Basalt', hp: 50, tier: 1, drop: [['cobblestone', 0.6, 1, 1]], c: ['#4a4a52', '#2f2f36'], tex: 'log', xp: 0 },
+  blackstone: { name: 'Blackstone', hp: 60, tier: 1, drop: [['cobblestone', 1, 1, 1]], c: ['#2a2629', '#3d383c'], tex: 'stone', xp: 0 },
+  goldBlock: { name: 'Block of Gold', hp: 60, tier: 2, drop: [['goldIngot', 1, 3, 5]], c: ['#fde047', '#facc15'], tex: 'stone', xp: 2 },
 };
 
 // Ore mix by depth. Floor 1 is the surface; floor 3 is diamond country.

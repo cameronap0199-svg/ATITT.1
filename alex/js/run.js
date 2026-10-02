@@ -21,6 +21,7 @@ import { GADGETS } from './items.js';
 import { updateThrown, clearThrown, tickGadgetTimers, spawnPal } from './gadgets.js';
 import { mcInit, addMat } from './mc/world.js';
 import { ENCHANTS } from './mc/data.js';
+import { addStronghold } from './mc/realmLayouts.js';
 
 const PROFILE = 'akdh2.profile.v1';
 export function loadProfile() {
@@ -90,6 +91,8 @@ export class Run {
     this.buffs = this.buffs.filter((b) => !b.floor);
     this.recomputeMods();
     this.map = generateFloor(n, this.rng.fork());
+    addStronghold(this.map, this.rng.fork());
+    this.realm = 'overworld'; this.realmSalt = 0; this.overworld = null; this.netherMap = null;
     this.enterRoom(this.map.startId, null);
     G.audio.playMusic('floor' + n, { restart: true });
     G.hud.roomTitle(`${this.loop ? `∞ LOOP ${this.loop + 1} · ` : ''}FLOOR ${n} — ${FLOOR_NAMES[n - 1]}`, FLOOR_PLACES[n - 1]);
@@ -132,9 +135,10 @@ export class Run {
     for (const nid of Object.values(def.doors)) this.map.rooms[nid].seen = true;
     this.roomId = id;
     // doors (the secret bathroom only exists once you own the key)
+    const shown = (r) => !r.hidden || r.revealed || (r.kind === 'secret' && this.flags.bathroomKey === this.floor);
     let doors = Object.entries(def.doors)
-      .filter(([, to]) => !this.map.rooms[to].hidden || this.flags.bathroomKey === this.floor)
-      .map(([side, to]) => ({ side, to, kind: this.map.rooms[to].kind }));
+      .filter(([, to]) => shown(this.map.rooms[to]))
+      .map(([side, to]) => ({ side, to, kind: this.map.rooms[to].special || (this.map.rooms[to].realm ? this.map.rooms[to].biome || 'combat' : this.map.rooms[to].kind) }));
     if (def.kind === 'boss') doors = doors.map((d) => ({ ...d, side: 'S', realSide: d.side }));
     const room = new Room(def, this.floor, doors);
     G.room = room;
@@ -150,6 +154,7 @@ export class Run {
       if (entrySide === 'W') { x = -L.w / 2 + inset; yaw = Math.PI / 2; }
       if (entrySide === 'E') { x = L.w / 2 - inset; yaw = -Math.PI / 2; }
     } else if (def.kind === 'start') { z = 2.5; yaw = Math.PI; }
+    if (this.spawnAt) { x = this.spawnAt.x; z = this.spawnAt.z; yaw = this.spawnAt.yaw ?? yaw; this.spawnAt = null; }
     const y = room.world.groundAt(x, z, 20, 0.3).h;
     G.alex.place(x, y, z, yaw);
     G.cam.snapBehind(yaw, G.alex.pos);
@@ -163,11 +168,11 @@ export class Run {
     }
     if (hasCombat(def) && !def.cleared) this.combatRoomsEntered++;
     // crossover rifts are rolled once, on the first visit to a fight
-    if (firstVisit && hasCombat(def) && !def.cleared && def.kind !== 'boss' && def.rift === undefined) def.rift = rollRift(this.floor, this.rng, { chance: this.forceRift ? 1 : undefined });
+    if (firstVisit && hasCombat(def) && !def.cleared && def.kind !== 'boss' && def.rift === undefined && !def.realm && !def.special) def.rift = rollRift(this.floor, this.rng, { chance: this.forceRift ? 1 : undefined });
     if (this.forceRift && def.rift) { if (this.forceRift !== true) def.rift = { id: this.forceRift, plague: this.forceRift === 'bible' ? (this.forcePlague || 'hail') : undefined }; this.forceRift = null; }
     // random room events, rolled once per room (all generous)
     if (firstVisit && !def.ev) {
-      const fight = hasCombat(def) && def.kind !== 'boss';
+      const fight = hasCombat(def) && def.kind !== 'boss' && !def.special && !def.realm;
       const r = this.rng;
       def.ev = { vehicle: fight && r() < EVENT_CHANCE.vehicle, merchant: fight && r() < EVENT_CHANCE.merchant, crafting: fight && r() < EVENT_CHANCE.crafting, bush: fight && r() < EVENT_CHANCE.bush };
     }
@@ -182,10 +187,12 @@ export class Run {
     }
     this.stat('roomsEntered', 1);
     // music
-    if (def.kind !== 'gas' && def.kind !== 'boss' && G.audio.musicName() !== 'floor' + this.floor) G.audio.playMusic('floor' + this.floor);
+    const song = def.realm || 'floor' + this.floor;
+    if (def.kind !== 'gas' && def.kind !== 'boss' && G.audio.musicName() !== song) G.audio.playMusic(song);
     // room title
     const special = { start: 'ARRIVAL', gas: 'GAS & GO — Open 24/7 (Somehow)', treasure: 'LOST & FOUND', secret: 'A BATHROOM?', boss: '♥ THE STAGE ♥', preboss: 'THE LAST DOOR' };
-    if (def.kind !== 'start' || fromSide) {
+    if (def.title && (def.kind !== 'start' || fromSide)) G.hud.roomTitle(def.title, def.realm === 'nether' ? 'The Nether' : def.special === 'stronghold' ? 'Underground' : '');
+    else if (def.kind !== 'start' || fromSide) {
       const title = special[def.kind] && def.kind !== 'preboss' ? special[def.kind] : `${ROOM_TYPES[this.floor][def.type] || ''} — ${L.name}`;
       if (def.kind !== 'boss') G.hud.roomTitle(title, def.cleared ? 'cleared' : hasCombat(def) ? '' : '');
     }
@@ -193,7 +200,7 @@ export class Run {
     if (this.nightmare.active && this.nightmare.horse) {
       const ex = entrySide === 'N' ? [0, -L.d / 2 + 1] : entrySide === 'S' ? [0, L.d / 2 - 1] : entrySide === 'W' ? [-L.w / 2 + 1, 0] : entrySide === 'E' ? [L.w / 2 - 1, 0] : [0, 0];
       this.nightmare.horse.enterRoom(G.room.group, { x: ex[0], z: ex[1] });
-    } else if (hasCombat(def) && !def.cleared && this.nightmare.floorUsed !== this.floor && def.kind !== 'boss') {
+    } else if (hasCombat(def) && !def.cleared && this.nightmare.floorUsed !== this.floor && def.kind !== 'boss' && this.realm !== 'end') {
       const chance = NIGHTMARE_CHANCE[G.phone.hearts('mario')] || 0;
       if (this.rng() < chance) this.pendingNightmare = G.time + 1.4;
     }

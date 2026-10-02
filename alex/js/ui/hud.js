@@ -339,7 +339,7 @@ export class HUD {
     const e = this.e;
     e.rtA.textContent = a; e.rtB.textContent = b || '';
     e.rt.classList.remove('on'); void e.rt.offsetWidth; e.rt.classList.add('on');
-    e.where.textContent = `${G.run.loop ? '∞' + (G.run.loop + 1) + ' · ' : ''}FLOOR ${G.run.floor} · ${FLOOR_NAMES[G.run.floor - 1]}`;
+    e.where.textContent = `${G.run.loop ? '∞' + (G.run.loop + 1) + ' · ' : ''}${G.run.realm === 'nether' ? 'THE NETHER' : G.run.realm === 'end' ? 'THE END' : `FLOOR ${G.run.floor} · ${FLOOR_NAMES[G.run.floor - 1]}`}`;
   }
 
   setBeat(b, bpm) {
@@ -436,7 +436,7 @@ export class HUD {
     g.beginPath(); g.roundRect ? g.roundRect(0, 0, size, size, 14) : g.rect(0, 0, size, size); g.fill();
     const w = cell * 0.82, h = cell * 0.62;
     for (const r of run.map.rooms) {
-      if (r.hidden && !run.flags.bathroomKey) continue;
+      if (r.hidden && !r.revealed && !(r.kind === 'secret' && run.flags.bathroomKey)) continue;
       const known = r.visited || r.seen || run.flags.atlas;
       if (!known) continue;
       const [x, y] = off(r.gx, r.gy);
@@ -445,19 +445,19 @@ export class HUD {
       g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 2;
       for (const [d, id] of Object.entries(r.doors)) {
         const o = run.map.rooms[id];
-        if (o.hidden && !run.flags.bathroomKey) continue;
+        if (o.hidden && !o.revealed && !(o.kind === 'secret' && run.flags.bathroomKey)) continue;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x + (o.gx - r.gx) * cell * 0.5, y + (o.gy - r.gy) * cell * 0.5); g.stroke();
       }
       g.fillStyle = r.id === run.roomId ? '#ff4fa3' : r.visited ? (r.cleared || r.kind === 'start' || r.kind === 'gas' || r.kind === 'treasure' ? '#6c63a8' : '#8a4b7a') : 'rgba(120,110,170,.35)';
       g.fillRect(x - w / 2, y - h / 2, w, h);
       g.strokeStyle = r.id === run.roomId ? '#fff' : 'rgba(255,255,255,.4)'; g.lineWidth = r.id === run.roomId ? 2 : 1;
       g.strokeRect(x - w / 2, y - h / 2, w, h);
-      const icon = { gas: '⛽', treasure: '★', boss: '♥', secret: '🚽', preboss: '!', start: '' }[r.kind];
+      const icon = r.special === 'stronghold' ? '👁' : r.biome === 'spawner' ? '🔥' : r.biome === 'bastion' ? '💰' : r.biome === 'trade' ? '🐷' : r.realm && r.kind === 'start' ? '🟪' : { gas: '⛽', treasure: '★', boss: r.realm === 'end' ? '🐉' : '♥', secret: '🚽', preboss: '!', start: '' }[r.kind];
       if (icon) { g.font = `${Math.round(cell * 0.45)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = r.kind === 'boss' ? '#ff0054' : '#ffd60a'; g.fillText(icon, x, y + 1); }
     }
     if (big) {
       g.fillStyle = '#fff'; g.font = 'bold 18px "Bungee", sans-serif'; g.textAlign = 'center';
-      g.fillText(`FLOOR ${run.floor} — ${FLOOR_NAMES[run.floor - 1]}`, size / 2, 30);
+      g.fillText(run.realm === 'nether' ? 'THE NETHER' : run.realm === 'end' ? 'THE END' : `FLOOR ${run.floor} — ${FLOOR_NAMES[run.floor - 1]}`, size / 2, 30);
     }
   }
 }

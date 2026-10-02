@@ -20,6 +20,7 @@ import { setupTouch } from './ui/touch.js';
 import { loadPortraitOverrides } from './phone/portraits.js';
 import { codex } from './ui/compendium.js';
 import { initPack } from './mc/craftUI.js';
+import { initRealms } from './mc/realms.js';
 
 const canvas = document.getElementById('view');
 const mini = document.getElementById('mini');
@@ -66,6 +67,7 @@ G.alex = new Alex(scene);
 G.alex.model.setVisible(false);
 G.touch = setupTouch(document.getElementById('touch'));
 initPack();
+initRealms();
 
 function applySettings() {
   audio.setVolumes(G.settings);

@@ -105,3 +105,12 @@ body.portal-wobble #vignette { box-shadow: inset 0 0 180px 60px rgba(124,58,237,
   .pk-book { max-height: 34vh; }
 }
 .calm .pk-panel, .calm .mcrow, .calm .mcslot.out.ready, .calm .pk-flame.on { animation: none !important; }
+
+/* End Poem */
+.endpoem { position: fixed; inset: 0; z-index: 70; background: radial-gradient(ellipse at center, #0f0a1f, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; animation: fadeIn 1.2s; }
+.ep-crawl { max-width: 640px; max-height: 70vh; overflow: auto; font-size: 17px; line-height: 1.55; }
+.ep-crawl p { opacity: 0; animation: epIn 1s forwards; }
+.ep-crawl p:nth-child(n) { animation-delay: calc(var(--d, 0) * 1s); }
+.ep-crawl p.g { color: #5eead4; } .ep-crawl p.b { color: #c4b5fd; }
+.ep-crawl p:nth-child(1) { --d: .3 } .ep-crawl p:nth-child(2) { --d: 1.6 } .ep-crawl p:nth-child(3) { --d: 2.9 } .ep-crawl p:nth-child(4) { --d: 4.4 } .ep-crawl p:nth-child(5) { --d: 5.9 } .ep-crawl p:nth-child(6) { --d: 7.4 } .ep-crawl p:nth-child(7) { --d: 8.6 } .ep-crawl p:nth-child(8) { --d: 10 } .ep-crawl p:nth-child(9) { --d: 11.8 }
+@keyframes epIn { to { opacity: 1; } }

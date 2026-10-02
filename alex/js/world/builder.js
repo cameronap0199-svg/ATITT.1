@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { World } from './collision.js';
 import { buildProp, mat, glow, textTexture, GEO, addBox, addCyl, heartShape } from './props.js';
+import { blockMesh, lavaSurface } from '../mc/blocks.js';
 
 const DOOR_W = 3.4;
 export const WALL_H = 8;
@@ -12,6 +13,9 @@ export const FLOOR_PALETTE = {
   1: { bg: '#2b1d4a', fog: '#3a2856', sky: ['#1b1040', '#6a2c70', '#f08a5d', '#f9ed69'], hemi: ['#ffc6d9', '#3a2f55', 1.35], dir: ['#ffd6a5', 1.5, [-30, 25, -20]], amb: 0.25 },
   2: { bg: '#110d24', fog: '#150f2e', sky: null, hemi: ['#c9d1ff', '#26213f', 1.25], dir: ['#ffffff', 1.1, [10, 30, 12]], amb: 0.3 },
   3: { bg: '#0a0216', fog: '#0f0322', sky: null, hemi: ['#d7a1ff', '#12002b', 1.05], dir: ['#ff9ecf', 1.0, [-12, 30, 8]], amb: 0.28 },
+  nether: { bg: '#3a0a06', fog: '#5a1408', sky: null, hemi: ['#ffb38a', '#3a0a06', 1.25], dir: ['#ff9a5a', 0.9, [10, 30, -8]], amb: 0.32 },
+  stronghold: { bg: '#07060a', fog: '#0c0a10', sky: null, hemi: ['#d6d3c4', '#1c1a22', 1.1], dir: ['#fde68a', 0.7, [8, 30, 10]], amb: 0.3 },
+  end: { bg: '#0b0712', fog: '#140c22', sky: null, hemi: ['#e8e4ff', '#1a1030', 1.2], dir: ['#f5f0ff', 1.0, [-14, 32, 10]], amb: 0.3 },
 };
 
 const FLOORS = {
@@ -27,6 +31,15 @@ const FLOORS = {
   stage: { base: '#0d0d14', neon: true },
   arena: { base: '#b07d4f', planks: true, court: true },
   gasTile: { base: '#f5f5f5', tiles: 1.2, line: '#dcdcdc', checker: '#d8f3dc' },
+  // Minecraft realms
+  netherrack: { base: '#6e2b2b', noise: 34, specks: ['#4f1c1c', '#8a3a3a'] },
+  soulsand: { base: '#54402f', noise: 26, specks: ['#3f2f22', '#6a523d'] },
+  crimson: { base: '#7a1f2b', noise: 30, specks: ['#b0273c', '#4f1c1c'] },
+  warped: { base: '#16585a', noise: 28, specks: ['#1f8a7f', '#3f1c33'] },
+  basalt: { base: '#4a4a52', noise: 26, specks: ['#2f2f36', '#6a6a72'] },
+  netherbrick: { base: '#2c1418', tiles: 1, line: '#1a0b0e', noise: 16 },
+  stonebrick: { base: '#7a7a7a', tiles: 1, line: '#5a5a5a', noise: 18 },
+  endstone: { base: '#dcd79c', noise: 22, specks: ['#c8c286', '#ece8b8'] },
 };
 
 function floorTexture(L, style) {
@@ -45,6 +58,10 @@ function floorTexture(L, style) {
       img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
     }
     g.putImageData(img, 0, 0);
+  }
+  if (S.specks) {
+    const n = Math.floor(L.w * L.d * 2);
+    for (let i = 0; i < n; i++) { g.fillStyle = S.specks[i % S.specks.length]; g.fillRect(Math.random() * cw, Math.random() * ch, ppm * 0.25, ppm * 0.25); }
   }
   if (S.stripes) { g.fillStyle = S.stripes; for (let x = 0; x < L.w; x += 4) g.fillRect(X(x - L.w / 2), 0, 2 * ppm, ch); }
   if (S.tiles) {
@@ -109,7 +126,7 @@ function floorTexture(L, style) {
   }
   // zones
   for (const zn of L.zones) {
-    const col = zn.type === 'grease' ? 'rgba(160,120,20,.55)' : zn.type === 'sticky' ? 'rgba(255,70,140,.45)' : 'rgba(255,120,0,.55)';
+    const col = zn.type === 'grease' ? 'rgba(160,120,20,.55)' : zn.type === 'sticky' ? 'rgba(255,70,140,.45)' : zn.type === 'lava' ? '#f97316' : zn.type === 'soul' ? 'rgba(60,40,28,.9)' : 'rgba(255,120,0,.55)';
     g.fillStyle = col;
     if (zn.shape === 'circle') { g.beginPath(); g.arc(X(zn.x), Z(zn.z), zn.r * ppm, 0, Math.PI * 2); g.fill(); } else g.fillRect(X(zn.x - zn.w / 2), Z(zn.z - zn.d / 2), zn.w * ppm, zn.d * ppm);
     if (zn.type === 'hot') {
@@ -150,9 +167,19 @@ export function buildRoom(L, floor, doors) {
   fm.rotation.x = -Math.PI / 2;
   group.add(fm);
   // outer ground so the void around the room is not empty
-  const outer = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({ color: floor === 1 ? '#23202e' : floor === 2 ? '#141225' : '#07020f' }));
-  outer.rotation.x = -Math.PI / 2; outer.position.y = -0.02;
+  const outer = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), floor === 'nether' ? new THREE.MeshBasicMaterial({ color: '#c2410c' }) : new THREE.MeshLambertMaterial({ color: floor === 1 ? '#23202e' : floor === 2 ? '#141225' : floor === 'end' ? '#05030a' : '#07020f' }));
+  outer.rotation.x = -Math.PI / 2; outer.position.y = floor === 'nether' ? -6 : floor === 'end' ? -40 : -0.02;
   group.add(outer);
+  // lava pools: glowing animated surfaces over the painted zones
+  for (const zn of L.zones) {
+    if (zn.type !== 'lava') continue;
+    const lv = lavaSurface(zn.shape === 'circle' ? zn.r * 2 : zn.w, zn.shape === 'circle' ? zn.r * 2 : zn.d);
+    if (zn.shape === 'circle') { lv.geometry.dispose(); lv.geometry = new THREE.CircleGeometry(zn.r, 24); }
+    lv.position.set(zn.x, 0.03, zn.z);
+    group.add(lv);
+    const pl = new THREE.PointLight('#f97316', 1.6, 9, 1.8); pl.position.set(zn.x, 1.2, zn.z); group.add(pl);
+    animators.push((t) => { lv.material.map.offset.set(t * 0.05, Math.sin(t * 0.4) * 0.05); });
+  }
 
   // Perimeter walls with door gaps
   const sides = {
@@ -190,9 +217,10 @@ export function buildRoom(L, floor, doors) {
   // Walls and door frames on the camera's side fade out, so they get their own materials.
   for (const list of Object.values(room.sides)) for (const g of list) g.traverse((c) => {
     if (!c.isMesh) return;
-    c.material = c.material.clone();
-    c.userData.baseOpacity = c.material.opacity;
-    c.userData.baseTransparent = c.material.transparent;
+    c.material = Array.isArray(c.material) ? c.material.map((m) => m.clone()) : c.material.clone();
+    const m0 = Array.isArray(c.material) ? c.material[0] : c.material;
+    c.userData.baseOpacity = m0.opacity;
+    c.userData.baseTransparent = m0.transparent;
   });
   room.fadeSide = (side, k) => {
     if (Math.abs(room.sideFade[side] - k) < 0.01) return;
@@ -200,10 +228,12 @@ export function buildRoom(L, floor, doors) {
     for (const g of room.sides[side]) g.traverse((c) => {
       if (!c.isMesh) return;
       c.visible = k > 0.04;
-      c.material.transparent = k < 0.99 || c.userData.baseTransparent;
-      c.material.opacity = c.userData.baseOpacity * k;
-      c.material.depthWrite = k >= 0.99 && !c.userData.baseTransparent;
-      c.material.needsUpdate = true;
+      for (const m of Array.isArray(c.material) ? c.material : [c.material]) {
+        m.transparent = k < 0.99 || c.userData.baseTransparent;
+        m.opacity = c.userData.baseOpacity * k;
+        m.depthWrite = k >= 0.99 && !c.userData.baseTransparent;
+        m.needsUpdate = true;
+      }
     });
   };
 
@@ -243,7 +273,7 @@ export function buildRoom(L, floor, doors) {
 }
 
 function autoLights(L, floor) {
-  const cols = floor === 1 ? ['#ff9ecf', '#8ecae6'] : floor === 2 ? ['#b388ff', '#4cc9f0'] : ['#ff4fa3', '#7b2cbf'];
+  const cols = floor === 'nether' ? ['#ff7b39', '#ff3d1f'] : floor === 'end' ? ['#c4b5fd', '#a78bfa'] : L.walls === 'stonebrick' ? ['#fbbf24', '#f59e0b'] : floor === 1 ? ['#ff9ecf', '#8ecae6'] : floor === 2 ? ['#b388ff', '#4cc9f0'] : ['#ff4fa3', '#7b2cbf'];
   const k = L.dark ? 1.6 : 0.9;
   return [
     { x: -L.w / 3, y: 5, z: -L.d / 3, color: cols[0], intensity: k, dist: 26 },
@@ -255,11 +285,20 @@ function autoLights(L, floor) {
 function wallVisual(group, style, x, z, horiz, len, floor) {
   return wallGroup(group, style, x, z, horiz, len, floor);
 }
+const MC_WALLS = { netherrack: 'netherrack', netherbrick: 'netherBrick', stonebrick: 'stoneBrick', basalt: 'stone', endstone: 'endStone' };
 function wallGroup(group, style, x, z, horiz, len, floor) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   if (!horiz) g.rotation.y = Math.PI / 2;
-  if (style === 'fence') {
+  if (MC_WALLS[style]) {
+    const h = style === 'netherbrick' || style === 'stonebrick' ? 5 : 6;
+    const w = blockMesh(MC_WALLS[style], Math.max(1, Math.round(len)), h, 1);
+    w.position.y = h / 2;
+    w.scale.x = len / Math.max(1, Math.round(len));
+    g.add(w);
+  } else if (style === 'endvoid') {
+    addBox(g, len, 0.4, 0.3, '#2b1d3a', 0, 0, 0, glow('#7c3aed', 0.5));
+  } else if (style === 'fence') {
     const tex = chainTexture();
     tex.repeat.set(len / 1.2, 2);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 2.4), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.8 }));
@@ -304,7 +343,7 @@ function chainTexture() {
   return chainTex.clone();
 }
 
-const DOOR_COLORS = { combat: '#4cc9f0', side: '#4cc9f0', start: '#4cc9f0', preboss: '#ff9f1c', boss: '#ff0054', gas: '#3cff8f', treasure: '#ffd60a', secret: '#b5838d', exit: '#ffffff' };
+const DOOR_COLORS = { combat: '#4cc9f0', side: '#4cc9f0', start: '#4cc9f0', preboss: '#ff9f1c', boss: '#ff0054', gas: '#3cff8f', treasure: '#ffd60a', secret: '#b5838d', exit: '#ffffff', stronghold: '#a3e635', fortress: '#f97316', spawner: '#f97316', bastion: '#facc15', trade: '#facc15', wastes: '#ef4444', soul: '#38bdf8', crimson: '#fb7185', warped: '#2dd4bf', basalt: '#a1a1aa' };
 function doorFrame(d, horiz) {
   const g = new THREE.Group();
   if (!horiz) g.rotation.y = Math.PI / 2;
@@ -319,7 +358,7 @@ function doorFrame(d, horiz) {
     const hm = new THREE.Mesh(new THREE.ExtrudeGeometry(heartShape(), { depth: 0.2, bevelEnabled: false }), glow('#ff0054'));
     hm.scale.setScalar(1.1); hm.position.set(s * 2.4, h + 0.4, 0.2); g.add(hm);
   }
-  const labelTxt = { gas: 'GAS & GO', treasure: 'LOST & FOUND', boss: '♥ STAGE ♥', preboss: '', secret: 'WC', exit: 'NEXT FLOOR' }[d.kind];
+  const labelTxt = { gas: 'GAS & GO', treasure: 'LOST & FOUND', boss: '♥ STAGE ♥', preboss: '', secret: 'WC', exit: 'NEXT FLOOR', stronghold: 'STRONGHOLD', fortress: 'FORTRESS', spawner: 'SPAWNER', bastion: 'BASTION', trade: 'PIGLIN TRADER' }[d.kind];
   if (labelTxt) {
     const lm = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.6), new THREE.MeshBasicMaterial({ map: textTexture(labelTxt, { bg: '#111', fg: col }), side: THREE.DoubleSide }));
     lm.position.set(0, h + 0.75, 0);
@@ -537,6 +576,28 @@ function posterTexture(seed) {
 }
 
 function backdrop(group, L, floor, animators) {
+  if (floor === 'nether') {
+    // a lava sea far below, netherrack cliffs around, falling ash
+    for (let i = 0; i < 22; i++) {
+      const h = 18 + Math.random() * 40, a = (i / 22) * Math.PI * 2, r = 70 + Math.random() * 40;
+      const c = blockMesh('netherrack', 10, Math.round(h), 10);
+      c.position.set(Math.sin(a) * r, h / 2 - 6, Math.cos(a) * r);
+      group.add(c);
+      if (i % 4 === 0) { const gs = blockMesh('glowstone', 3, 2, 3); gs.position.set(c.position.x, h - 7, c.position.z); group.add(gs); }
+    }
+    const ash = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from({ length: 600 }, (_, i) => (i % 3 === 1 ? Math.random() * 20 : (Math.random() - 0.5) * 80)), 3)), new THREE.PointsMaterial({ color: '#d6a38a', size: 0.12, transparent: true, opacity: 0.6 }));
+    group.add(ash);
+    animators.push((t, dt) => { ash.position.y = -((t * 0.6) % 20); ash.rotation.y = t * 0.02; });
+    return;
+  }
+  if (floor === 'end') {
+    const stars = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from({ length: 1800 }, () => (Math.random() - 0.5) * 500), 3)), new THREE.PointsMaterial({ color: '#e9d5ff', size: 0.9, sizeAttenuation: true, fog: false }));
+    group.add(stars);
+    const island = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(L.w, L.d) * 0.62, 6, 30, 16), new THREE.MeshLambertMaterial({ color: '#cfc98a' }));
+    island.position.y = -15.05;
+    group.add(island);
+    return;
+  }
   if (floor === 1) {
     // the venue on the horizon, glowing
     const venue = new THREE.Group();

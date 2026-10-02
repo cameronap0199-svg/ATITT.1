@@ -19,9 +19,10 @@ import { RIFTS, composeRift, CROSS_INFO, EVENT_CHANCE } from './rifts.js';
 import { openRift, updateRift, closeRift, disposeRift } from './riftRoom.js';
 import { addCraftingTable, addMerchant, addBurningBush } from './events.js';
 import { Vehicle, VEHICLE_IDS } from '../vehicles.js';
+import { MC_INFO } from '../mc/mobs.js';
 import { pickupMesh, enemyDrops, propDrops, mineDamage, blockBroken, decorateRoom, mcUpdate, mcLeaveRoom, addMat, addXp } from '../mc/world.js';
 
-const threatOfType = (k) => (ENEMY_INFO[k] || CROSS_INFO[k.replace('rift:', '')])?.threat || 1;
+const threatOfType = (k) => (ENEMY_INFO[k] || CROSS_INFO[k.replace('rift:', '')] || MC_INFO[k])?.threat || 1;
 
 const coinGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.05, 14);
 const billGeo = new THREE.BoxGeometry(0.42, 0.02, 0.2);
@@ -36,7 +37,7 @@ export class Room {
     const rng = G.run.roomRng(def.id);
     this.rng = rng;
     this.L = buildLayout(layout, floor, rng, doorsIn.map((d) => d.side));
-    const built = buildRoom(this.L, floor, doorsIn);
+    const built = buildRoom(this.L, def.realm || (def.special === 'stronghold' ? 'stronghold' : floor), doorsIn);
     Object.assign(this, built);
     this.world = built.world;
     this.group = built.group;
@@ -76,6 +77,7 @@ export class Room {
     if (def.kind === 'start' && this.floor === 1 && !def.visited && !def.realm) G.hud.tutorial();
     // Minecraft: trees, ore veins, ruined portals, placed stations, portals
     decorateRoom(this);
+    if (def.realm || def.special) G.realms?.setupRealmRoom(this);
     // parked vehicles stay where you left them; some fights come with a free ride
     if (def.parked) { for (const p of def.parked) this.spawnVehicle(p.type, p.x, p.z, p.yaw, p); def.parked = null; }
     if (def.ev?.vehicle && !def.vehicleSpawned) {
@@ -94,6 +96,13 @@ export class Room {
     let budget = (def.budget || 4) + (this.L.budgetAdd || 0) + (G.run.scale?.budget || 0);
     const dk = G.run.nextRoomMod;
     if (dk) { budget += dk.threat || 0; this.moneyK = dk.money || 1; this.extra = dk.extra; G.run.nextRoomMod = null; if (dk.text) G.hud.popup(dk.text, '#ff006e', 1.6); }
+    if (def.realm || def.special === 'stronghold') {
+      this.waves = G.realms.realmWaves(def, budget, this.rng);
+      if (this.extra) this.waves[0].push(...this.extra);
+      this.waveIdx = 0;
+      this.spawnWave();
+      return;
+    }
     const rift = def.rift;
     const enc = composeEncounter(this.floor, rift ? Math.max(2, budget * 0.45) : budget, this.rng, { type: def.type, mimicSpots: this.L.mimicSpots.length > 0, waves: rift ? 1 : this.L.waves });
     this.waves = enc.waves;
@@ -164,13 +173,14 @@ export class Room {
   }
 
   startBoss() {
-    const info = spawnBoss(this.floor, this);
+    const dragon = this.def.realm === 'end';
+    const info = dragon ? G.realms.startDragonFight(this) : spawnBoss(this.floor, this);
     this.bossInfo = info;
     for (const e of info.list) this.enemies.push(e);
-    if (this.floor === 3) this.world.add({ kind: 'bossBody', x: 0, z: -14.5, w: 6, d: 4.5, h: 8, shoot: false, camBlock: false, vault: false });
+    if (this.floor === 3 && !dragon) this.world.add({ kind: 'bossBody', x: 0, z: -14.5, w: 6, d: 4.5, h: 8, shoot: false, camBlock: false, vault: false });
     this.fightStarted = true;
     G.hud.bossIntro(info.title, info.subtitle);
-    G.audio.playMusic('boss' + this.floor, { restart: true });
+    G.audio.playMusic(dragon ? 'dragon' : 'boss' + this.floor, { restart: true });
     G.alex.spawnSafe(2.5);
     this.telegraphK = G.run.mods.telegraphK || 1;
   }
@@ -311,6 +321,7 @@ export class Room {
     G.audio.sfx('clear');
     const a = G.alex;
     if (this.def.kind === 'boss') {
+      if (this.def.realm === 'end') { G.realms.dragonDefeated(this); return; }
       G.audio.playMusic('floor' + this.floor);
       G.run.onBossDefeated(this);
       return;
@@ -331,7 +342,7 @@ export class Room {
       else this.addPickup('heart', cx, cz, 12);
     }
     if (this.def.kind === 'preboss') this.addPickup('heart', 0, 0, 25);
-    const ev = this.def.ev || {};
+    const ev = this.def.realm ? {} : this.def.ev || {};
     if ((ev.crafting || this.rift?.id === 'minecraft') && !this.def.tableGiven) { this.def.tableGiven = true; addCraftingTable(this); }
     if (ev.merchant) addMerchant(this);
     if (ev.bush || (this.rift?.id === 'bible' && Math.random() < 0.35)) addBurningBush(this);

@@ -3,6 +3,8 @@
 // A layout is pure data: blocks (oriented boxes with a visual model), hazards, floor
 // zones, decor and floor paint. world/builder.js turns it into meshes + collision.
 
+import { REALM_LAYOUTS } from '../mc/realmLayouts.js';
+
 export const ROOM_TYPES = {
   1: { A: 'Parking Lot', B: 'Tailgate', C: 'Security', D: 'Exterior Vendor', E: 'Entrance Hall' },
   2: { A: 'Concourse', B: 'Merch', C: 'Food Court', D: 'Seating', E: 'Restricted Access' },
@@ -730,6 +732,9 @@ export const SPECIAL = {
     b.decor({ kind: 'stageLights' });
   }, { floor: 'stage', walls: 'void', surreal: true }),
 };
+
+// The Minecraft realms (Nether biomes, stronghold, the End) live alongside the specials.
+Object.assign(SPECIAL, REALM_LAYOUTS);
 
 // Every layout key → layout, for tests and debug jumps.
 export function allLayouts() {

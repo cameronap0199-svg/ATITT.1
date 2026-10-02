@@ -15,7 +15,7 @@ export const RIFTS = {
   minecraft: {
     name: 'MINECRAFT', title: 'RIFT: THE OVERWORLD', color: '#5bb450', color2: '#8b5a2b', tag: 'MC',
     intro: 'The floor is suddenly made of blocks. Something is hissing.', vehicle: 'minecart',
-    weights: { zombie: 10, skeleton: 7, creeper: 6, enderman: 2.5 }, caps: { enderman: 1, creeper: 3 },
+    weights: { zombie: 10, skeleton: 7, creeper: 6, spider: 5, enderman: 3 }, caps: { enderman: 2, creeper: 3, spider: 3 },
     rewards: ['w:diamondSword', 'w:bow', 'g:tnt', 'g:enderPearl', 'goldenApple', 'ironArmor'],
   },
   onepiece: {
@@ -52,6 +52,7 @@ export const CROSS_INFO = {
   skeleton: { name: 'Skeleton', franchise: 'minecraft', threat: 1.5 },
   creeper: { name: 'Creeper', franchise: 'minecraft', threat: 1.5 },
   enderman: { name: 'Enderman', franchise: 'minecraft', threat: 2.5 },
+  spider: { name: 'Spider', franchise: 'minecraft', threat: 1.5 },
   // One Piece
   marine: { name: 'Marine', franchise: 'onepiece', threat: 1 },
   fishman: { name: 'Fish-Man Karate Master', franchise: 'onepiece', threat: 2.5 },

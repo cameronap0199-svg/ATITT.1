@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { G } from '../state.js';
 import { MODELS } from '../actors/enemyModels.js';
 import { CROSS_MODELS } from '../actors/crossoverModels.js';
+import { MC_MODELS, MC_INFO } from '../mc/mobs.js';
 import { ENEMY_INFO } from '../world/encounters.js';
 import { CROSS_INFO } from '../world/rifts.js';
 import { ITEMS, GADGETS, itemInfo, WEAPON_PRICES } from '../items.js';
@@ -59,6 +60,14 @@ const DESC = {
   charioteer: 'Charges across the room in straight lines. Arrows in between.',
   goldenCalf: 'An idol that buffs everything nearby and sprays coins. Drops a fortune.',
   goliath: 'A giant. Headshots hurt. A sling stone ends him.',
+  spider: 'Leaps from a distance. Red eyes. Climbs nothing here, thankfully.',
+  piglin: 'Neutral. Hit one and every zombified piglin in the room comes for you.',
+  piglinBrute: 'Guards bastions. Gold axe. Does not care about your gold helmet.',
+  ghast: 'Floats high, cries, spits explosive fireballs. Swing at a fireball to send it back.',
+  blaze: 'Hovers in fortresses. Charges up and spits three fireballs. Drops blaze rods.',
+  magmaCube: 'Hops at you. Splits into smaller cubes when it dies.',
+  witherSkeleton: 'Tall, black, stone sword. Lives in Nether fortresses.',
+  silverfish: 'Tiny. Fast. Hurt one and its friends crawl out of the walls.',
 };
 
 // ---------------------------------------------------------------------------- portraits
@@ -137,14 +146,15 @@ function vehicleCards() {
 export function compendiumPanel(onBack, makeButton) {
   const n = document.createElement('div');
   n.className = 'panel compendium';
-  const venue = Object.keys(ENEMY_INFO), cross = Object.keys(CROSS_INFO);
-  const seenCount = [...venue, ...cross].filter((k) => codex.data.seen[k]).length;
-  n.innerHTML = `<h2>📖 COMPENDIUM</h2><p class="sub">${seenCount} / ${venue.length + cross.length} creatures encountered. Rift creatures come from Halo, Minecraft, One Piece, Pokémon and the Bible.</p>`;
+  const venue = Object.keys(ENEMY_INFO), cross = Object.keys(CROSS_INFO), mobs = Object.keys(MC_INFO).filter((k) => !CROSS_INFO[k]);
+  const seenCount = [...venue, ...cross, ...mobs].filter((k) => codex.data.seen[k]).length;
+  n.innerHTML = `<h2>📖 COMPENDIUM</h2><p class="sub">${seenCount} / ${venue.length + cross.length + mobs.length} creatures encountered. Rift creatures come from Halo, Minecraft, One Piece, Pokémon and the Bible.</p>`;
   const tabs = document.createElement('div'); tabs.className = 'tabs';
   const body = document.createElement('div'); body.className = 'comp-grid';
   const pages = {
     'Venue demons': () => enemyCards(venue, ENEMY_INFO, (k) => () => MODELS[k]()),
-    'Rift creatures': () => enemyCards(cross, CROSS_INFO, (k) => () => CROSS_MODELS[k]()),
+    'Rift creatures': () => enemyCards(cross, CROSS_INFO, (k) => () => (CROSS_MODELS[k] || MC_MODELS[k])()),
+    'Nether & End': () => enemyCards(mobs, MC_INFO, (k) => () => MC_MODELS[k]()),
     'Items & weapons': itemCards,
     'Vehicles': vehicleCards,
   };
